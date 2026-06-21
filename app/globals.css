@@ -1,0 +1,229 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   DYNAAMIQ OS — "Luminous Dark Cockpit" Design System
+   Brand: deep black + orange → pink → magenta energy gradient
+   ============================================================ */
+
+@theme inline {
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-coral: var(--brand-coral);
+  --color-brand-pink: var(--brand-pink);
+  --color-brand-magenta: var(--brand-magenta);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+:root {
+  --radius: 0.75rem;
+
+  /* Brand */
+  --brand-orange: #ff6a00;
+  --brand-coral: #ff3d6e;
+  --brand-pink: #ff2d7e;
+  --brand-magenta: #e81ccb;
+
+  /* Dark cockpit (default + only) */
+  --background: #08080a;
+  --foreground: #f5f5f7;
+  --card: #111114;
+  --card-foreground: #f5f5f7;
+  --popover: #141418;
+  --popover-foreground: #f5f5f7;
+  --primary: #ff6a00;
+  --primary-foreground: #0a0a0c;
+  --secondary: #1b1b20;
+  --secondary-foreground: #ededf0;
+  --muted: #161619;
+  --muted-foreground: #8e8e98;
+  --accent: #1f1f25;
+  --accent-foreground: #ffffff;
+  --destructive: #ff4d4d;
+  --success: #2fd3a5;
+  --warning: #ffb02e;
+  --border: rgba(255, 255, 255, 0.06);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #ff3d6e;
+
+  --chart-1: #ff6a00;
+  --chart-2: #ff2d7e;
+  --chart-3: #e81ccb;
+  --chart-4: #8b5cf6;
+  --chart-5: #2fd3a5;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "ss01", "cv01";
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Atmospheric backdrop — subtle brand aurora baked into the page */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(54rem 42rem at 8% -12%, rgba(255, 106, 0, 0.07), transparent 62%),
+      radial-gradient(48rem 38rem at 96% 4%, rgba(232, 28, 203, 0.06), transparent 62%);
+    pointer-events: none;
+  }
+  ::selection {
+    background: rgba(255, 45, 126, 0.32);
+    color: #fff;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 99px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
+}
+
+@layer components {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .text-brand-gradient {
+    background: linear-gradient(100deg, var(--brand-orange) 0%, var(--brand-pink) 52%, var(--brand-magenta) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .bg-brand-gradient {
+    background: linear-gradient(100deg, var(--brand-orange) 0%, var(--brand-pink) 52%, var(--brand-magenta) 100%);
+  }
+
+  .glass {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)),
+      #111114;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.06) inset,
+      0 18px 50px -28px rgba(0, 0, 0, 0.85);
+  }
+
+  .glass-hover {
+    transition:
+      border-color 0.22s ease,
+      transform 0.22s ease,
+      box-shadow 0.22s ease;
+  }
+  .glass-hover:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 61, 110, 0.22);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+      0 0 0 1px rgba(255, 61, 110, 0.1),
+      0 34px 70px -30px rgba(0, 0, 0, 0.9);
+  }
+
+  .brand-glow {
+    box-shadow:
+      0 8px 30px -8px rgba(255, 61, 110, 0.5),
+      0 0 0 1px rgba(255, 106, 0, 0.25) inset;
+  }
+}
+
+@layer utilities {
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
+  }
+  .animate-rise {
+    animation: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .animate-fade {
+    animation: fade 0.5s ease both;
+  }
+  .grid-noise {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
