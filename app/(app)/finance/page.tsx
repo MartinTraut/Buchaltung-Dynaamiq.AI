@@ -48,7 +48,7 @@ export default function FinancePage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6">
+    <div className="mx-auto max-w-[1760px] space-y-6">
       {/* KPI */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <FinKpi label="Einnahmen (YTD)" value={eur(k.ytdRevenue)} icon={<TrendingUp className="size-4" />} tint="#2fd3a5" />

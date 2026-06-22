@@ -75,7 +75,7 @@ export default function QuotesPage() {
       .reduce((acc, q) => acc + computeTotals(q.items).gross, 0)
 
   return (
-    <div className="mx-auto max-w-[1400px]">
+    <div className="mx-auto max-w-[1760px]">
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <QuoteSummary label="Gesamtwert" value={eur(sumOf(["draft", "sent", "accepted", "declined", "expired"]))} tint="#ff6a00" />
         <QuoteSummary label="Versendet (offen)" value={eur(sumOf(["sent"]))} tint="#ffb02e" />

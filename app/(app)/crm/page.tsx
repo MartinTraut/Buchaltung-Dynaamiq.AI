@@ -109,7 +109,7 @@ export default function CrmPage() {
   const detail = customerById(detailId ?? undefined)
 
   return (
-    <div className="mx-auto max-w-[1400px]">
+    <div className="mx-auto max-w-[1760px]">
       <Toolbar>
         <SearchInput value={query} onChange={setQuery} placeholder="Kunde, Kontakt oder Tag…" />
         <FilterChips

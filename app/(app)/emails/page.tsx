@@ -38,7 +38,7 @@ export default function EmailsPage() {
   const counts = (s: "draft" | "sent") => db.emails.filter((e) => e.status === s).length
 
   return (
-    <div className="mx-auto max-w-[1400px]">
+    <div className="mx-auto max-w-[1760px]">
       <Toolbar>
         <FilterChips
           value={filter}

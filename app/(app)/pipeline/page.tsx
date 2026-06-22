@@ -95,12 +95,12 @@ export default function PipelinePage() {
     .reduce((s, d) => s + (d.value * d.probability) / 100, 0)
 
   return (
-    <div className="mx-auto max-w-[1600px]">
+    <div className="mx-auto max-w-[1760px]">
       <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/[0.02] px-3.5 py-2">
-          <TrendingUp className="size-4 text-brand-pink" />
-          <span className="text-xs text-muted-foreground">Gewichtete Pipeline</span>
-          <span className="font-display text-sm font-bold tnum text-brand-gradient">
+        <div className="flex items-center gap-2.5 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-2.5">
+          <TrendingUp className="size-5 text-brand-pink" />
+          <span className="text-sm text-muted-foreground">Gewichtete Pipeline</span>
+          <span className="font-display text-[17px] font-bold tnum text-brand-gradient">
             {eur(totalWeighted)}
           </span>
         </div>
@@ -119,7 +119,7 @@ export default function PipelinePage() {
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-3 overflow-x-auto pb-4 xl:overflow-x-visible">
           {DEAL_STAGES.map((stage) => {
             const deals = db.deals.filter((d) => d.stage === stage.id)
             const total = deals.reduce((s, d) => s + d.value, 0)
@@ -330,21 +330,21 @@ function Column({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id })
   return (
-    <div className="flex w-72 shrink-0 flex-col">
-      <div className="mb-2 flex items-center gap-2 px-1">
-        <span className="size-2.5 rounded-full" style={{ background: tint }} />
-        <span className="text-sm font-semibold">{label}</span>
-        <span className="rounded bg-white/8 px-1.5 text-[10px] tnum text-muted-foreground">
+    <div className="flex w-[260px] shrink-0 flex-col xl:w-auto xl:flex-1 xl:min-w-0">
+      <div className="mb-2.5 flex items-center gap-2 px-1">
+        <span className="size-3 shrink-0 rounded-full" style={{ background: tint, boxShadow: `0 0 8px ${tint}` }} />
+        <span className="truncate text-[15px] font-semibold">{label}</span>
+        <span className="rounded-md bg-white/8 px-1.5 py-0.5 text-[11px] tnum text-muted-foreground">
           {count}
         </span>
-        <span className="ml-auto text-xs font-medium tnum text-muted-foreground">
+        <span className="ml-auto text-[13px] font-medium tnum text-muted-foreground">
           {eur(total, { compact: true })}
         </span>
       </div>
       <div
         ref={setNodeRef}
         className={cn(
-          "flex min-h-[60vh] flex-col gap-2.5 rounded-2xl border border-white/[0.05] bg-white/[0.015] p-2.5 transition-colors",
+          "flex min-h-[calc(100vh-264px)] flex-col gap-2.5 rounded-2xl border border-white/[0.05] bg-white/[0.015] p-2.5 transition-colors",
           isOver && "border-brand-pink/40 bg-brand-pink/[0.04]",
         )}
       >
@@ -404,13 +404,13 @@ function DealCardInner({
     <div
       onClick={onOpen}
       className={cn(
-        "group rounded-xl border border-white/8 bg-[#141417] p-3 transition-all hover:border-white/15",
+        "group rounded-2xl border border-white/8 bg-[#141417] p-4 transition-all hover:border-white/15",
         onOpen && "cursor-pointer",
         dragging && "shadow-2xl",
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium leading-snug">{deal.title}</p>
+        <p className="text-[16px] font-semibold leading-snug">{deal.title}</p>
         <button
           {...listeners}
           onClick={(e) => e.stopPropagation()}
@@ -419,20 +419,20 @@ function DealCardInner({
           <GripVertical className="size-4" />
         </button>
       </div>
-      <div className="mt-2 flex items-center gap-2">
-        <Avatar name={company} className="size-6 text-[9px]" />
-        <span className="truncate text-xs text-muted-foreground">{company}</span>
+      <div className="mt-2.5 flex items-center gap-2">
+        <Avatar name={company} className="size-7 text-[10px]" />
+        <span className="truncate text-[13.5px] text-muted-foreground">{company}</span>
       </div>
-      <div className="mt-3 flex items-center justify-between">
-        <span className="font-display text-sm font-bold tnum" style={{ color: tint }}>
+      <div className="mt-3.5 flex items-center justify-between">
+        <span className="font-display text-[18px] font-bold tnum" style={{ color: tint }}>
           {eur(deal.value, { compact: true })}
         </span>
-        <Badge variant="muted" className="text-[10px]">
+        <Badge variant="muted" className="text-[11px]">
           {deal.probability}%
         </Badge>
       </div>
       {deal.expectedClose && (
-        <p className="mt-2 text-[11px] text-muted-foreground">
+        <p className="mt-2.5 text-[12.5px] text-muted-foreground">
           Abschluss: {dateDE(deal.expectedClose)}
         </p>
       )}

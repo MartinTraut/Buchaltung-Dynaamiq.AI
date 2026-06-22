@@ -29,6 +29,7 @@ const TITLES: Record<string, { title: string; sub: string }> = {
   "/quotes": { title: "Angebote", sub: "Erstellen, versenden, gewinnen" },
   "/projects": { title: "Projekte", sub: "Lieferung, Budget & Tasks" },
   "/invoices": { title: "Rechnungen", sub: "Fakturierung & Mahnwesen" },
+  "/expenses": { title: "Ausgaben", sub: "Belege, Kategorien & Vorsteuer" },
   "/finance": { title: "Buchhaltung", sub: "Einnahmen, Ausgaben & USt" },
   "/assistant": { title: "KI-Assistent", sub: "Angebote & Mails in Sekunden" },
   "/emails": { title: "E-Mails", sub: "Entwürfe & Versand" },
@@ -47,16 +48,16 @@ export function Topbar() {
   const go = (path: string) => router.push(path)
 
   return (
-    <header className="sticky top-0 z-30 flex h-[76px] items-center gap-4 border-b border-white/[0.06] bg-[#08080a]/75 px-6 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 flex h-[84px] items-center gap-4 border-b border-white/[0.06] bg-[#08080a]/75 px-6 backdrop-blur-xl">
       <div className="flex items-center gap-2.5 lg:hidden">
         <DynaamiqMark size={28} />
       </div>
 
       <div className="min-w-0 flex-1">
-        <h1 className="truncate font-display text-xl font-bold tracking-tight">
+        <h1 className="truncate font-display text-[26px] font-bold leading-tight tracking-tight">
           {meta.title}
         </h1>
-        <p className="hidden truncate text-[13px] text-muted-foreground sm:block">
+        <p className="hidden truncate text-sm text-muted-foreground sm:block">
           {meta.sub}
         </p>
       </div>

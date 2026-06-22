@@ -59,7 +59,7 @@ export default function ProjectsPage() {
   const detailTasks = db.tasks.filter((t) => t.projectId === detailId)
 
   return (
-    <div className="mx-auto max-w-[1400px]">
+    <div className="mx-auto max-w-[1760px]">
       <Toolbar>
         <FilterChips
           value={filter}

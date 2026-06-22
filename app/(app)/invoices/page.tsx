@@ -104,7 +104,7 @@ export default function InvoicesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px]">
+    <div className="mx-auto max-w-[1760px]">
       {/* Summary */}
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <SummaryCard label="Bezahlt (gesamt)" value={eur(sum(["paid"]))} tint="#2fd3a5" />

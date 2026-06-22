@@ -5,6 +5,7 @@ import {
   FolderKanban,
   FileText,
   ReceiptEuro,
+  ReceiptText,
   Wallet,
   LayoutTemplate,
   Mail,
@@ -45,6 +46,7 @@ export const NAV: NavGroup[] = [
     label: "Finanzen",
     items: [
       { href: "/invoices", label: "Rechnungen", icon: ReceiptEuro },
+      { href: "/expenses", label: "Ausgaben", icon: ReceiptText },
       { href: "/finance", label: "Buchhaltung", icon: Wallet },
     ],
   },

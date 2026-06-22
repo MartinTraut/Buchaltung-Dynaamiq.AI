@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import {
   Area,
   AreaChart,
@@ -58,73 +59,107 @@ function TipBox({
   )
 }
 
+const REV_SERIES = [
+  { key: "revenue", label: "Umsatz", color: "#ff2d7e", grad: "rev" },
+  { key: "expenses", label: "Ausgaben", color: "#6c7693", grad: "exp" },
+  { key: "profit", label: "Gewinn", color: "#2fd3a5", grad: "prf" },
+] as const
+
+export const REV_SERIES_META = REV_SERIES
+
+/**
+ * Konfigurierbares Umsatz/Ausgaben/Gewinn-Chart. Jede Serie lässt sich über
+ * die klickbare Legende ein-/ausblenden; die Auswahl wird persistiert.
+ */
 export function RevenueArea({
   data,
+  visible: visibleProp,
+  onToggle: onToggleProp,
 }: {
   data: { label: string; revenue: number; expenses: number }[]
+  visible?: Record<string, boolean>
+  onToggle?: (key: string) => void
 }) {
+  // Unkontrollierter Fallback (z. B. Buchhaltung), kontrolliert vom Dashboard
+  const [internal, setInternal] = React.useState<Record<string, boolean>>({
+    revenue: true,
+    expenses: true,
+    profit: false,
+  })
+  const visible = visibleProp ?? internal
+  const onToggle =
+    onToggleProp ?? ((key: string) => setInternal((p) => ({ ...p, [key]: !p[key] })))
+  const chartData = data.map((d) => ({ ...d, profit: d.revenue - d.expenses }))
+  const shown = REV_SERIES.filter((s) => visible[s.key])
+
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <AreaChart data={data} margin={{ top: 8, right: 6, bottom: 0, left: -16 }}>
-        <defs>
-          <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ff2d7e" stopOpacity={0.5} />
-            <stop offset="100%" stopColor="#ff2d7e" stopOpacity={0} />
-          </linearGradient>
-          <linearGradient id="exp" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#6c7693" stopOpacity={0.28} />
-            <stop offset="100%" stopColor="#6c7693" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid
-          strokeDasharray="3 3"
-          stroke="rgba(255,255,255,0.05)"
-          vertical={false}
-        />
-        <XAxis dataKey="label" {...axis} />
-        <YAxis
-          {...axis}
-          tickFormatter={(v) => eur(Number(v), { compact: true })}
-          width={56}
-        />
-        <Tooltip
-          cursor={{ stroke: "rgba(255,255,255,0.15)" }}
-          content={({ active, payload, label }) =>
-            active && payload?.length ? (
-              <TipBox
-                label={String(label)}
-                rows={[
-                  {
-                    name: "Umsatz",
-                    value: eur(Number(payload[0]?.value)),
-                    color: "#ff2d7e",
-                  },
-                  {
-                    name: "Ausgaben",
-                    value: eur(Number(payload[1]?.value)),
-                    color: "#6c7693",
-                  },
-                ]}
+    <div>
+      {/* Klickbare Legende = Filter */}
+      <div className="mb-1 flex flex-wrap items-center gap-2 px-2">
+        {REV_SERIES.map((s) => {
+          const on = visible[s.key]
+          return (
+            <button
+              key={s.key}
+              onClick={() => onToggle(s.key)}
+              className={
+                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all " +
+                (on
+                  ? "border-white/12 bg-white/[0.06] text-foreground"
+                  : "border-white/8 text-muted-foreground/50 hover:text-muted-foreground")
+              }
+            >
+              <span
+                className="size-2 rounded-full transition-opacity"
+                style={{ background: s.color, opacity: on ? 1 : 0.35 }}
               />
-            ) : null
-          }
-        />
-        <Area
-          type="monotone"
-          dataKey="revenue"
-          stroke="#ff2d7e"
-          strokeWidth={2.5}
-          fill="url(#rev)"
-        />
-        <Area
-          type="monotone"
-          dataKey="expenses"
-          stroke="#6c7693"
-          strokeWidth={2}
-          fill="url(#exp)"
-        />
-      </AreaChart>
-    </ResponsiveContainer>
+              {s.label}
+            </button>
+          )
+        })}
+      </div>
+
+      <ResponsiveContainer width="100%" height={248}>
+        <AreaChart data={chartData} margin={{ top: 8, right: 6, bottom: 0, left: -16 }}>
+          <defs>
+            {REV_SERIES.map((s) => (
+              <linearGradient key={s.grad} id={s.grad} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={s.color} stopOpacity={0.42} />
+                <stop offset="100%" stopColor={s.color} stopOpacity={0} />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+          <XAxis dataKey="label" {...axis} />
+          <YAxis {...axis} tickFormatter={(v) => eur(Number(v), { compact: true })} width={56} />
+          <Tooltip
+            cursor={{ stroke: "rgba(255,255,255,0.15)" }}
+            content={({ active, payload, label }) =>
+              active && payload?.length ? (
+                <TipBox
+                  label={String(label)}
+                  rows={shown.map((s) => ({
+                    name: s.label,
+                    value: eur(Number(payload.find((p) => p.dataKey === s.key)?.value ?? 0)),
+                    color: s.color,
+                  }))}
+                />
+              ) : null
+            }
+          />
+          {shown.map((s) => (
+            <Area
+              key={s.key}
+              type="monotone"
+              dataKey={s.key}
+              stroke={s.color}
+              strokeWidth={s.key === "revenue" ? 2.5 : 2}
+              fill={`url(#${s.grad})`}
+            />
+          ))}
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
   )
 }
 

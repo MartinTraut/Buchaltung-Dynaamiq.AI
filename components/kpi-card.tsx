@@ -30,27 +30,27 @@ export function KpiCard({
   const animated = useCountUp(value)
   return (
     <div
-      className="glass glass-hover animate-rise relative overflow-hidden rounded-2xl p-6"
+      className="glass glass-hover animate-rise relative overflow-hidden rounded-2xl p-7"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           {icon && (
             <span
-              className="grid size-9 place-items-center rounded-xl"
+              className="grid size-11 place-items-center rounded-xl [&>svg]:size-5"
               style={{ background: `${accent}1a`, color: accent }}
             >
               {icon}
             </span>
           )}
-          <span className="text-[12px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+          <span className="text-[13px] font-semibold tracking-[0.1em] text-muted-foreground uppercase">
             {label}
           </span>
         </div>
         {typeof delta === "number" && <StatPill delta={delta} />}
       </div>
 
-      <div className="mt-4 font-display text-[34px] leading-none font-bold tracking-tight tnum">
+      <div className="mt-5 font-display text-[40px] leading-none font-bold tracking-tight tnum">
         {format(animated)}
       </div>
 
@@ -74,7 +74,7 @@ export function SectionTitle({
 }) {
   return (
     <div className={cn("mb-3 flex items-center justify-between", className)}>
-      <h2 className="font-display text-sm font-semibold tracking-wide text-foreground/90">
+      <h2 className="font-display text-[17px] font-semibold tracking-tight text-foreground/95">
         {children}
       </h2>
       {action}

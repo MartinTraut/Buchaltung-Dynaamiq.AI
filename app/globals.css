@@ -96,6 +96,14 @@
   }
   html {
     color-scheme: dark;
+    /* Sanfter globaler Zoom: skaliert alle rem-basierten Schrift- & Box-Größen
+       proportional hoch → großzügigeres, klareres Premium-Layout. */
+    font-size: 16.5px;
+  }
+  @media (min-width: 1536px) {
+    html {
+      font-size: 17.5px;
+    }
   }
   body {
     background: var(--background);
