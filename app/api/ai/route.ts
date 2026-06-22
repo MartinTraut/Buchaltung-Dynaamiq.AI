@@ -115,6 +115,55 @@ async function analyzeWebsite(url: string): Promise<SiteBrief> {
 }
 
 // ---------------------------------------------------------------------------
+// Intelligentes Model-Routing — der Assistent wählt selbst das beste Modell
+// für die jeweilige Aufgabe: günstig/schnell wo möglich, Top-Modell wo nötig.
+// Reihenfolge der Stärke/Kosten: Haiku < Sonnet < Opus.
+// Über AI_MODEL (env) lässt sich das Routing fest überschreiben.
+// ---------------------------------------------------------------------------
+const MODELS = {
+  fast: "claude-haiku-4-5-20251001", // günstig & schnell — Extraktion, kurze Antworten
+  balanced: "claude-sonnet-4-6", //     ausgewogen — Standard-Dokumente
+  max: "claude-opus-4-8", //            stärkstes Reasoning — komplexe Angebote
+} as const
+
+interface ModelChoice {
+  model: string
+  tier: "fast" | "balanced" | "max" | "override"
+  maxTokens: number
+}
+
+function pickModel(req: AiRequest, brief: SiteBrief | null): ModelChoice {
+  // Manuelle Übersteuerung gewinnt immer (z. B. AI_MODEL=claude-opus-4-8)
+  const override = process.env.AI_MODEL
+  if (override) return { model: override, tier: "override", maxTokens: 2400 }
+
+  const text = req.prompt.toLowerCase()
+  const intent = req.intent ?? "auto"
+
+  // 1) Reine Daten-Extraktion → kleinstes Modell genügt
+  if (intent === "contact" || intent === "expense") {
+    return { model: MODELS.fast, tier: "fast", maxTokens: 700 }
+  }
+
+  // 2) E-Mail-Entwurf → ausgewogenes Modell (gute Sprache, moderate Kosten)
+  if (intent === "email") {
+    return { model: MODELS.balanced, tier: "balanced", maxTokens: 1200 }
+  }
+
+  // 3) Angebot/Rechnung/auto: braucht es tiefes Reasoning?
+  //    → Website-Analyse vorhanden, Stunden genannt, oder explizit Begründung gewünscht
+  const hasHours = /(\d{1,3})\s*(?:std|stunden|h\b)/i.test(req.prompt)
+  const wantsRationale = /begründ|psycholog|rechtfertig|wertig|phase|aufschlüssel|aufwand/i.test(text)
+  const needsDeepReasoning = !!brief || hasHours || wantsRationale
+  if (needsDeepReasoning) {
+    return { model: MODELS.max, tier: "max", maxTokens: 2400 }
+  }
+
+  // 4) Standard-Dokument ohne Analyse → ausgewogenes Modell
+  return { model: MODELS.balanced, tier: "balanced", maxTokens: 1500 }
+}
+
+// ---------------------------------------------------------------------------
 
 const SYSTEM = `Du bist der zentrale KI-Assistent von "Dynaamiq AI – Performance Marketing", einer deutschen Marketing- & Webagentur. Du arbeitest direkt im internen Business-Cockpit des Inhabers Martin und legst auf seine Zuruf-Befehle hin Datensätze an.
 
@@ -246,11 +295,13 @@ export async function POST(request: Request) {
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY
-  const model = process.env.AI_MODEL || "claude-opus-4-8"
 
   if (!apiKey) {
     return NextResponse.json({ ok: true, demo: true, analyzed: brief?.ok ? brief.url : null, action: fallback(body, brief) })
   }
+
+  // Der Assistent wählt selbst das passende Modell für die Aufgabe
+  const { model, tier, maxTokens } = pickModel(body, brief)
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -262,7 +313,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model,
-        max_tokens: 2200,
+        max_tokens: maxTokens,
         system: SYSTEM,
         messages: [{ role: "user", content: buildUserMessage(body, brief) }],
       }),
@@ -285,7 +336,7 @@ export async function POST(request: Request) {
       data?.content?.map((b: { text?: string }) => b.text ?? "").join("") ?? ""
     const jsonStr = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)
     const action = JSON.parse(jsonStr)
-    return NextResponse.json({ ok: true, demo: false, analyzed: brief?.ok ? brief.url : null, action })
+    return NextResponse.json({ ok: true, demo: false, analyzed: brief?.ok ? brief.url : null, model, tier, action })
   } catch (e) {
     return NextResponse.json({
       ok: true,

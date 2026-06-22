@@ -62,7 +62,16 @@ interface Turn {
   action?: AiAction
   demo?: boolean
   analyzed?: string | null
+  tier?: "fast" | "balanced" | "max" | "override"
   done?: { kind: string; href: string; label: string }
+}
+
+// Wie das gewählte Modell im UI erscheint (Routing-Transparenz)
+const TIER_BADGE: Record<NonNullable<Turn["tier"]>, { label: string; icon: string; cls: string }> = {
+  fast: { label: "Haiku · schnell", icon: "⚡", cls: "border-sky-400/20 bg-sky-400/10 text-sky-300" },
+  balanced: { label: "Sonnet · ausgewogen", icon: "◆", cls: "border-violet-400/20 bg-violet-400/10 text-violet-300" },
+  max: { label: "Opus · Höchstleistung", icon: "✦", cls: "border-brand-pink/25 bg-brand-pink/10 text-brand-pink" },
+  override: { label: "Festes Modell", icon: "●", cls: "border-white/15 bg-white/[0.06] text-foreground/70" },
 }
 
 const SUGGESTIONS = [
@@ -103,7 +112,7 @@ export default function AssistantPage() {
       const action = data.action as AiAction
       setTurns((t) => [
         ...t,
-        { id: nanoid(6), role: "assistant", action, demo: data.demo, analyzed: data.analyzed },
+        { id: nanoid(6), role: "assistant", action, demo: data.demo, analyzed: data.analyzed, tier: data.tier },
       ])
     } catch {
       setTurns((t) => [...t, { id: nanoid(6), role: "assistant", text: "Es gab ein Problem bei der Anfrage. Bitte erneut versuchen." }])
@@ -233,6 +242,17 @@ export default function AssistantPage() {
                     <Badge variant="violet" className="gap-1.5 text-[11px]">
                       <Globe className="size-3" /> Website analysiert
                     </Badge>
+                  )}
+                  {turn.tier && !turn.demo && (
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                        TIER_BADGE[turn.tier].cls,
+                      )}
+                      title="Der Assistent hat dieses Modell automatisch für die Aufgabe gewählt"
+                    >
+                      <span>{TIER_BADGE[turn.tier].icon}</span> {TIER_BADGE[turn.tier].label}
+                    </span>
                   )}
                   {turn.demo && (
                     <Badge variant="warning" className="text-[11px]">Demo-Modus · ohne API-Key</Badge>
