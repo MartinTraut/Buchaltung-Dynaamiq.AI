@@ -14,8 +14,8 @@ const badgeVariants = cva(
         warning: "bg-[#ffb02e]/12 text-[#ffc35c] border border-[#ffb02e]/25",
         danger: "bg-[#ff4d4d]/12 text-[#ff7a7a] border border-[#ff4d4d]/25",
         brand:
-          "bg-brand-orange/12 text-brand-orange border border-brand-orange/25",
-        pink: "bg-brand-pink/12 text-brand-pink border border-brand-pink/25",
+          "bg-brand-blue/12 text-brand-blue border border-brand-blue/25",
+        pink: "bg-brand-cyan/12 text-brand-cyan border border-brand-cyan/25",
         violet: "bg-[#8b5cf6]/12 text-[#a78bfa] border border-[#8b5cf6]/25",
       },
     },

@@ -4,8 +4,8 @@ import * as React from "react"
 import { Renderer, Program, Mesh, Triangle } from "ogl"
 
 /**
- * Dezenter, GPU-beschleunigter Aurora-Hintergrund im Dynaamiq-Brandverlauf
- * (Orange → Pink/Magenta). Bewusst ruhig: langsame Drift, niedrige Helligkeit,
+ * Dezenter, GPU-beschleunigter Aurora-Hintergrund im DYNAAMIQ-AI-Brandverlauf
+ * (Cyan → Blau → Indigo). Bewusst ruhig: langsame Drift, niedrige Helligkeit,
  * keine Maus-Interaktion. Respektiert prefers-reduced-motion (rendert dann nur 1 Frame).
  * Basiert auf react-bits „SoftAurora" (ogl), an Brand & Cockpit angepasst.
  */
@@ -89,7 +89,15 @@ export function AuroraBackground() {
     const container = ref.current
     if (!container) return
 
-    const renderer = new Renderer({ alpha: true, premultipliedAlpha: false, dpr: Math.min(window.devicePixelRatio, 1.5) })
+    // Ohne WebGL (alte Geräte, Energiesparmodus, Headless) still auf den
+    // CSS-Hintergrund zurückfallen statt die App zu crashen.
+    let renderer: Renderer
+    try {
+      renderer = new Renderer({ alpha: true, premultipliedAlpha: false, dpr: Math.min(window.devicePixelRatio, 1.5) })
+      if (!renderer.gl) return
+    } catch {
+      return
+    }
     const gl = renderer.gl
     gl.clearColor(0, 0, 0, 0)
 
@@ -102,8 +110,8 @@ export function AuroraBackground() {
         uSpeed: { value: 0.32 },
         uScale: { value: 1.4 },
         uBrightness: { value: 0.85 },
-        uColor1: { value: hexToVec3("#ff6a00") }, // Brand Orange
-        uColor2: { value: hexToVec3("#e81ccb") }, // Brand Magenta
+        uColor1: { value: hexToVec3("#00ffe6") }, // Brand Cyan
+        uColor2: { value: hexToVec3("#3d00ff") }, // Brand Indigo (deep)
       },
     })
     const mesh = new Mesh(gl, { geometry: new Triangle(gl), program })

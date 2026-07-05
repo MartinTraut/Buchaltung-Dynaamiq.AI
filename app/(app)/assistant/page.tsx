@@ -70,7 +70,7 @@ interface Turn {
 const TIER_BADGE: Record<NonNullable<Turn["tier"]>, { label: string; icon: string; cls: string }> = {
   fast: { label: "Haiku · schnell", icon: "⚡", cls: "border-sky-400/20 bg-sky-400/10 text-sky-300" },
   balanced: { label: "Sonnet · ausgewogen", icon: "◆", cls: "border-violet-400/20 bg-violet-400/10 text-violet-300" },
-  max: { label: "Opus · Höchstleistung", icon: "✦", cls: "border-brand-pink/25 bg-brand-pink/10 text-brand-pink" },
+  max: { label: "Opus · Höchstleistung", icon: "✦", cls: "border-brand-cyan/25 bg-brand-cyan/10 text-brand-cyan" },
   override: { label: "Festes Modell", icon: "●", cls: "border-white/15 bg-white/[0.06] text-foreground/70" },
 }
 
@@ -197,7 +197,7 @@ export default function AssistantPage() {
         {empty && (
           <div className="flex flex-col items-center justify-center pt-10 text-center">
             <div className="relative">
-              <div className="absolute inset-0 -z-10 animate-pulse rounded-full bg-brand-pink/20 blur-2xl" />
+              <div className="absolute inset-0 -z-10 animate-pulse rounded-full bg-brand-cyan/20 blur-2xl" />
               <DynaamiqMark size={64} />
             </div>
             <h2 className="mt-5 font-display text-2xl font-bold tracking-tight">
@@ -211,9 +211,9 @@ export default function AssistantPage() {
                 <button
                   key={s.label}
                   onClick={() => send(s.label, s.intent)}
-                  className="group flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.02] p-3.5 text-left transition-all hover:border-brand-pink/30 hover:bg-white/[0.04]"
+                  className="group flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.02] p-3.5 text-left transition-all hover:border-brand-cyan/30 hover:bg-white/[0.04]"
                 >
-                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-pink/12 text-brand-pink">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-cyan/12 text-brand-cyan">
                     <s.icon className="size-4" />
                   </span>
                   <span className="flex-1 text-sm text-foreground/90">{s.label}</span>
@@ -284,7 +284,7 @@ export default function AssistantPage() {
               <DynaamiqMark size={20} />
             </span>
             <div className="flex items-center gap-2 rounded-2xl bg-white/[0.03] px-4 py-3 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin text-brand-pink" /> Denke nach…
+              <Loader2 className="size-4 animate-spin text-brand-cyan" /> Denke nach…
             </div>
           </div>
         )}
@@ -292,7 +292,7 @@ export default function AssistantPage() {
 
       {/* Composer */}
       <div className="border-t border-white/8 pt-4">
-        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-2 focus-within:border-brand-pink/40">
+        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-2 focus-within:border-brand-cyan/40">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -339,7 +339,7 @@ function ActionPreview({ action, customerName }: { action: AiAction; customerNam
     return (
       <div className="overflow-hidden rounded-2xl border border-white/8 bg-white/[0.02]">
         <div className="flex items-center gap-2 border-b border-white/8 px-4 py-2.5">
-          <UserPlus className="size-4 text-brand-pink" />
+          <UserPlus className="size-4 text-brand-cyan" />
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Neuer Kontakt</p>
         </div>
         <div className="space-y-1 px-4 py-3 text-sm">
@@ -361,7 +361,7 @@ function ActionPreview({ action, customerName }: { action: AiAction; customerNam
     return (
       <div className="overflow-hidden rounded-2xl border border-white/8 bg-white/[0.02]">
         <div className="flex items-center gap-2 border-b border-white/8 px-4 py-2.5">
-          <Wallet className="size-4 text-brand-orange" />
+          <Wallet className="size-4 text-brand-blue" />
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">Ausgabe</p>
         </div>
         <div className="flex items-center justify-between px-4 py-3">
@@ -403,7 +403,7 @@ function ActionPreview({ action, customerName }: { action: AiAction; customerNam
       {action.rationale && (
         <div className="border-t border-white/8 bg-white/[0.015] px-4 py-3">
           <p className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-            <Lightbulb className="size-3 text-brand-orange" /> Wert-Begründung (kommt aufs Dokument)
+            <Lightbulb className="size-3 text-brand-blue" /> Wert-Begründung (kommt aufs Dokument)
           </p>
           <p className="text-[13px] leading-relaxed text-foreground/80">{action.rationale}</p>
         </div>

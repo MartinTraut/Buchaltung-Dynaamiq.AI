@@ -275,7 +275,7 @@ export default function CrmPage() {
                     setDocEditor({ kind: "quote", customerId: detail.id })
                   }}
                 >
-                  <FileText className="size-4 text-brand-pink" /> Angebot
+                  <FileText className="size-4 text-brand-cyan" /> Angebot
                 </Button>
                 <Button
                   variant="outline"
@@ -285,7 +285,7 @@ export default function CrmPage() {
                     setDocEditor({ kind: "invoice", customerId: detail.id })
                   }}
                 >
-                  <ReceiptEuro className="size-4 text-brand-orange" /> Rechnung
+                  <ReceiptEuro className="size-4 text-brand-blue" /> Rechnung
                 </Button>
                 <Button
                   variant="outline"

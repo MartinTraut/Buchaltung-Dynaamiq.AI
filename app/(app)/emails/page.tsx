@@ -51,7 +51,7 @@ export default function EmailsPage() {
         />
         <div className="ml-auto flex gap-2">
           <Button asChild variant="outline" size="lg" className="gap-1.5">
-            <Link href="/assistant?intent=email"><Sparkles className="size-4 text-brand-pink" /> Mit KI</Link>
+            <Link href="/assistant?intent=email"><Sparkles className="size-4 text-brand-cyan" /> Mit KI</Link>
           </Button>
           <Button variant="brand" size="lg" className="gap-1.5" onClick={() => { setEditing(null); setOpen(true) }}>
             <Plus className="size-4" /> Neue E-Mail

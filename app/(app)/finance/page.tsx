@@ -53,7 +53,7 @@ export default function FinancePage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <FinKpi label="Einnahmen (YTD)" value={eur(k.ytdRevenue)} icon={<TrendingUp className="size-4" />} tint="#2fd3a5" />
         <FinKpi label="Ausgaben (YTD)" value={eur(k.ytdExpenses)} icon={<TrendingDown className="size-4" />} tint="#ff4d4d" />
-        <FinKpi label="Gewinn (YTD)" value={eur(k.ytdRevenue - k.ytdExpenses)} icon={<Scale className="size-4" />} tint="#ff6a00" />
+        <FinKpi label="Gewinn (YTD)" value={eur(k.ytdRevenue - k.ytdExpenses)} icon={<Scale className="size-4" />} tint="#1f7bf2" />
         <FinKpi label="USt-Zahllast" value={eur(vat.balance)} icon={<Scale className="size-4" />} tint="#8b5cf6" />
       </div>
 

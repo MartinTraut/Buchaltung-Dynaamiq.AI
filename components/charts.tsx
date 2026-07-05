@@ -60,7 +60,7 @@ function TipBox({
 }
 
 const REV_SERIES = [
-  { key: "revenue", label: "Umsatz", color: "#ff2d7e", grad: "rev" },
+  { key: "revenue", label: "Umsatz", color: "#00ffe6", grad: "rev" },
   { key: "expenses", label: "Ausgaben", color: "#6c7693", grad: "exp" },
   { key: "profit", label: "Gewinn", color: "#2fd3a5", grad: "prf" },
 ] as const
@@ -165,7 +165,7 @@ export function RevenueArea({
 
 export function MiniSpark({
   data,
-  color = "#ff6a00",
+  color = "#1f7bf2",
 }: {
   data: number[]
   color?: string

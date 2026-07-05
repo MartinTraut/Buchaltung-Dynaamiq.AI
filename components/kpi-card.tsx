@@ -14,7 +14,7 @@ export function KpiCard({
   spark,
   sparkColor,
   icon,
-  accent = "#ff6a00",
+  accent = "#1f7bf2",
   delay = 0,
 }: {
   label: string

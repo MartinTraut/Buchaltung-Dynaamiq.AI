@@ -221,7 +221,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         spent: p.spent ?? 0,
         startDate: p.startDate,
         dueDate: p.dueDate,
-        color: p.color ?? "#ff6a00",
+        color: p.color ?? "#1f7bf2",
         description: p.description,
         createdAt: p.createdAt ?? new Date().toISOString(),
       }

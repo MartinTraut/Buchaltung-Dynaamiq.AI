@@ -11,11 +11,11 @@ import { eur, computeTotals } from "@/lib/format"
 
 // Akzentfarbe je Bereich → bringt Farbe & klare Trennung in die Navigation
 const GROUP_ACCENT: Record<string, string> = {
-  Übersicht: "#ff2d7e",
-  Vertrieb: "#ff6a00",
+  Übersicht: "#00ffe6",
+  Vertrieb: "#1f7bf2",
   Lieferung: "#2fd3a5",
   Finanzen: "#8b5cf6",
-  Automatisierung: "#e81ccb",
+  Automatisierung: "#5b2eff",
 }
 
 function NavLink({
@@ -96,7 +96,7 @@ export function Sidebar() {
     <aside className="sticky top-0 hidden h-screen w-[300px] shrink-0 flex-col overflow-hidden border-r border-white/[0.08] px-4 py-6 backdrop-blur-xl lg:flex">
       {/* Heller, leicht erhöhter Panel-Verlauf + Brand-Glow oben */}
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-[#17171d] via-[#131318] to-[#0d0d11]" />
-      <div className="absolute -top-24 left-1/2 -z-10 h-48 w-72 -translate-x-1/2 rounded-full bg-brand-pink/12 blur-3xl" />
+      <div className="absolute -top-24 left-1/2 -z-10 h-48 w-72 -translate-x-1/2 rounded-full bg-brand-cyan/12 blur-3xl" />
 
       <div className="px-2 pb-6">
         <DynaamiqLogo />
@@ -104,7 +104,7 @@ export function Sidebar() {
 
       <nav className="flex flex-1 flex-col gap-4 overflow-y-auto pr-0.5">
         {NAV.map((group, gi) => {
-          const accent = GROUP_ACCENT[group.label] ?? "#ff2d7e"
+          const accent = GROUP_ACCENT[group.label] ?? "#00ffe6"
           return (
             <motion.div
               key={group.label}
@@ -134,7 +134,7 @@ export function Sidebar() {
 
       {/* Offene Forderungen — Premium-Mini-Card mit Glow */}
       <div className="relative my-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
-        <div className="absolute -right-6 -top-8 size-24 rounded-full bg-brand-pink/15 blur-2xl" />
+        <div className="absolute -right-6 -top-8 size-24 rounded-full bg-brand-cyan/15 blur-2xl" />
         <p className="text-[11.5px] font-semibold tracking-[0.1em] text-foreground/55 uppercase">
           Offene Forderungen
         </p>

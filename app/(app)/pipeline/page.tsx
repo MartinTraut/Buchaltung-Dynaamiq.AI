@@ -57,7 +57,7 @@ export default function PipelinePage() {
       customerId: deal.customerId,
       status: "planning",
       budget: deal.value,
-      color: "#ff2d7e",
+      color: "#00ffe6",
     })
     setDetail(null)
     toast.success("Projekt aus Deal angelegt")
@@ -98,7 +98,7 @@ export default function PipelinePage() {
     <div className="mx-auto max-w-[1760px]">
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2.5 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-2.5">
-          <TrendingUp className="size-5 text-brand-pink" />
+          <TrendingUp className="size-5 text-brand-cyan" />
           <span className="text-sm text-muted-foreground">Gewichtete Pipeline</span>
           <span className="font-display text-[17px] font-bold tnum text-brand-gradient">
             {eur(totalWeighted)}
@@ -152,7 +152,7 @@ export default function PipelinePage() {
               <DealCardInner
                 deal={active}
                 company={customerById(active.customerId)?.company ?? "—"}
-                tint="#ff2d7e"
+                tint="#00ffe6"
                 dragging
               />
             </div>
@@ -291,7 +291,7 @@ function DealDetailDialog({
           <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground">Aus diesem Deal erstellen</p>
           <div className="grid grid-cols-2 gap-2">
             <Button variant="outline" className="h-auto flex-col gap-1.5 py-3" onClick={onCreateQuote}>
-              <FileText className="size-4 text-brand-pink" /> Angebot erstellen
+              <FileText className="size-4 text-brand-cyan" /> Angebot erstellen
             </Button>
             <Button variant="outline" className="h-auto flex-col gap-1.5 py-3" onClick={onCreateProject}>
               <FolderPlus className="size-4 text-[#2fd3a5]" /> Projekt anlegen
@@ -345,7 +345,7 @@ function Column({
         ref={setNodeRef}
         className={cn(
           "flex min-h-[calc(100vh-264px)] flex-col gap-2.5 rounded-2xl border border-white/[0.05] bg-white/[0.015] p-2.5 transition-colors",
-          isOver && "border-brand-pink/40 bg-brand-pink/[0.04]",
+          isOver && "border-brand-cyan/40 bg-brand-cyan/[0.04]",
         )}
       >
         {children}

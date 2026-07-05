@@ -97,7 +97,7 @@ export function expenseBreakdown(db: Database) {
     const net = t.amount / (1 + t.taxRate)
     map.set(t.category, (map.get(t.category) ?? 0) + net)
   }
-  const palette = ["#ff6a00", "#ff2d7e", "#e81ccb", "#8b5cf6", "#2fd3a5"]
+  const palette = ["#1f7bf2", "#00ffe6", "#5b2eff", "#8b5cf6", "#2fd3a5"]
   return [...map.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)

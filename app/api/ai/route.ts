@@ -165,7 +165,7 @@ function pickModel(req: AiRequest, brief: SiteBrief | null): ModelChoice {
 
 // ---------------------------------------------------------------------------
 
-const SYSTEM = `Du bist der zentrale KI-Assistent von "Dynaamiq AI – Performance Marketing", einer deutschen Marketing- & Webagentur. Du arbeitest direkt im internen Business-Cockpit des Inhabers Martin und legst auf seine Zuruf-Befehle hin Datensätze an.
+const SYSTEM = `Du bist der zentrale KI-Assistent von "DYNAAMIQ AI – Webdesign & KI-Automatisierung", einer deutschen Web- & KI-Agentur. Du arbeitest direkt im internen Business-Cockpit des Inhabers Martin und legst auf seine Zuruf-Befehle hin Datensätze an.
 
 Du kannst FÜNF Dinge erzeugen — wähle den passenden "type":
 1. "quote"   → Angebot (mit Positionen + ausführlicher, fachlich-psychologischer Begründung)

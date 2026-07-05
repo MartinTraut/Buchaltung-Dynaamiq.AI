@@ -27,7 +27,7 @@ const isoIn = (days: number) => {
 
 const settings: CompanySettings = {
   name: "Dynaamiq AI",
-  legalName: "Dynaamiq AI — Performance Marketing",
+  legalName: "DYNAAMIQ AI — Webdesign & KI-Automatisierung",
   email: "hello@dynaamiq.ai",
   phone: "+49 151 23456789",
   website: "www.dynaamiq.ai",
@@ -178,9 +178,9 @@ const deals: Deal[] = [
 ]
 
 const projects: Project[] = [
-  { id: "p1", name: "Nordlicht — Always-On Meta", customerId: "c1", status: "active", budget: 18000, spent: 11200, startDate: iso(90), dueDate: isoIn(120), color: "#ff6a00", description: "Laufende Performance-Kampagnen für Immobilien-Leads.", createdAt: iso(90) },
-  { id: "p2", name: "VitalFit — TikTok Growth", customerId: "c2", status: "active", budget: 9600, spent: 4300, startDate: iso(45), dueDate: isoIn(60), color: "#ff2d7e", description: "Creative-Sprints + Paid TikTok.", createdAt: iso(45) },
-  { id: "p3", name: "Aurelia — Local Google Ads", customerId: "c3", status: "active", budget: 7200, spent: 5100, startDate: iso(70), dueDate: isoIn(30), color: "#e81ccb", description: "Lokale Patientengewinnung.", createdAt: iso(70) },
+  { id: "p1", name: "Nordlicht — Always-On Meta", customerId: "c1", status: "active", budget: 18000, spent: 11200, startDate: iso(90), dueDate: isoIn(120), color: "#1f7bf2", description: "Laufende Performance-Kampagnen für Immobilien-Leads.", createdAt: iso(90) },
+  { id: "p2", name: "VitalFit — TikTok Growth", customerId: "c2", status: "active", budget: 9600, spent: 4300, startDate: iso(45), dueDate: isoIn(60), color: "#00ffe6", description: "Creative-Sprints + Paid TikTok.", createdAt: iso(45) },
+  { id: "p3", name: "Aurelia — Local Google Ads", customerId: "c3", status: "active", budget: 7200, spent: 5100, startDate: iso(70), dueDate: isoIn(30), color: "#5b2eff", description: "Lokale Patientengewinnung.", createdAt: iso(70) },
   { id: "p4", name: "Lumen — Funnel Relaunch", customerId: "c6", status: "done", budget: 6900, spent: 6700, startDate: iso(80), dueDate: iso(6), color: "#8b5cf6", description: "Shopify Funnel + Creatives.", createdAt: iso(80) },
   { id: "p5", name: "Solaris — Lead Gen B2B", customerId: "c8", status: "planning", budget: 12000, spent: 800, startDate: iso(5), dueDate: isoIn(95), color: "#2fd3a5", description: "B2B Leadgenerierung Solar.", createdAt: iso(5) },
 ]

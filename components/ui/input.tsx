@@ -2,7 +2,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 
 const fieldBase =
-  "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-all focus:border-brand-pink/50 focus:bg-white/[0.05] focus:ring-2 focus:ring-brand-pink/15 disabled:opacity-50"
+  "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/70 outline-none transition-all focus:border-brand-cyan/50 focus:bg-white/[0.05] focus:ring-2 focus:ring-brand-cyan/15 disabled:opacity-50"
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (

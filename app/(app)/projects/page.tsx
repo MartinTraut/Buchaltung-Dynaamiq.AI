@@ -157,7 +157,7 @@ export default function ProjectsPage() {
                     {t.status === "done" ? (
                       <CheckCircle2 className="size-4 text-[#2fd3a5]" />
                     ) : t.status === "doing" ? (
-                      <Clock className="size-4 text-brand-orange" />
+                      <Clock className="size-4 text-brand-blue" />
                     ) : (
                       <Circle className="size-4 text-muted-foreground/40" />
                     )}
@@ -244,7 +244,7 @@ function ProjectDialog({
   customers: { id: string; company: string }[]
   onSave: (d: Partial<Project>) => void
 }) {
-  const COLORS = ["#ff6a00", "#ff2d7e", "#e81ccb", "#8b5cf6", "#2fd3a5", "#ffb02e"]
+  const COLORS = ["#1f7bf2", "#00ffe6", "#5b2eff", "#8b5cf6", "#2fd3a5", "#ffb02e"]
   const [form, setForm] = React.useState<Partial<Project>>({ status: "planning", color: COLORS[0], budget: 0, spent: 0 })
   const set = (p: Partial<Project>) => setForm((f) => ({ ...f, ...p }))
   return (

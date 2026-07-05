@@ -24,9 +24,9 @@ const fontMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Dynaamiq OS — Business Cockpit",
+  title: "DYNAAMIQ AI — Business Cockpit",
   description:
-    "All-in-One Buchhaltung, CRM, Pipeline & KI-gestützte Angebote für Dynaamiq AI.",
+    "All-in-One Buchhaltung, CRM, Pipeline & KI-gestützte Angebote für DYNAAMIQ AI — Webdesign & KI-Automatisierung.",
 }
 
 export default function RootLayout({

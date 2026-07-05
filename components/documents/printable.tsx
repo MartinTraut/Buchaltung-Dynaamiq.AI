@@ -10,7 +10,7 @@ const C = {
   faint: "#b6b6bd",
   line: "#e6e6ea",
   zebra: "#f7f7f9",
-  brand: "#ff2d7e",
+  brand: "#1f7bf2", // Brand-Blau — Cyan wäre auf weißem Papier unlesbar
 } as const
 
 function qtyLabel(it: LineItem) {
@@ -58,7 +58,7 @@ export function PrintableDoc({
         </div>
         <div className="logo-tile">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-mark.png" alt={settings.name} width={40} height={40} />
+          <img src="/logo-mark.svg" alt={settings.name} width={40} height={40} />
         </div>
       </div>
 

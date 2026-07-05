@@ -43,7 +43,7 @@ export function Topbar() {
   const key = Object.keys(TITLES)
     .filter((k) => (k === "/" ? pathname === "/" : pathname.startsWith(k)))
     .sort((a, b) => b.length - a.length)[0]
-  const meta = TITLES[key] ?? { title: "Dynaamiq OS", sub: "" }
+  const meta = TITLES[key] ?? { title: "DYNAAMIQ AI", sub: "" }
 
   const go = (path: string) => router.push(path)
 
@@ -73,7 +73,7 @@ export function Topbar() {
 
       <Button asChild variant="ghost" size="lg" className="gap-2 text-muted-foreground hover:text-foreground">
         <Link href="/assistant">
-          <Sparkles className="size-[18px] text-brand-pink" />
+          <Sparkles className="size-[18px] text-brand-cyan" />
           <span className="hidden sm:inline">KI-Assistent</span>
         </Link>
       </Button>

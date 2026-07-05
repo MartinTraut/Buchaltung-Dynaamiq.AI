@@ -20,7 +20,7 @@ export function Avatar({
       style={{
         background:
           tint ??
-          "linear-gradient(135deg, var(--brand-orange), var(--brand-magenta))",
+          "linear-gradient(135deg, var(--brand-cyan), var(--brand-indigo-deep))",
       }}
     >
       {initials(name) || "?"}
@@ -50,7 +50,7 @@ export function Progress({
           width: `${Math.min(100, Math.max(0, value))}%`,
           background:
             tint === "var(--brand-gradient)"
-              ? "linear-gradient(90deg, var(--brand-orange), var(--brand-pink))"
+              ? "linear-gradient(90deg, var(--brand-cyan), var(--brand-blue))"
               : tint,
         }}
       />

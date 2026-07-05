@@ -49,7 +49,7 @@ export default function SettingsPage() {
 
       {/* Company */}
       <Card className="p-6">
-        <SectionTitle><Building2 className="mr-2 inline size-4 text-brand-pink" />Firmendaten</SectionTitle>
+        <SectionTitle><Building2 className="mr-2 inline size-4 text-brand-cyan" />Firmendaten</SectionTitle>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Anzeigename"><Input value={form.name} onChange={(e) => set({ name: e.target.value })} /></Field>
           <Field label="Rechtlicher Name"><Input value={form.legalName} onChange={(e) => set({ legalName: e.target.value })} /></Field>
@@ -64,7 +64,7 @@ export default function SettingsPage() {
 
       {/* Tax & numbering */}
       <Card className="p-6">
-        <SectionTitle><Receipt className="mr-2 inline size-4 text-brand-pink" />Steuer & Nummerierung</SectionTitle>
+        <SectionTitle><Receipt className="mr-2 inline size-4 text-brand-cyan" />Steuer & Nummerierung</SectionTitle>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="USt-IdNr."><Input value={form.vatId} onChange={(e) => set({ vatId: e.target.value })} /></Field>
           <Field label="Steuernummer"><Input value={form.taxNumber} onChange={(e) => set({ taxNumber: e.target.value })} /></Field>
@@ -79,7 +79,7 @@ export default function SettingsPage() {
 
       {/* Bank */}
       <Card className="p-6">
-        <SectionTitle><Landmark className="mr-2 inline size-4 text-brand-pink" />Bankverbindung</SectionTitle>
+        <SectionTitle><Landmark className="mr-2 inline size-4 text-brand-cyan" />Bankverbindung</SectionTitle>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Bank"><Input value={form.bankName} onChange={(e) => set({ bankName: e.target.value })} /></Field>
           <Field label="BIC"><Input value={form.bic} onChange={(e) => set({ bic: e.target.value })} /></Field>
@@ -92,7 +92,7 @@ export default function SettingsPage() {
         <SectionTitle>Integrationen</SectionTitle>
         <div className="space-y-3">
           <IntegrationRow
-            icon={<Sparkles className="size-4 text-brand-pink" />}
+            icon={<Sparkles className="size-4 text-brand-cyan" />}
             title="KI-Assistent (Claude)"
             desc="Setze ANTHROPIC_API_KEY in .env.local für echte KI-Generierung. Ohne Key läuft der Demo-Modus."
             status="Aktiv (Demo / Live je nach Key)"

@@ -159,7 +159,7 @@ export default function ExpensesPage() {
       {/* KPI */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <ExpKpi label="Ausgaben (YTD)" value={eur(ytdNet)} hint="netto, laufendes Jahr" icon={<TrendingDown className="size-4" />} tint="#ff4d4d" />
-        <ExpKpi label="Diesen Monat" value={eur(monthNet)} hint="netto" icon={<CalendarDays className="size-4" />} tint="#ff6a00" />
+        <ExpKpi label="Diesen Monat" value={eur(monthNet)} hint="netto" icon={<CalendarDays className="size-4" />} tint="#1f7bf2" />
         <ExpKpi label="Vorsteuer (YTD)" value={eur(ytdVat)} hint="abziehbar" icon={<Percent className="size-4" />} tint="#8b5cf6" />
         <ExpKpi label="Ø pro Monat" value={eur(avg)} hint="Durchschnitt" icon={<Receipt className="size-4" />} tint="#2fd3a5" />
       </div>
@@ -179,7 +179,7 @@ export default function ExpensesPage() {
                 </span>
                 <div className="flex w-full flex-1 items-end">
                   <div
-                    className="w-full rounded-t-md bg-gradient-to-t from-[#ff4d4d]/30 to-[#ff6a00]/70 transition-all"
+                    className="w-full rounded-t-md bg-gradient-to-t from-[#ff4d4d]/25 to-[#ff7a5c]/70 transition-all"
                     style={{ height: `${Math.max((m.expenses / maxMonthly) * 100, 2)}%` }}
                   />
                 </div>

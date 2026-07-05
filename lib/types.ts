@@ -218,8 +218,8 @@ export interface Database {
 export const DEAL_STAGES: { id: DealStage; label: string; tint: string }[] = [
   { id: "lead", label: "Lead", tint: "#8a8a93" },
   { id: "qualified", label: "Qualifiziert", tint: "#8b5cf6" },
-  { id: "proposal", label: "Angebot", tint: "#ff6a00" },
-  { id: "negotiation", label: "Verhandlung", tint: "#ff2d7e" },
+  { id: "proposal", label: "Angebot", tint: "#1f7bf2" },
+  { id: "negotiation", label: "Verhandlung", tint: "#00ffe6" },
   { id: "won", label: "Gewonnen", tint: "#2fd3a5" },
   { id: "lost", label: "Verloren", tint: "#ff4d4d" },
 ]

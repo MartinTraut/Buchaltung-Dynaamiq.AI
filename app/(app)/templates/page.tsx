@@ -72,7 +72,7 @@ export default function TemplatesPage() {
               <Card key={t.id} className="group p-5">
                 <div className="flex items-start justify-between">
                   <span className="grid size-9 place-items-center rounded-lg bg-white/[0.04]">
-                    <Icon className="size-4 text-brand-pink" />
+                    <Icon className="size-4 text-brand-cyan" />
                   </span>
                   <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     <Button variant="ghost" size="icon-sm" onClick={() => { setEditing(t); setOpen(true) }}>

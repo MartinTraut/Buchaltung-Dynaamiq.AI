@@ -77,7 +77,7 @@ export default function QuotesPage() {
   return (
     <div className="mx-auto max-w-[1760px]">
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <QuoteSummary label="Gesamtwert" value={eur(sumOf(["draft", "sent", "accepted", "declined", "expired"]))} tint="#ff6a00" />
+        <QuoteSummary label="Gesamtwert" value={eur(sumOf(["draft", "sent", "accepted", "declined", "expired"]))} tint="#1f7bf2" />
         <QuoteSummary label="Versendet (offen)" value={eur(sumOf(["sent"]))} tint="#ffb02e" />
         <QuoteSummary label="Angenommen" value={eur(sumOf(["accepted"]))} tint="#2fd3a5" />
         <QuoteSummary label="Entwürfe" value={String(counts("draft"))} tint="#8e8e98" />
@@ -98,7 +98,7 @@ export default function QuotesPage() {
         <div className="ml-auto flex gap-2">
           <Button asChild variant="outline" size="lg" className="gap-1.5">
             <Link href="/assistant?intent=quote">
-              <Sparkles className="size-4 text-brand-pink" /> Mit KI
+              <Sparkles className="size-4 text-brand-cyan" /> Mit KI
             </Link>
           </Button>
           <Button

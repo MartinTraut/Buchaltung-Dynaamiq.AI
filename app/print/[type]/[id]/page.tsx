@@ -60,8 +60,8 @@ export default function PrintPage() {
           width: 64px;
           height: 64px;
           border-radius: 16px;
-          background: radial-gradient(70% 60% at 50% 38%, #2a1606 0%, #0a0709 60%, #050506 100%);
-          box-shadow: 0 8px 24px -10px rgba(255,106,0,0.5);
+          background: radial-gradient(70% 60% at 50% 38%, #06222a 0%, #070a12 60%, #050506 100%);
+          box-shadow: 0 8px 24px -10px rgba(0,255,230,0.35);
         }
         .logo-tile img { object-fit: contain; }
       `}</style>
@@ -75,7 +75,7 @@ export default function PrintPage() {
         </button>
         <button
           onClick={() => window.print()}
-          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#ff6a00] to-[#e81ccb] px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:brightness-110"
+          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#1f7bf2] to-[#5b2eff] px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:brightness-110"
         >
           <Printer className="size-4" /> Drucken / Als PDF speichern
         </button>

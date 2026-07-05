@@ -177,7 +177,7 @@ export default function InvoicesPage() {
                         {c?.company ?? "—"}
                       </span>
                       {inv.recurring && (
-                        <Repeat className="size-3.5 shrink-0 text-brand-pink" />
+                        <Repeat className="size-3.5 shrink-0 text-brand-cyan" />
                       )}
                     </span>
                     <span className="block truncate text-[13px] text-muted-foreground md:hidden">
