@@ -8,10 +8,13 @@ import {
   Circle,
   Clock,
   Trash2,
+  LayoutGrid,
+  ChartNoAxesGantt,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
 import { useQueryFlag } from "@/hooks/use-query-flag"
+import { useLocalState } from "@/hooks/use-local-state"
 import { eur, dateDE } from "@/lib/format"
 import { PROJECT_STATUS_LABEL, type Project, type ProjectStatus } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -20,6 +23,8 @@ import { Badge } from "@/components/ui/badge"
 import { Progress, EmptyState } from "@/components/ui/misc"
 import { Input, Label, Select, Textarea } from "@/components/ui/input"
 import { Toolbar, FilterChips } from "@/components/page-toolbar"
+import { Segmented } from "@/components/ui/segmented"
+import { ProjectTimeline, PROJECT_STATUS_VARIANT } from "@/components/projects/timeline"
 import {
   Dialog,
   DialogContent,
@@ -30,14 +35,6 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
 
-const STATUS_VARIANT: Record<ProjectStatus, React.ComponentProps<typeof Badge>["variant"]> = {
-  planning: "violet",
-  active: "success",
-  on_hold: "warning",
-  done: "muted",
-  canceled: "danger",
-}
-
 type Filter = "all" | ProjectStatus
 
 export default function ProjectsPage() {
@@ -45,6 +42,7 @@ export default function ProjectsPage() {
   const confirm = useConfirm()
   const wantNew = useQueryFlag("new")
   const [filter, setFilter] = React.useState<Filter>("all")
+  const [view, setView] = useLocalState<"grid" | "timeline">("dyn-projects-view", "grid")
   const [open, setOpen] = React.useState(false)
   const [detailId, setDetailId] = React.useState<string | null>(null)
   const [newTask, setNewTask] = React.useState("")
@@ -71,13 +69,29 @@ export default function ProjectsPage() {
             { id: "done", label: "Abgeschlossen", count: counts("done") },
           ]}
         />
-        <Button variant="brand" size="lg" className="ml-auto gap-1.5" onClick={() => setOpen(true)}>
+        <Segmented
+          className="ml-auto"
+          value={view}
+          onChange={setView}
+          options={[
+            { id: "grid", label: <LayoutGrid className="size-4" />, ariaLabel: "Kartenansicht" },
+            { id: "timeline", label: <ChartNoAxesGantt className="size-4" />, ariaLabel: "Zeitstrahl" },
+          ]}
+        />
+        <Button variant="brand" size="lg" className="gap-1.5" onClick={() => setOpen(true)}>
           <Plus className="size-4" /> Neues Projekt
         </Button>
       </Toolbar>
 
       {rows.length === 0 ? (
         <EmptyState icon={<FolderKanban className="size-6" />} title="Keine Projekte" hint="Lege ein Projekt an, um Budget, Tasks und Lieferung zu steuern." />
+      ) : view === "timeline" ? (
+        <ProjectTimeline
+          projects={rows}
+          tasks={db.tasks}
+          customerName={(id) => customerById(id)?.company}
+          onOpen={setDetailId}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {rows.map((p) => {
@@ -96,7 +110,7 @@ export default function ProjectsPage() {
                       <p className="text-xs text-muted-foreground">{c?.company}</p>
                     </div>
                   </div>
-                  <Badge variant={STATUS_VARIANT[p.status]}>{PROJECT_STATUS_LABEL[p.status]}</Badge>
+                  <Badge variant={PROJECT_STATUS_VARIANT[p.status]}>{PROJECT_STATUS_LABEL[p.status]}</Badge>
                 </div>
 
                 <div className="mt-4">
@@ -274,10 +288,22 @@ function ProjectDialog({
             </Select>
           </div>
           <div>
-            <Label>Fällig am</Label>
-            <Input type="date" onChange={(e) => set({ dueDate: e.target.value ? new Date(e.target.value).toISOString() : undefined })} />
+            <Label>Start</Label>
+            <Input
+              type="date"
+              value={form.startDate ? form.startDate.slice(0, 10) : ""}
+              onChange={(e) => set({ startDate: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
+            />
           </div>
           <div>
+            <Label>Fällig am</Label>
+            <Input
+              type="date"
+              value={form.dueDate ? form.dueDate.slice(0, 10) : ""}
+              onChange={(e) => set({ dueDate: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
+            />
+          </div>
+          <div className="col-span-2">
             <Label>Farbe</Label>
             <div className="flex h-9 items-center gap-1.5">
               {COLORS.map((col) => (
