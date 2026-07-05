@@ -56,13 +56,15 @@ export function MobileNav() {
 
   const tabClass = (active: boolean) =>
     cn(
-      "flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors",
+      // active:scale — iOS-Press-Feedback beim Antippen
+      "flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-[color,transform] duration-150 ease-out active:scale-95",
       active ? "text-brand-cyan" : "text-muted-foreground",
     )
 
   return (
     <>
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-white/[0.08] bg-[#0b0b0e]/90 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden">
+      {/* Frosted Glass wie die iOS-Tab-Bar: transluzent + Blur + Hairline oben */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-white/[0.06] bg-[#0b0b0e]/70 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden">
         {TABS.map(({ href, label, icon }) => {
           const active = isActive(href)
           return (

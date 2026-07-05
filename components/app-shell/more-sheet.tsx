@@ -83,7 +83,7 @@ export function MoreSheet({
                           href={href}
                           onClick={() => onOpenChange(false)}
                           className={cn(
-                            "flex min-h-[84px] flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-3 text-center transition-colors",
+                            "flex min-h-[84px] flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-3 text-center transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-95",
                             active
                               ? "border-brand-cyan/25 bg-brand-cyan/10 text-brand-cyan"
                               : "border-white/[0.06] bg-white/[0.03] text-foreground/80 active:bg-white/[0.06]",

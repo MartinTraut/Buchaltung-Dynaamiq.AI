@@ -42,6 +42,11 @@ function DialogContent({
         )}
         {...props}
       >
+        {/* iOS-Grabber — nur auf dem Phone-Bottom-Sheet sichtbar */}
+        <div
+          aria-hidden
+          className="mx-auto -mt-3 h-1 w-10 shrink-0 rounded-full bg-white/20 sm:hidden"
+        />
         {children}
         <DialogPrimitive.Close className="absolute top-4 right-4 rounded-md p-1 text-muted-foreground opacity-70 transition hover:bg-white/5 hover:opacity-100">
           <X className="size-4" />

@@ -47,8 +47,9 @@ export function Topbar() {
 
   const go = (path: string) => router.push(path)
 
+  // Frosted Glass wie eine iOS-Nav-Bar: transluzent + Blur + Hairline unten
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-white/[0.06] bg-[#08080a]/75 px-4 backdrop-blur-xl sm:h-[84px] sm:gap-4 sm:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-white/[0.06] bg-[#08080a]/70 px-4 backdrop-blur-xl sm:h-[84px] sm:gap-4 sm:px-6">
       <div className="flex items-center gap-2.5 lg:hidden">
         <DynaamiqMark size={28} />
       </div>
