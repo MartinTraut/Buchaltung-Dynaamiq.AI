@@ -56,6 +56,7 @@ export default function SettingsPage() {
           <Field label="E-Mail"><Input value={form.email} onChange={(e) => set({ email: e.target.value })} /></Field>
           <Field label="Telefon"><Input value={form.phone} onChange={(e) => set({ phone: e.target.value })} /></Field>
           <Field label="Website"><Input value={form.website} onChange={(e) => set({ website: e.target.value })} /></Field>
+          <Field label="Inhaber"><Input value={form.ownerName ?? ""} onChange={(e) => set({ ownerName: e.target.value })} /></Field>
           <Field label="Adresse"><Input value={form.address} onChange={(e) => set({ address: e.target.value })} /></Field>
           <Field label="PLZ"><Input value={form.zip} onChange={(e) => set({ zip: e.target.value })} /></Field>
           <Field label="Stadt"><Input value={form.city} onChange={(e) => set({ city: e.target.value })} /></Field>
@@ -74,6 +75,15 @@ export default function SettingsPage() {
           <Field label="Nächste Angebotsnr."><Input type="number" value={form.nextQuoteNo} onChange={(e) => set({ nextQuoteNo: Number(e.target.value) })} /></Field>
           <Field label="Zahlungsziel (Tage)"><Input type="number" value={form.paymentTermsDays} onChange={(e) => set({ paymentTermsDays: Number(e.target.value) })} /></Field>
           <Field label="Standard-USt (%)"><Input type="number" value={Math.round(form.defaultTaxRate * 100)} onChange={(e) => set({ defaultTaxRate: Number(e.target.value) / 100 })} /></Field>
+          <Field label="Mahngebühr (€ je Mahnstufe)"><Input type="number" min={0} step="0.5" value={form.reminderFee} onChange={(e) => set({ reminderFee: Number(e.target.value) })} /></Field>
+          <div className="flex items-end sm:col-span-1">
+            <SwitchRow
+              label="§19 UStG Kleinunternehmer"
+              hint="Dokumente ohne Umsatzsteuer, Pflichttext wird ergänzt."
+              checked={form.smallBusiness}
+              onChange={(v) => set({ smallBusiness: v })}
+            />
+          </div>
         </div>
       </Card>
 
@@ -113,6 +123,48 @@ export default function SettingsPage() {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><Label>{label}</Label>{children}</div>
+}
+
+function SwitchRow({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string
+  hint?: string
+  checked: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.02] px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{label}</span>
+        {hint && (
+          <span className="block truncate text-[11px] text-muted-foreground">{hint}</span>
+        )}
+      </span>
+      <span
+        className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors"
+        style={{
+          background: checked
+            ? "linear-gradient(90deg,#1f7bf2,#5b2eff)"
+            : "rgba(255,255,255,0.12)",
+        }}
+      >
+        <span
+          className="absolute size-5 rounded-full bg-white shadow transition-transform"
+          style={{ transform: checked ? "translateX(22px)" : "translateX(2px)" }}
+        />
+      </span>
+    </button>
+  )
 }
 
 function IntegrationRow({

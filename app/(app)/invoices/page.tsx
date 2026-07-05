@@ -15,11 +15,13 @@ import {
   BellRing,
   Repeat,
   CopyPlus,
+  Ban,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
 import { useQueryFlag } from "@/hooks/use-query-flag"
 import { eur, dateDE, computeTotals } from "@/lib/format"
+import { REMINDER_LABEL } from "@/lib/types"
 import type { Invoice, InvoiceStatus } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Avatar, EmptyState } from "@/components/ui/misc"
@@ -49,6 +51,7 @@ export default function InvoicesPage() {
     sendReminder,
     toggleRecurring,
     duplicateRecurring,
+    createCancellation,
   } = useStore()
   const confirm = useConfirm()
   const wantNew = useQueryFlag("new")
@@ -189,9 +192,14 @@ export default function InvoicesPage() {
                   <span className="block font-mono text-[13px] text-muted-foreground">
                     {inv.number}
                   </span>
+                  {inv.cancelsInvoiceId && (
+                    <span className="text-[11px] font-medium text-[#ff8a8a]">
+                      Stornorechnung
+                    </span>
+                  )}
                   {!!inv.reminderLevel && (
                     <span className="text-[11px] font-medium text-[#ffc35c]">
-                      {["", "Erinnerung", "1. Mahnung", "2. Mahnung", "Letzte Mahnung"][inv.reminderLevel]}
+                      {REMINDER_LABEL[inv.reminderLevel]}
                     </span>
                   )}
                 </span>
@@ -262,6 +270,28 @@ export default function InvoicesPage() {
                           <BellRing /> Mahnung / Erinnerung senden
                         </DropdownItem>
                       )}
+                      {inv.status !== "draft" &&
+                        inv.status !== "canceled" &&
+                        !inv.cancelsInvoiceId && (
+                          <DropdownItem
+                            onSelect={async () => {
+                              const ok = await confirm({
+                                title: `Rechnung ${inv.number} stornieren?`,
+                                description: `Es wird eine Stornorechnung mit negierten Positionen erstellt. ${inv.number} wird auf „Storniert" gesetzt.`,
+                                confirmLabel: "Stornorechnung erstellen",
+                                destructive: true,
+                              })
+                              if (!ok) return
+                              const storno = createCancellation(inv.id)
+                              if (storno)
+                                toast.success(`Stornorechnung ${storno.number} erstellt`, {
+                                  description: `${inv.number} wurde storniert.`,
+                                })
+                            }}
+                          >
+                            <Ban /> Stornorechnung erstellen
+                          </DropdownItem>
+                        )}
                       <DropdownSeparator />
                       <DropdownItem onSelect={() => toggleRecurring(inv.id)}>
                         <Repeat /> {inv.recurring ? "Retainer deaktivieren" : "Als monatlich (Retainer)"}

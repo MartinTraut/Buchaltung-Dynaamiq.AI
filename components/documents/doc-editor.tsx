@@ -45,6 +45,7 @@ export function DocEditorDialog({
   const { db, upsertInvoice, upsertQuote, pushActivity } = useStore()
   const isInvoice = kind === "invoice"
   const termDays = db.settings.paymentTermsDays
+  const smallBusiness = db.settings.smallBusiness
 
   const initialDate = doc?.issueDate ?? new Date().toISOString()
   const initialSecond =
@@ -61,13 +62,28 @@ export function DocEditorDialog({
   )
   const [issueDate, setIssueDate] = React.useState(initialDate)
   const [secondDate, setSecondDate] = React.useState(initialSecond)
-  const [status, setStatus] = React.useState<string>(doc?.status ?? "draft")
-  const [items, setItems] = React.useState<LineItem[]>(
-    doc?.items ??
-      defaultItems ?? [
-        { id: nanoid(6), description: "", qty: 1, unitPrice: 0, taxRate: 0.19 },
-      ],
+  // Leistungsdatum (§14 UStG) — Default: Rechnungsdatum
+  const [serviceDate, setServiceDate] = React.useState(
+    (doc as Invoice)?.serviceDate ?? initialDate,
   )
+  const [servicePeriodEnd, setServicePeriodEnd] = React.useState(
+    (doc as Invoice)?.servicePeriodEnd ?? "",
+  )
+  const [status, setStatus] = React.useState<string>(doc?.status ?? "draft")
+  const [items, setItems] = React.useState<LineItem[]>(() => {
+    const initial = doc?.items ??
+      defaultItems ?? [
+        {
+          id: nanoid(6),
+          description: "",
+          qty: 1,
+          unitPrice: 0,
+          taxRate: smallBusiness ? 0 : 0.19,
+        },
+      ]
+    // §19 UStG: keine Umsatzsteuer — Positionen fest auf 0 %
+    return smallBusiness ? initial.map((it) => ({ ...it, taxRate: 0 })) : initial
+  })
   const [notes, setNotes] = React.useState(doc?.notes ?? db.settings.invoiceFooter)
 
   const templates = db.templates.filter((t) =>
@@ -79,6 +95,10 @@ export function DocEditorDialog({
   }
 
   function save() {
+    // §19 UStG: sicherstellen, dass keine Position USt trägt
+    const savedItems = smallBusiness
+      ? items.map((it) => ({ ...it, taxRate: 0 }))
+      : items
     if (isInvoice) {
       const saved = upsertInvoice({
         id: doc?.id,
@@ -87,7 +107,9 @@ export function DocEditorDialog({
         status: status as Invoice["status"],
         issueDate,
         dueDate: secondDate,
-        items,
+        serviceDate,
+        servicePeriodEnd: servicePeriodEnd || "",
+        items: savedItems,
         notes,
       })
       if (!doc)
@@ -105,7 +127,7 @@ export function DocEditorDialog({
         status: status as Quote["status"],
         issueDate,
         validUntil: secondDate,
-        items,
+        items: savedItems,
         notes,
       })
       if (!doc)
@@ -160,6 +182,33 @@ export function DocEditorDialog({
           </div>
         </div>
 
+        {isInvoice && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div>
+              <Label>Leistungsdatum</Label>
+              <Input
+                type="date"
+                value={toDateInput(serviceDate)}
+                onChange={(e) =>
+                  setServiceDate(new Date(e.target.value).toISOString())
+                }
+              />
+            </div>
+            <div>
+              <Label>bis (optional)</Label>
+              <Input
+                type="date"
+                value={toDateInput(servicePeriodEnd || undefined)}
+                onChange={(e) =>
+                  setServicePeriodEnd(
+                    e.target.value ? new Date(e.target.value).toISOString() : "",
+                  )
+                }
+              />
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Status</Label>
@@ -204,7 +253,12 @@ export function DocEditorDialog({
 
         <div>
           <Label>Positionen</Label>
-          <LineItemsEditor items={items} onChange={setItems} />
+          <LineItemsEditor items={items} onChange={setItems} taxLocked={smallBusiness} />
+          {smallBusiness && (
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              §19 UStG Kleinunternehmer aktiv — alle Positionen ohne Umsatzsteuer.
+            </p>
+          )}
         </div>
 
         <div>

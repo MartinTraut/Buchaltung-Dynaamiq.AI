@@ -16,9 +16,12 @@ const TAX_OPTIONS = [
 export function LineItemsEditor({
   items,
   onChange,
+  taxLocked = false,
 }: {
   items: LineItem[]
   onChange: (items: LineItem[]) => void
+  /** §19 UStG Kleinunternehmer: USt-Satz fest 0 %, Selector deaktiviert */
+  taxLocked?: boolean
 }) {
   const totals = computeTotals(items)
 
@@ -27,7 +30,13 @@ export function LineItemsEditor({
   const add = () =>
     onChange([
       ...items,
-      { id: nanoid(6), description: "", qty: 1, unitPrice: 0, taxRate: 0.19 },
+      {
+        id: nanoid(6),
+        description: "",
+        qty: 1,
+        unitPrice: 0,
+        taxRate: taxLocked ? 0 : 0.19,
+      },
     ])
   const remove = (id: string) => onChange(items.filter((it) => it.id !== id))
 
@@ -71,7 +80,8 @@ export function LineItemsEditor({
             className="text-right tnum"
           />
           <Select
-            value={it.taxRate}
+            value={taxLocked ? 0 : it.taxRate}
+            disabled={taxLocked}
             onChange={(e) => update(it.id, { taxRate: Number(e.target.value) })}
           >
             {TAX_OPTIONS.map((o) => (
