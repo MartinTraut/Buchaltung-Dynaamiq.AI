@@ -50,7 +50,7 @@ export function KpiCard({
         {typeof delta === "number" && <StatPill delta={delta} />}
       </div>
 
-      <div className="mt-5 font-display text-[40px] leading-none font-bold tracking-tight tnum">
+      <div className="mt-5 font-display text-[34px] leading-none font-bold tracking-tight tnum sm:text-[30px] 2xl:text-[32px]">
         {format(animated)}
       </div>
 

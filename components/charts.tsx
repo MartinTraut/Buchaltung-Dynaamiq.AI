@@ -120,7 +120,7 @@ export function RevenueArea({
       </div>
 
       <ResponsiveContainer width="100%" height={248}>
-        <AreaChart data={chartData} margin={{ top: 8, right: 6, bottom: 0, left: -16 }}>
+        <AreaChart data={chartData} margin={{ top: 8, right: 6, bottom: 0, left: 0 }}>
           <defs>
             {REV_SERIES.map((s) => (
               <linearGradient key={s.grad} id={s.grad} x1="0" y1="0" x2="0" y2="1">
@@ -193,7 +193,7 @@ export function PipelineBars({
 }) {
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} margin={{ top: 8, right: 6, bottom: 0, left: -16 }}>
+      <BarChart data={data} margin={{ top: 8, right: 6, bottom: 0, left: 0 }}>
         <CartesianGrid
           strokeDasharray="3 3"
           stroke="rgba(255,255,255,0.05)"
