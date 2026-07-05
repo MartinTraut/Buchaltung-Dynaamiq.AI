@@ -27,6 +27,7 @@ import {
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
+  ChevronRight,
   ReceiptEuro,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
@@ -39,7 +40,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, EmptyState } from "@/components/ui/misc"
 import { Input, Label, Select, Textarea } from "@/components/ui/input"
-import { SearchInput, FilterChips } from "@/components/page-toolbar"
+import { SearchInput } from "@/components/page-toolbar"
+import { Segmented } from "@/components/ui/segmented"
 import { DocEditorDialog } from "@/components/documents/doc-editor"
 import {
   Dialog,
@@ -170,7 +172,7 @@ export default function PipelinePage() {
 
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <SearchInput value={query} onChange={setQuery} placeholder="Deal oder Kunde…" />
-        <FilterChips
+        <Segmented
           value={view}
           onChange={setView}
           options={[
@@ -364,7 +366,7 @@ type SortKey = "title" | "customer" | "stage" | "value" | "weighted" | "expected
 const stageIndex = (s: DealStage) => DEAL_STAGES.findIndex((x) => x.id === s)
 
 const LIST_GRID =
-  "grid grid-cols-[minmax(220px,1.6fr)_minmax(180px,1.3fr)_150px_120px_120px_160px_100px] items-center gap-4 px-6"
+  "grid grid-cols-[minmax(220px,1.6fr)_minmax(180px,1.3fr)_150px_120px_120px_160px_100px_16px] items-center gap-4 px-6"
 
 function ListView({
   deals,
@@ -469,6 +471,7 @@ function ListView({
             {th("weighted", "Gewichtet", "right")}
             {th("expectedClose", "Erw. Abschluss")}
             {th("owner", "Owner")}
+            <span />
           </div>
           {rows.map(({ deal, company, weighted }) => (
             <button
@@ -476,7 +479,7 @@ function ListView({
               onClick={() => onOpen(deal)}
               className={cn(
                 LIST_GRID,
-                "w-full border-b border-white/[0.05] py-4 text-left transition-colors last:border-0 hover:bg-white/[0.025]",
+                "w-full border-b border-white/[0.05] py-4 text-left transition-[background-color,transform] duration-150 ease-out last:border-0 hover:bg-white/[0.025] active:scale-[0.99]",
               )}
             >
               <span className="min-w-0">
@@ -502,6 +505,7 @@ function ListView({
                 {deal.expectedClose ? dateDE(deal.expectedClose) : "—"}
               </span>
               <span className="truncate text-[14px] text-muted-foreground">{deal.owner}</span>
+              <ChevronRight className="size-4 text-white/25" />
             </button>
           ))}
         </div>
@@ -583,7 +587,7 @@ function TimelineView({
                 <button
                   key={deal.id}
                   onClick={() => onOpen(deal)}
-                  className="group rounded-2xl border border-white/8 bg-[#141417] p-4 text-left transition-all hover:border-white/15"
+                  className="group rounded-2xl border border-white/8 bg-[#141417] p-4 text-left transition-all duration-150 ease-out hover:border-white/15 active:scale-[0.98]"
                 >
                   <p className="text-[15px] font-semibold leading-snug">{deal.title}</p>
                   <div className="mt-2.5 flex items-center gap-2">

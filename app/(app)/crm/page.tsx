@@ -20,6 +20,7 @@ import {
   List,
   TrendingUp,
   History,
+  ChevronRight,
   type LucideIcon,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
@@ -39,6 +40,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, EmptyState } from "@/components/ui/misc"
 import { Input, Label, Textarea, Select } from "@/components/ui/input"
 import { Toolbar, SearchInput, FilterChips } from "@/components/page-toolbar"
+import { Segmented } from "@/components/ui/segmented"
 import {
   Dialog,
   DialogContent,
@@ -280,32 +282,23 @@ export default function CrmPage() {
             { id: "activity", label: "Zuletzt aktiv" },
           ]}
         />
-        <div className="ml-auto flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
-          <button
-            aria-label="Kartenansicht"
-            onClick={() => setView("grid")}
-            className={cn(
-              "grid size-9 place-items-center rounded-lg transition-colors",
-              view === "grid"
-                ? "bg-white/[0.08] text-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <LayoutGrid className="size-[18px]" />
-          </button>
-          <button
-            aria-label="Listenansicht"
-            onClick={() => setView("list")}
-            className={cn(
-              "grid size-9 place-items-center rounded-lg transition-colors",
-              view === "list"
-                ? "bg-white/[0.08] text-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <List className="size-[18px]" />
-          </button>
-        </div>
+        <Segmented
+          className="ml-auto"
+          value={view}
+          onChange={setView}
+          options={[
+            {
+              id: "grid",
+              ariaLabel: "Kartenansicht",
+              label: <LayoutGrid className="size-[18px]" />,
+            },
+            {
+              id: "list",
+              ariaLabel: "Listenansicht",
+              label: <List className="size-[18px]" />,
+            },
+          ]}
+        />
       </div>
 
       {sorted.length === 0 ? (
@@ -331,7 +324,7 @@ export default function CrmPage() {
             return (
               <Card
                 key={c.id}
-                className="cursor-pointer p-5"
+                className="cursor-pointer p-5 active:scale-[0.99]"
                 onClick={() => setDetailId(c.id)}
               >
                 <div className="flex items-start gap-3">
@@ -340,6 +333,7 @@ export default function CrmPage() {
                     <div className="flex items-center gap-2">
                       <p className="truncate font-display font-semibold">{c.company}</p>
                       <Badge variant={hb.variant} className="shrink-0">{hb.label}</Badge>
+                      <ChevronRight className="ml-auto size-4 shrink-0 text-white/25" />
                     </div>
                     <p className="truncate text-sm text-muted-foreground">
                       {c.contactName || "—"}
@@ -378,13 +372,14 @@ export default function CrmPage() {
         <div className="glass overflow-hidden rounded-2xl">
           <div className="overflow-x-auto">
             <div className="min-w-[900px]">
-              <div className="grid grid-cols-[minmax(240px,1.8fr)_110px_110px_130px_110px_170px] items-center gap-4 border-b border-white/10 px-6 py-4 text-[11px] font-semibold tracking-[0.1em] text-muted-foreground/70 uppercase">
+              <div className="grid grid-cols-[minmax(240px,1.8fr)_110px_110px_130px_110px_170px_16px] items-center gap-4 border-b border-white/10 px-6 py-4 text-[11px] font-semibold tracking-[0.1em] text-muted-foreground/70 uppercase">
                 <span>Kunde</span>
                 <span>Nr.</span>
                 <span>Status</span>
                 <span className="text-right">Umsatz</span>
                 <span className="text-right">Offene Deals</span>
                 <span>Zuletzt aktiv</span>
+                <span />
               </div>
               {sorted.map((c) => {
                 const revenue = revenueByCustomer.get(c.id) ?? 0
@@ -397,7 +392,7 @@ export default function CrmPage() {
                   <button
                     key={c.id}
                     onClick={() => setDetailId(c.id)}
-                    className="grid w-full grid-cols-[minmax(240px,1.8fr)_110px_110px_130px_110px_170px] items-center gap-4 border-b border-white/[0.05] px-6 py-4 text-left transition-colors last:border-0 hover:bg-white/[0.025]"
+                    className="grid w-full grid-cols-[minmax(240px,1.8fr)_110px_110px_130px_110px_170px_16px] items-center gap-4 border-b border-white/[0.05] px-6 py-4 text-left transition-[background-color,transform] duration-150 ease-out last:border-0 hover:bg-white/[0.025] active:scale-[0.99]"
                   >
                     <span className="flex min-w-0 items-center gap-3.5">
                       <Avatar name={c.company} className="size-11 text-[12px]" />
@@ -425,6 +420,7 @@ export default function CrmPage() {
                     <span className="truncate text-[14px] text-muted-foreground">
                       {last ? relativeTime(last) : "—"}
                     </span>
+                    <ChevronRight className="size-4 text-white/25" />
                   </button>
                 )
               })}

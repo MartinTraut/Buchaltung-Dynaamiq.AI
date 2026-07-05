@@ -30,7 +30,7 @@ export function SearchInput({
   placeholder?: string
 }) {
   return (
-    <div className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] px-4 transition-colors focus-within:border-brand-cyan/40 sm:max-w-sm">
+    <div className="flex h-11 min-w-[180px] flex-1 items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] px-4 transition-colors focus-within:border-brand-cyan/40 sm:max-w-sm">
       <Search className="size-[18px] shrink-0 text-muted-foreground" />
       <input
         value={value}

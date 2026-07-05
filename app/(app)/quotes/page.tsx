@@ -13,6 +13,7 @@ import {
   FileText,
   Sparkles,
   CheckCircle2,
+  ChevronRight,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
@@ -203,7 +204,7 @@ export default function QuotesPage() {
                 <div
                   key={q.id}
                   onClick={() => openEditor(q)}
-                  className="glass cursor-pointer rounded-2xl p-4 transition-colors active:bg-white/[0.04]"
+                  className="glass cursor-pointer rounded-2xl p-4 transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-white/[0.04]"
                 >
                   <div className="flex items-center gap-3">
                     <Avatar name={c?.company ?? "?"} className="size-11 shrink-0 text-[12px]" />
@@ -213,6 +214,7 @@ export default function QuotesPage() {
                     <span className="shrink-0">
                       <QuoteStatusBadge status={q.status} />
                     </span>
+                    <ChevronRight className="size-4 shrink-0 text-white/25" />
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
                     <span className="font-mono">{q.number}</span>
