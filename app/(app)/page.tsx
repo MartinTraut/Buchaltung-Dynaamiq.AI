@@ -328,8 +328,13 @@ export default function DashboardPage() {
         {/* Tasks + expenses gestapelt → füllt die Spaltenhöhe aus */}
         <div className="flex flex-col gap-4">
           <Card>
-            <div className="p-5 pb-2">
+            <div className="flex items-center justify-between p-5 pb-2">
               <SectionTitle className="mb-0">Anstehende Aufgaben</SectionTitle>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/calendar">
+                  Kalender <ArrowUpRight className="size-3.5" />
+                </Link>
+              </Button>
             </div>
             <div className="flex flex-col gap-1 p-3 pt-0">
               {openTasks.map((t) => (

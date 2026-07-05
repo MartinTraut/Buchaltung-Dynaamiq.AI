@@ -3,6 +3,7 @@ import {
   Users,
   KanbanSquare,
   FolderKanban,
+  CalendarDays,
   FileText,
   ReceiptEuro,
   ReceiptText,
@@ -40,7 +41,10 @@ export const NAV: NavGroup[] = [
   },
   {
     label: "Lieferung",
-    items: [{ href: "/projects", label: "Projekte", icon: FolderKanban }],
+    items: [
+      { href: "/projects", label: "Projekte", icon: FolderKanban },
+      { href: "/calendar", label: "Kalender", icon: CalendarDays },
+    ],
   },
   {
     label: "Finanzen",
@@ -68,6 +72,7 @@ export const NAV_BOTTOM: NavItem[] = [
 export const NAV_MORE: NavItem[] = [
   { href: "/quotes", label: "Angebote", icon: FileText },
   { href: "/projects", label: "Projekte", icon: FolderKanban },
+  { href: "/calendar", label: "Kalender", icon: CalendarDays },
   { href: "/expenses", label: "Ausgaben", icon: ReceiptText },
   { href: "/finance", label: "Buchhaltung", icon: Wallet },
   { href: "/assistant", label: "KI-Assistent", icon: Sparkles },

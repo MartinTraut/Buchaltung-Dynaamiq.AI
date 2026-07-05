@@ -65,13 +65,17 @@ export interface Project {
   createdAt: string
 }
 
+export type TaskKind = "task" | "event"
+
 export interface Task {
   id: ID
-  projectId: ID
+  projectId?: ID // optional: freie Aufgaben/Termine ohne Projekt
   title: string
   status: TaskStatus
+  kind?: TaskKind // "event" = Termin mit Uhrzeit, sonst To-do (fehlt → "task")
   assignee?: string
-  due?: string
+  due?: string // Kalender-Datum (ISO-Timestamp, Tages­auflösung)
+  time?: string // Startuhrzeit "HH:MM" (nur relevant bei Terminen)
   hours?: number
 }
 
@@ -253,4 +257,9 @@ export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
   on_hold: "Pausiert",
   done: "Abgeschlossen",
   canceled: "Abgebrochen",
+}
+
+export const TASK_KIND_LABEL: Record<TaskKind, string> = {
+  task: "Aufgabe",
+  event: "Termin",
 }

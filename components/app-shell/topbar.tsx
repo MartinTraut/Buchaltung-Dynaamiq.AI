@@ -28,6 +28,7 @@ const TITLES: Record<string, { title: string; sub: string }> = {
   "/pipeline": { title: "Pipeline", sub: "Deals von Lead bis Abschluss" },
   "/quotes": { title: "Angebote", sub: "Erstellen, versenden, gewinnen" },
   "/projects": { title: "Projekte", sub: "Lieferung, Budget & Tasks" },
+  "/calendar": { title: "Kalender", sub: "Aufgaben & Termine im Blick" },
   "/invoices": { title: "Rechnungen", sub: "Fakturierung & Mahnwesen" },
   "/expenses": { title: "Ausgaben", sub: "Belege, Kategorien & Vorsteuer" },
   "/finance": { title: "Buchhaltung", sub: "Einnahmen, Ausgaben & USt" },

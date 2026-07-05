@@ -287,19 +287,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const upsertTask: StoreContextValue["upsertTask"] = React.useCallback((t) => {
     const full: Task = {
       id: t.id ?? nanoid(8),
-      projectId: t.projectId ?? "",
+      projectId: t.projectId, // optional — freie Aufgaben/Termine ohne Projekt
       title: t.title ?? "Neue Aufgabe",
       status: t.status ?? "todo",
+      kind: t.kind ?? "task",
       assignee: t.assignee,
       due: t.due,
+      time: t.time,
       hours: t.hours,
     }
     setDb((d) => {
-      const exists = d.tasks.some((x) => x.id === full.id)
+      // Beim Update gegen den Bestand mergen — nur definierte Felder
+      // überschreiben, damit z. B. hours nicht verloren geht.
+      const existing = d.tasks.find((x) => x.id === full.id)
+      if (existing) {
+        Object.assign(full, { ...existing, ...definedProps<Task>(t) })
+      }
       return {
         ...d,
-        tasks: exists
-          ? d.tasks.map((x) => (x.id === full.id ? full : x))
+        tasks: existing
+          ? d.tasks.map((x) => (x.id === full.id ? { ...full } : x))
           : [full, ...d.tasks],
       }
     })

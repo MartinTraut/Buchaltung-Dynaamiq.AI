@@ -195,13 +195,20 @@ const projects: Project[] = [
 ]
 
 const tasks: Task[] = [
-  { id: "t1", projectId: "p1", title: "Creatives Q2 briefen", status: "done", assignee: "Martin", due: iso(10), hours: 4 },
-  { id: "t2", projectId: "p1", title: "Lookalike Audiences testen", status: "doing", assignee: "Martin", due: isoIn(3), hours: 6 },
-  { id: "t3", projectId: "p1", title: "Monatsreport erstellen", status: "todo", assignee: "Martin", due: isoIn(6), hours: 3 },
-  { id: "t4", projectId: "p2", title: "3 Hook-Varianten drehen", status: "doing", assignee: "Martin", due: isoIn(2), hours: 8 },
-  { id: "t5", projectId: "p2", title: "Pixel-Setup prüfen", status: "todo", due: isoIn(5), hours: 2 },
-  { id: "t6", projectId: "p3", title: "Keyword-Set erweitern", status: "todo", due: isoIn(4), hours: 3 },
-  { id: "t7", projectId: "p5", title: "Kickoff-Call planen", status: "todo", due: isoIn(2), hours: 1 },
+  { id: "t1", projectId: "p1", title: "Creatives Q2 briefen", status: "done", kind: "task", assignee: "Martin", due: iso(10), hours: 4 },
+  { id: "t2", projectId: "p1", title: "Lookalike Audiences testen", status: "doing", kind: "task", assignee: "Martin", due: isoIn(3), hours: 6 },
+  { id: "t3", projectId: "p1", title: "Monatsreport erstellen", status: "todo", kind: "task", assignee: "Martin", due: isoIn(6), hours: 3 },
+  { id: "t4", projectId: "p2", title: "3 Hook-Varianten drehen", status: "doing", kind: "task", assignee: "Martin", due: isoIn(2), hours: 8 },
+  { id: "t5", projectId: "p2", title: "Pixel-Setup prüfen", status: "todo", kind: "task", due: isoIn(5), hours: 2 },
+  { id: "t6", projectId: "p3", title: "Keyword-Set erweitern", status: "todo", kind: "task", due: isoIn(4), hours: 3 },
+  { id: "t7", projectId: "p5", title: "Kickoff-Call planen", status: "todo", kind: "task", due: isoIn(1), hours: 1 },
+  { id: "t8", projectId: "p3", title: "Anzeigentexte freigeben", status: "todo", kind: "task", assignee: "Martin", due: iso(2), hours: 1 },
+  { id: "t9", projectId: "p1", title: "Budget-Check laufende Kampagnen", status: "todo", kind: "task", due: isoIn(0), hours: 1 },
+  // Termine (mit Uhrzeit) — teils ohne Projektbindung
+  { id: "e1", projectId: "p5", title: "Kickoff Solaris — B2B Lead Gen", status: "todo", kind: "event", assignee: "Martin", due: isoIn(1), time: "10:00" },
+  { id: "e2", projectId: "p2", title: "Creative-Review VitalFit", status: "todo", kind: "event", due: isoIn(3), time: "14:30" },
+  { id: "e3", title: "Steuerberater — Quartals-Call", status: "todo", kind: "event", due: isoIn(2), time: "09:00" },
+  { id: "e4", title: "Netzwerk-Lunch Köln", status: "todo", kind: "event", due: isoIn(5), time: "12:30" },
 ]
 
 const mkItems = (rows: [string, number, number, number][]) =>

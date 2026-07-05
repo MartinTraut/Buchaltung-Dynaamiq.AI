@@ -44,6 +44,25 @@ export function dateShort(iso?: string): string {
   })
 }
 
+/** Lokaler Tages-Schlüssel „YYYY-MM-DD" — konsistent für Kalender-Gruppierung
+ *  und `type=date`-Inputs (arbeitet in lokaler Zeit, nicht UTC). */
+export function dayKey(d: Date | string): string {
+  const dt = typeof d === "string" ? new Date(d) : d
+  const p = (n: number) => String(n).padStart(2, "0")
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`
+}
+
+/** ISO-Timestamp → Wert für ein `type=date`-Input (lokaler Tag). */
+export function toDateInput(iso?: string): string {
+  return iso ? dayKey(iso) : ""
+}
+
+/** `type=date`-Wert („YYYY-MM-DD") → ISO-Timestamp der lokalen Mitternacht. */
+export function fromDateInput(value?: string): string | undefined {
+  if (!value) return undefined
+  return new Date(`${value}T00:00:00`).toISOString()
+}
+
 export function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const min = Math.round(diff / 60000)
