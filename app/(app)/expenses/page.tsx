@@ -39,20 +39,7 @@ import {
   DropdownItem,
 } from "@/components/ui/dropdown"
 import { toast } from "sonner"
-
-const CATEGORIES = [
-  "Software & Tools",
-  "Ad Spend / Media",
-  "Hardware",
-  "Subunternehmer",
-  "Büro & Miete",
-  "Reisekosten",
-  "Marketing",
-  "Weiterbildung",
-  "Versicherungen",
-  "Steuerberatung",
-  "Sonstiges",
-] as const
+import { EXPENSE_CATEGORIES as CATEGORIES } from "@/lib/expense-categories"
 
 const net = (t: Transaction) => t.amount / (1 + t.taxRate)
 

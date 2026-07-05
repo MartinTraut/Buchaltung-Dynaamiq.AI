@@ -20,7 +20,7 @@ import {
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
 import { useQueryFlag } from "@/hooks/use-query-flag"
-import { eur, dateDE, computeTotals } from "@/lib/format"
+import { eur, dateDE, computeTotals, emailSignature } from "@/lib/format"
 import { REMINDER_LABEL } from "@/lib/types"
 import type { Invoice, InvoiceStatus } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -94,8 +94,8 @@ export default function InvoicesPage() {
     upsertEmail({
       to: c?.email ?? "",
       customerId: inv.customerId,
-      subject: `Ihre Rechnung ${inv.number} von Dynaamiq AI`,
-      body: `Hallo ${c?.contactName ?? ""},\n\nanbei erhalten Sie die Rechnung ${inv.number} über ${total}.\nZahlbar bis ${dateDE(inv.dueDate)}.\n\nVielen Dank für die gute Zusammenarbeit!\n\nBeste Grüße\nMartin — Dynaamiq AI`,
+      subject: `Ihre Rechnung ${inv.number} von ${db.settings.name}`,
+      body: `Hallo ${c?.contactName ?? ""},\n\nanbei erhalten Sie die Rechnung ${inv.number} über ${total}.\nZahlbar bis ${dateDE(inv.dueDate)}.\n\nVielen Dank für die gute Zusammenarbeit!\n\n${emailSignature(db.settings)}`,
       relatedType: "invoice",
       relatedId: inv.id,
       status: "draft",

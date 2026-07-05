@@ -844,11 +844,11 @@ function DealDialog({
   customers: { id: string; company: string }[]
   onSave: (d: Partial<Deal>) => void
 }) {
+  // Owner wird beim Speichern in upsertDeal aus settings.ownerName abgeleitet.
   const [form, setForm] = React.useState<Partial<Deal>>({
     stage: "lead",
     probability: 20,
     value: 0,
-    owner: "Martin",
   })
   const set = (p: Partial<Deal>) => setForm((f) => ({ ...f, ...p }))
   return (

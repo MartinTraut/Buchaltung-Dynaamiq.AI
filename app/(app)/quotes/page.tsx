@@ -17,7 +17,7 @@ import {
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
 import { useQueryFlag } from "@/hooks/use-query-flag"
-import { eur, dateDE, computeTotals } from "@/lib/format"
+import { eur, dateDE, computeTotals, emailSignature } from "@/lib/format"
 import type { Quote, QuoteStatus } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Avatar, EmptyState } from "@/components/ui/misc"
@@ -96,8 +96,8 @@ export default function QuotesPage() {
             upsertEmail({
               to: c?.email ?? "",
               customerId: q.customerId,
-              subject: `Ihr Angebot ${q.number} von Dynaamiq AI`,
-              body: `Hallo ${c?.contactName ?? ""},\n\nanbei unser Angebot ${q.number} über ${eur(total)}. Bei Fragen bin ich jederzeit für Sie da.\n\nBeste Grüße\nMartin — Dynaamiq AI`,
+              subject: `Ihr Angebot ${q.number} von ${db.settings.name}`,
+              body: `Hallo ${c?.contactName ?? ""},\n\nanbei unser Angebot ${q.number} über ${eur(total)}. Bei Fragen bin ich jederzeit für Sie da.\n\n${emailSignature(db.settings)}`,
               relatedType: "quote",
               relatedId: q.id,
               status: "draft",

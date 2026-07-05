@@ -24,7 +24,7 @@ import {
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
-import { eur, dateDE, relativeTime, computeTotals } from "@/lib/format"
+import { eur, dateDE, relativeTime, computeTotals, emailSignature } from "@/lib/format"
 import {
   DEAL_STAGES,
   INVOICE_STATUS_LABEL,
@@ -125,8 +125,8 @@ export default function CrmPage() {
     upsertEmail({
       to: c.email,
       customerId: c.id,
-      subject: `Nachricht von Dynaamiq AI`,
-      body: `Hallo ${c.contactName || ""},\n\n\n\nBeste Grüße\nMartin — Dynaamiq AI`,
+      subject: `Nachricht von ${db.settings.name}`,
+      body: `Hallo ${c.contactName || ""},\n\n\n\n${emailSignature(db.settings)}`,
       status: "draft",
     })
     setDetailId(null)

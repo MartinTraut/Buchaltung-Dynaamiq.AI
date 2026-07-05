@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { EXPENSE_CATEGORIES } from "@/lib/expense-categories"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -11,7 +12,12 @@ interface AiRequest {
   prompt: string
   intent?: "quote" | "invoice" | "email" | "contact" | "expense" | "auto"
   customers: AiContextCustomer[]
-  company: { name: string; defaultTaxRate: number; today: string }
+  company: { name: string; defaultTaxRate: number; today: string; ownerName?: string }
+}
+
+/** Vorname des Inhabers aus dem Request-Kontext (leer, wenn nicht mitgeschickt). */
+function ownerFirstName(req: AiRequest): string {
+  return (req.company?.ownerName ?? "").trim().split(/\s+/)[0] ?? ""
 }
 
 // ---------------------------------------------------------------------------
@@ -165,7 +171,10 @@ function pickModel(req: AiRequest, brief: SiteBrief | null): ModelChoice {
 
 // ---------------------------------------------------------------------------
 
-const SYSTEM = `Du bist der zentrale KI-Assistent von "DYNAAMIQ AI – Webdesign & KI-Automatisierung", einer deutschen Web- & KI-Agentur. Du arbeitest direkt im internen Business-Cockpit des Inhabers Martin und legst auf seine Zuruf-Befehle hin Datensätze an.
+function systemPrompt(owner: string) {
+  const inhaber = owner ? `des Inhabers ${owner}` : "des Inhabers"
+  const wer = owner || "der Inhaber"
+  return `Du bist der zentrale KI-Assistent von "DYNAAMIQ AI – Webdesign & KI-Automatisierung", einer deutschen Web- & KI-Agentur. Du arbeitest direkt im internen Business-Cockpit ${inhaber} und legst auf seine Zuruf-Befehle hin Datensätze an.
 
 Du kannst FÜNF Dinge erzeugen — wähle den passenden "type":
 1. "quote"   → Angebot (mit Positionen + ausführlicher, fachlich-psychologischer Begründung)
@@ -190,16 +199,17 @@ Antworte AUSSCHLIESSLICH mit EINEM gültigen JSON-Objekt (kein Markdown, kein Te
 }
 
 REGELN FÜR ANGEBOTE/RECHNUNGEN:
-- Wenn Martin einen Gesamtpreis UND/ODER investierte Stunden nennt (z. B. "Webseite für 5.000 €, 90 Stunden"), zerlege die Leistung in realistische PHASEN als Positionen, deren Summe den Zielpreis ergibt. Nutze nachvollziehbare Stundensätze (Standard ~85 €/h netto). Typische Phasen einer Website: Konzept & UX-Architektur, UI-Design, Frontend-Development, CMS/Integrationen, Responsiveness & QA, SEO-Setup, Launch & Einweisung. Verteile die genannten Stunden plausibel auf diese Phasen.
+- Wenn ${wer} einen Gesamtpreis UND/ODER investierte Stunden nennt (z. B. "Webseite für 5.000 €, 90 Stunden"), zerlege die Leistung in realistische PHASEN als Positionen, deren Summe den Zielpreis ergibt. Nutze nachvollziehbare Stundensätze (Standard ~85 €/h netto). Typische Phasen einer Website: Konzept & UX-Architektur, UI-Design, Frontend-Development, CMS/Integrationen, Responsiveness & QA, SEO-Setup, Launch & Einweisung. Verteile die genannten Stunden plausibel auf diese Phasen.
 - JEDE Position hat einen kurzen, prägnanten Titel in "description" PLUS 2–4 konkrete Unterpunkte in "details" (was genau geleistet wird) — wie in einem professionellen Agentur-Angebot. Wähle eine passende Einheit in "unit" ("Tag(e)", "Std.", "Pauschal", "Monat"). Beispiel: { "description": "Projektsetup & Infrastruktur", "details": ["Domain inkl. DNS-Konfiguration", "Server/Webspace bereitstellen", "WordPress-Grundinstallation inkl. SSL"], "unit": "Tag(e)", "qty": 0.25, "unitPrice": 720, "taxRate": 0.19 }.
 - Schreibe in "rationale" eine überzeugende, fachlich fundierte Begründung (4–8 Sätze) in IT-/Agentur-Fachsprache, die ERKLÄRT, WARUM dieser Preis gerechtfertigt ist: konkret auf die analysierte Website eingehen (Tech-Stack, Seitenanzahl, Funktionen, Performance, Responsiveness, Animationen, SEO), den Aufwand pro Phase einordnen und den geschäftlichen Nutzen (Conversion, Markenwirkung, Wartbarkeit) betonen. Psychologisch wertig formulieren, ohne zu übertreiben — value-based, nicht stunden-rechtfertigend wirken.
 - Liegt eine Website-Analyse vor (siehe Kontext), beziehe dich explizit auf die erkannten Merkmale.
 
 REGELN FÜR KONTAKTE: Extrahiere Firma, Ansprechpartner, E-Mail, Telefon, Website, Stadt und passende Tags (Branche/Kanal) aus dem Text. Fehlende Felder weglassen.
 
-REGELN FÜR AUSGABEN: Ordne sinnvoll einer Kategorie zu (z. B. "Software & Tools", "Ad Spend", "Hardware", "Subunternehmer", "Büro", "Reisekosten"). amount = Bruttobetrag.
+REGELN FÜR AUSGABEN: Ordne die Ausgabe EXAKT einer dieser Kategorien zu: ${EXPENSE_CATEGORIES.map((c) => `"${c}"`).join(", ")}. Passt nichts, nutze "Sonstiges". amount = Bruttobetrag.
 
 Schreibe professionelles, prägnantes Deutsch.`
+}
 
 function buildUserMessage(req: AiRequest, brief: SiteBrief | null) {
   const list = req.customers.map((c) => `- ${c.company} (id: ${c.id})`).join("\n")
@@ -218,7 +228,7 @@ Gewünschter Typ: ${req.intent ?? "auto"}
 Verfügbare Kunden:
 ${list || "(keine)"}${site}
 
-Anfrage von Martin:
+Anfrage${ownerFirstName(req) ? ` von ${ownerFirstName(req)}` : ""}:
 """${req.prompt}"""`
 }
 
@@ -245,7 +255,7 @@ function fallback(req: AiRequest, brief: SiteBrief | null) {
     return {
       type: "expense" as const,
       message: "Demo-Modus: Ausgabe kategorisiert.",
-      expense: { category: "Software & Tools", amount, taxRate: 0.19, description: req.prompt.slice(0, 80), date: null },
+      expense: { category: EXPENSE_CATEGORIES[0], amount, taxRate: 0.19, description: req.prompt.slice(0, 80), date: null },
     }
   }
 
@@ -315,7 +325,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model,
         max_tokens: maxTokens,
-        system: SYSTEM,
+        system: systemPrompt(ownerFirstName(body)),
         messages: [{ role: "user", content: buildUserMessage(body, brief) }],
       }),
     })

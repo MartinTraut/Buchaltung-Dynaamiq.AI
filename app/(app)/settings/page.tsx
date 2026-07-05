@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Save, RotateCcw, Building2, Receipt, Landmark, Sparkles, Database } from "lucide-react"
 import { useStore } from "@/lib/store"
+import { useConfirm } from "@/lib/confirm"
 import type { CompanySettings } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -14,6 +15,7 @@ import { toast } from "sonner"
 
 export default function SettingsPage() {
   const { db, updateSettings, resetDemo } = useStore()
+  const confirm = useConfirm()
   const [form, setForm] = React.useState<CompanySettings>(db.settings)
 
   React.useEffect(() => setForm(db.settings), [db.settings])
@@ -32,11 +34,16 @@ export default function SettingsPage() {
           <Button
             variant="destructive"
             className="gap-1.5"
-            onClick={() => {
-              if (confirm("Alle Daten auf den Demo-Stand zurücksetzen?")) {
-                resetDemo()
-                toast.success("Demo-Daten wiederhergestellt")
-              }
+            onClick={async () => {
+              const ok = await confirm({
+                title: "Demo zurücksetzen?",
+                description: "Alle Daten werden auf den Demo-Stand zurückgesetzt. Eigene Änderungen gehen verloren.",
+                confirmLabel: "Zurücksetzen",
+                destructive: true,
+              })
+              if (!ok) return
+              resetDemo()
+              toast.success("Demo-Daten wiederhergestellt")
             }}
           >
             <RotateCcw className="size-4" /> Demo zurücksetzen

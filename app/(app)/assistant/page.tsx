@@ -105,7 +105,7 @@ export default function AssistantPage() {
           prompt: text,
           intent,
           customers: db.customers.map((c) => ({ id: c.id, company: c.company })),
-          company: { name: db.settings.name, defaultTaxRate: db.settings.defaultTaxRate, today: new Date().toISOString().slice(0, 10) },
+          company: { name: db.settings.name, defaultTaxRate: db.settings.defaultTaxRate, today: new Date().toISOString().slice(0, 10), ownerName: db.settings.ownerName },
         }),
       })
       const data = await res.json()
@@ -385,7 +385,7 @@ function ActionPreview({ action, customerName }: { action: AiAction; customerNam
           </p>
           {customerName && <p className="mt-0.5 text-sm font-semibold">{customerName}</p>}
         </div>
-        <Badge variant="brand">{action.type === "quote" ? "Entwurf" : "Entwurf"}</Badge>
+        <Badge variant="brand">{action.type === "quote" ? "Angebots-Entwurf" : "Rechnungs-Entwurf"}</Badge>
       </div>
       <div className="divide-y divide-white/[0.05]">
         {items.map((it, i) => (

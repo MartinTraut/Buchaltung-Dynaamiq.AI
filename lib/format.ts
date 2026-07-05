@@ -1,4 +1,4 @@
-import type { LineItem } from "./types"
+import type { CompanySettings, LineItem } from "./types"
 
 export function eur(n: number, opts: { compact?: boolean } = {}): string {
   if (opts.compact && Math.abs(n) >= 1000) {
@@ -62,6 +62,23 @@ export function initials(name: string): string {
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("")
+}
+
+// ---------- Settings-abgeleitete Helfer ----------
+
+/** Vorname des Inhabers aus den Settings (Fallback: Firmenname). */
+export function ownerFirstName(
+  settings: Pick<CompanySettings, "ownerName" | "name">,
+): string {
+  const first = (settings.ownerName ?? "").trim().split(/\s+/)[0]
+  return first || settings.name
+}
+
+/** E-Mail-Grußformel „Beste Grüße\n<Vorname> — <Firma>". */
+export function emailSignature(
+  settings: Pick<CompanySettings, "ownerName" | "name">,
+): string {
+  return `Beste Grüße\n${ownerFirstName(settings)} — ${settings.name}`
 }
 
 // ---------- Invoice / quote math ----------

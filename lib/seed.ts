@@ -235,9 +235,6 @@ const quotes: Quote[] = [
 ]
 
 // Monthly transactions to give the dashboard a believable cashflow shape
-const txCat = (m: number) => [
-  { inc: 8200 + m * 420, exp: 2600 + m * 80 },
-]
 const transactions: Transaction[] = []
 for (let m = 11; m >= 0; m--) {
   const base = 7600 + (11 - m) * 380
@@ -269,7 +266,6 @@ for (let m = 11; m >= 0; m--) {
     date: iso(m * 30 + 8),
   })
 }
-void txCat
 
 const templates: Template[] = [
   {

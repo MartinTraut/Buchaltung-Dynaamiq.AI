@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { kpis, monthlyRevenue, pipelineByStage, expenseBreakdown } from "@/lib/metrics"
-import { eur, dateDE, relativeTime, computeTotals } from "@/lib/format"
+import { eur, dateDE, relativeTime, computeTotals, ownerFirstName } from "@/lib/format"
 import { useLocalState } from "@/hooks/use-local-state"
 import { KpiCard, SectionTitle } from "@/components/kpi-card"
 import { RevenueArea, PipelineBars, DonutChart } from "@/components/charts"
@@ -105,7 +105,7 @@ export default function DashboardPage() {
       <div className="animate-fade flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-medium tracking-wide text-muted-foreground">
-            Willkommen zurück, Martin 👋
+            Willkommen zurück, {ownerFirstName(db.settings)} 👋
           </p>
           <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-[34px]">
             Dein Business-Cockpit
