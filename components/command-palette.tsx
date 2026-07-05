@@ -160,7 +160,7 @@ export function CommandPalette() {
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
-          className="fixed top-[12vh] left-1/2 z-50 w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-2xl border border-white/10 bg-[#111114] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="fixed top-[8dvh] left-1/2 z-50 w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 overflow-hidden rounded-2xl border border-white/10 bg-[#111114] shadow-2xl outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <DialogPrimitive.Title className="sr-only">Suche</DialogPrimitive.Title>
@@ -172,12 +172,12 @@ export function CommandPalette() {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder="Springe zu Kunde, Rechnung, Angebot, Deal…"
-              className="h-14 w-full bg-transparent text-[15px] outline-none placeholder:text-muted-foreground/60"
+              className="h-14 w-full bg-transparent text-base outline-none placeholder:text-muted-foreground/60 md:text-[15px]"
             />
             <kbd className="hidden rounded bg-white/8 px-1.5 py-0.5 text-[10px] text-muted-foreground sm:block">ESC</kbd>
           </div>
 
-          <div ref={listRef} className="max-h-[52vh] overflow-y-auto p-2">
+          <div ref={listRef} className="max-h-[52dvh] overflow-y-auto p-2">
             {items.length === 0 ? (
               <p className="px-3 py-8 text-center text-sm text-muted-foreground">
                 Nichts gefunden für „{query}"

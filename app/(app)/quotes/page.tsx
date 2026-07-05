@@ -74,6 +74,77 @@ export default function QuotesPage() {
       .filter((q) => s.includes(q.status))
       .reduce((acc, q) => acc + computeTotals(q.items).gross, 0)
 
+  function openEditor(q: Quote | null) {
+    setEditing(q)
+    setOpen(true)
+  }
+
+  // Aktions-Menü — identisch für Tabellenzeile (Desktop) und Karte (Phone)
+  function menuFor(q: Quote) {
+    const c = customerById(q.customerId)
+    const total = computeTotals(q.items).gross
+    return (
+      <DropdownContent>
+        <DropdownItem onSelect={() => openEditor(q)}>
+          <Pencil /> Bearbeiten
+        </DropdownItem>
+        <DropdownItem asChild>
+          <Link href={`/print/quote/${q.id}`} target="_blank"><FileDown /> PDF / Drucken</Link>
+        </DropdownItem>
+        <DropdownItem
+          onSelect={() => {
+            upsertEmail({
+              to: c?.email ?? "",
+              customerId: q.customerId,
+              subject: `Ihr Angebot ${q.number} von Dynaamiq AI`,
+              body: `Hallo ${c?.contactName ?? ""},\n\nanbei unser Angebot ${q.number} über ${eur(total)}. Bei Fragen bin ich jederzeit für Sie da.\n\nBeste Grüße\nMartin — Dynaamiq AI`,
+              relatedType: "quote",
+              relatedId: q.id,
+              status: "draft",
+            })
+            if (q.status === "draft") upsertQuote({ ...q, status: "sent" })
+            toast.success("E-Mail-Entwurf erstellt")
+          }}
+        >
+          <Mail /> Per E-Mail senden
+        </DropdownItem>
+        <DropdownSeparator />
+        {q.status !== "accepted" && (
+          <DropdownItem onSelect={() => { upsertQuote({ ...q, status: "accepted" }); toast.success("Angebot angenommen") }}>
+            <CheckCircle2 /> Als angenommen markieren
+          </DropdownItem>
+        )}
+        <DropdownItem
+          onSelect={() => {
+            const inv = convertQuoteToInvoice(q.id)
+            if (inv) toast.success(`Rechnung ${inv.number} erstellt`, { description: "Im Bereich Rechnungen verfügbar." })
+          }}
+        >
+          <ArrowRightLeft /> In Rechnung umwandeln
+        </DropdownItem>
+        <DropdownSeparator />
+        <DropdownItem
+          className="text-destructive data-[highlighted]:text-destructive"
+          onSelect={async () => {
+            const ok = await confirm({
+              title: `Angebot ${q.number} löschen?`,
+              description: `Das Angebot für ${c?.company ?? "diesen Kunden"} wird entfernt.`,
+              confirmLabel: "Löschen",
+              destructive: true,
+            })
+            if (!ok) return
+            remove("quotes", q.id)
+            toast.success("Angebot gelöscht", {
+              action: { label: "Rückgängig", onClick: () => add("quotes", q) },
+            })
+          }}
+        >
+          <Trash2 /> Löschen
+        </DropdownItem>
+      </DropdownContent>
+    )
+  }
+
   return (
     <div className="mx-auto max-w-[1760px]">
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -122,111 +193,101 @@ export default function QuotesPage() {
           hint="Erstelle ein Angebot manuell oder lass es von der KI generieren."
         />
       ) : (
-        <div className="glass overflow-hidden rounded-2xl">
-          <div className="hidden grid-cols-[1.6fr_1fr_130px_140px_130px_48px] gap-4 border-b border-white/10 px-6 py-4 text-[11px] font-semibold tracking-[0.1em] text-muted-foreground/70 uppercase md:grid">
-            <span>Kunde</span>
-            <span>Nummer</span>
-            <span>Datum</span>
-            <span className="text-right">Betrag</span>
-            <span>Status</span>
-            <span />
-          </div>
-          {rows.map((q) => {
-            const c = customerById(q.customerId)
-            const total = computeTotals(q.items).gross
-            return (
-              <div
-                key={q.id}
-                className="grid grid-cols-2 items-center gap-4 border-b border-white/[0.05] px-6 py-4 transition-colors last:border-0 hover:bg-white/[0.025] md:grid-cols-[1.6fr_1fr_130px_140px_130px_48px]"
-              >
-                <button
-                  onClick={() => {
-                    setEditing(q)
-                    setOpen(true)
-                  }}
-                  className="flex items-center gap-3.5 text-left"
+        <>
+          {/* Phone: Kartenliste */}
+          <div className="space-y-3 md:hidden">
+            {rows.map((q) => {
+              const c = customerById(q.customerId)
+              const total = computeTotals(q.items).gross
+              return (
+                <div
+                  key={q.id}
+                  onClick={() => openEditor(q)}
+                  className="glass cursor-pointer rounded-2xl p-4 transition-colors active:bg-white/[0.04]"
                 >
-                  <Avatar name={c?.company ?? "?"} className="size-11 text-[12px]" />
-                  <span className="min-w-0">
-                    <span className="block truncate text-[15px] font-semibold">{c?.company ?? "—"}</span>
-                    <span className="block truncate text-[13px] text-muted-foreground md:hidden">
-                      {q.number} · {eur(total)}
+                  <div className="flex items-center gap-3">
+                    <Avatar name={c?.company ?? "?"} className="size-11 shrink-0 text-[12px]" />
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">
+                      {c?.company ?? "—"}
                     </span>
-                  </span>
-                </button>
-                <span className="hidden font-mono text-[13px] text-muted-foreground md:block">{q.number}</span>
-                <span className="hidden text-[15px] text-muted-foreground md:block">{dateDE(q.issueDate)}</span>
-                <span className="hidden text-right text-[15px] font-semibold tnum md:block">{eur(total)}</span>
-                <span className="hidden md:block"><QuoteStatusBadge status={q.status} /></span>
-                <div className="flex justify-end">
-                  <Dropdown>
-                    <DropdownTrigger asChild>
-                      <Button variant="ghost" size="icon-sm"><MoreHorizontal className="size-4" /></Button>
-                    </DropdownTrigger>
-                    <DropdownContent>
-                      <DropdownItem onSelect={() => { setEditing(q); setOpen(true) }}>
-                        <Pencil /> Bearbeiten
-                      </DropdownItem>
-                      <DropdownItem asChild>
-                        <Link href={`/print/quote/${q.id}`} target="_blank"><FileDown /> PDF / Drucken</Link>
-                      </DropdownItem>
-                      <DropdownItem
-                        onSelect={() => {
-                          upsertEmail({
-                            to: c?.email ?? "",
-                            customerId: q.customerId,
-                            subject: `Ihr Angebot ${q.number} von Dynaamiq AI`,
-                            body: `Hallo ${c?.contactName ?? ""},\n\nanbei unser Angebot ${q.number} über ${eur(total)}. Bei Fragen bin ich jederzeit für Sie da.\n\nBeste Grüße\nMartin — Dynaamiq AI`,
-                            relatedType: "quote",
-                            relatedId: q.id,
-                            status: "draft",
-                          })
-                          if (q.status === "draft") upsertQuote({ ...q, status: "sent" })
-                          toast.success("E-Mail-Entwurf erstellt")
-                        }}
-                      >
-                        <Mail /> Per E-Mail senden
-                      </DropdownItem>
-                      <DropdownSeparator />
-                      {q.status !== "accepted" && (
-                        <DropdownItem onSelect={() => { upsertQuote({ ...q, status: "accepted" }); toast.success("Angebot angenommen") }}>
-                          <CheckCircle2 /> Als angenommen markieren
-                        </DropdownItem>
-                      )}
-                      <DropdownItem
-                        onSelect={() => {
-                          const inv = convertQuoteToInvoice(q.id)
-                          if (inv) toast.success(`Rechnung ${inv.number} erstellt`, { description: "Im Bereich Rechnungen verfügbar." })
-                        }}
-                      >
-                        <ArrowRightLeft /> In Rechnung umwandeln
-                      </DropdownItem>
-                      <DropdownSeparator />
-                      <DropdownItem
-                        className="text-destructive data-[highlighted]:text-destructive"
-                        onSelect={async () => {
-                          const ok = await confirm({
-                            title: `Angebot ${q.number} löschen?`,
-                            description: `Das Angebot für ${c?.company ?? "diesen Kunden"} wird entfernt.`,
-                            confirmLabel: "Löschen",
-                            destructive: true,
-                          })
-                          if (!ok) return
-                          remove("quotes", q.id)
-                          toast.success("Angebot gelöscht", {
-                            action: { label: "Rückgängig", onClick: () => add("quotes", q) },
-                          })
-                        }}
-                      >
-                        <Trash2 /> Löschen
-                      </DropdownItem>
-                    </DropdownContent>
-                  </Dropdown>
+                    <span className="shrink-0">
+                      <QuoteStatusBadge status={q.status} />
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted-foreground">
+                    <span className="font-mono">{q.number}</span>
+                    <span>Gültig bis {dateDE(q.validUntil)}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="font-display text-lg font-bold tnum">
+                      {eur(total)}
+                    </span>
+                    <Dropdown>
+                      <DropdownTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-lg"
+                          className="size-11"
+                          aria-label="Aktionen"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreHorizontal className="size-5" />
+                        </Button>
+                      </DropdownTrigger>
+                      {menuFor(q)}
+                    </Dropdown>
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+
+          {/* Desktop: Tabelle */}
+          <div className="glass hidden overflow-hidden rounded-2xl md:block">
+            <div className="hidden grid-cols-[1.6fr_1fr_130px_140px_130px_48px] gap-4 border-b border-white/10 px-6 py-4 text-[11px] font-semibold tracking-[0.1em] text-muted-foreground/70 uppercase md:grid">
+              <span>Kunde</span>
+              <span>Nummer</span>
+              <span>Datum</span>
+              <span className="text-right">Betrag</span>
+              <span>Status</span>
+              <span />
+            </div>
+            {rows.map((q) => {
+              const c = customerById(q.customerId)
+              const total = computeTotals(q.items).gross
+              return (
+                <div
+                  key={q.id}
+                  className="grid grid-cols-[1.6fr_1fr_130px_140px_130px_48px] items-center gap-4 border-b border-white/[0.05] px-6 py-4 transition-colors last:border-0 hover:bg-white/[0.025]"
+                >
+                  <button
+                    onClick={() => openEditor(q)}
+                    className="flex items-center gap-3.5 text-left"
+                  >
+                    <Avatar name={c?.company ?? "?"} className="size-11 text-[12px]" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-[15px] font-semibold">{c?.company ?? "—"}</span>
+                    </span>
+                  </button>
+                  <span className="font-mono text-[13px] text-muted-foreground">{q.number}</span>
+                  <span className="text-[15px] text-muted-foreground">{dateDE(q.issueDate)}</span>
+                  <span className="text-right text-[15px] font-semibold tnum">{eur(total)}</span>
+                  <span><QuoteStatusBadge status={q.status} /></span>
+                  <div className="flex justify-end">
+                    <Dropdown>
+                      <DropdownTrigger asChild>
+                        <Button variant="ghost" size="icon-sm" className="size-11 md:size-7">
+                          <MoreHorizontal className="size-4" />
+                        </Button>
+                      </DropdownTrigger>
+                      {menuFor(q)}
+                    </Dropdown>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </>
       )}
 
       <DocEditorDialog

@@ -36,7 +36,7 @@ export function SearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-transparent text-[15px] outline-none placeholder:text-muted-foreground/70"
+        className="w-full bg-transparent text-base outline-none placeholder:text-muted-foreground/70 md:text-[15px]"
       />
     </div>
   )
