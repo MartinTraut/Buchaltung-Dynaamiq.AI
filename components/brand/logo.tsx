@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils"
  * DYNAAMIQ AI Brand-Assets (in /public, Vektor aus dem Original-Brandmark):
  *  - /logo-mark.svg      → Kreis-Wellen-Marke (Cyan-Verlauf, transparent)
  *  - /logo-wordmark.svg  → "DYNAAMIQ AI" Wordmark (Cyan → Blau → Indigo)
- *  - /logo-full.svg      → komplettes Lockup (Marke + Wordmark)
  */
 
 export const BRAND_SUBLINE = "Webdesign & KI-Automatisierung"
