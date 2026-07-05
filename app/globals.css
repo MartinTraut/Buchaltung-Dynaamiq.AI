@@ -193,6 +193,16 @@
       0 8px 30px -8px rgba(31, 123, 242, 0.55),
       0 0 0 1px rgba(0, 255, 230, 0.22) inset;
   }
+
+  /* Dezente Section-Kicker: uppercase Micro-Label über Gruppen-Überschriften */
+  .eyebrow {
+    font-size: 11px;
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(142, 142, 152, 0.85);
+  }
 }
 
 @layer utilities {
@@ -205,6 +215,16 @@
   }
   .animate-fade {
     animation: fade 0.5s ease both;
+  }
+  /* Sanftes Einblenden für Bild-Backdrops (respektiert reduced motion).
+     Eigener Keyframe ohne `to` — endet auf der eigenen opacity-Utility. */
+  .animate-backdrop {
+    animation: backdrop-in 0.45s ease-out both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-backdrop {
+      animation: none;
+    }
   }
   .grid-noise {
     background-image:
@@ -231,6 +251,12 @@
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
   }
 }
 

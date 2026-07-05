@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { nanoid } from "nanoid"
 import {
   Sparkles,
@@ -89,6 +90,8 @@ export default function AssistantPage() {
   const scrollRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
+    // Im leeren Zustand nicht scrollen — sonst wird der Kopf auf Mobile abgeschnitten
+    if (turns.length === 0 && !loading) return
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
   }, [turns, loading])
 
@@ -192,7 +195,23 @@ export default function AssistantPage() {
   const empty = turns.length === 0
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-128px)] max-w-3xl flex-col">
+    <div className="mx-auto flex h-[calc(100dvh-11.5rem)] max-w-3xl flex-col lg:h-[calc(100vh-128px)]">
+      {/* Partikel-Horizont — fixer Backdrop hinter dem Chat, ergänzt die Aurora oben */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 bottom-0 -z-10 h-[38vh] md:h-[52vh]"
+      >
+        <Image
+          src="/backdrop-particles.png"
+          alt=""
+          fill
+          sizes="100vw"
+          className="animate-backdrop object-cover object-bottom opacity-50 md:opacity-70"
+        />
+        {/* Weicher Auslauf nach oben + leichte Abdunklung hinter dem Composer */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#08080a] via-[#08080a]/25 to-[#08080a]/60" />
+      </div>
+
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto pb-4">
         {empty && (
           <div className="flex flex-col items-center justify-center pt-10 text-center">
@@ -200,13 +219,15 @@ export default function AssistantPage() {
               <div className="absolute inset-0 -z-10 animate-pulse rounded-full bg-brand-cyan/20 blur-2xl" />
               <DynaamiqMark size={64} />
             </div>
-            <h2 className="mt-5 font-display text-2xl font-bold tracking-tight">
+            <p className="eyebrow mt-6">Dynaamiq Intelligence</p>
+            <h2 className="mt-3 font-display text-[clamp(1.6rem,1.2rem+1.4vw,2.1rem)] font-bold tracking-tight">
               Was soll ich für dich <span className="text-brand-gradient">erstellen</span>?
             </h2>
-            <p className="mt-2 max-w-md text-sm text-muted-foreground">
+            <p className="mt-2.5 max-w-md text-sm leading-relaxed text-muted-foreground">
               Beschreibe in natürlicher Sprache, was du brauchst — ich erzeuge das Angebot, die Rechnung oder die E-Mail und lege sie nach einem Klick direkt an.
             </p>
-            <div className="mt-7 grid w-full gap-2.5">
+            <p className="eyebrow mt-9 w-full text-left">Schnellstart</p>
+            <div className="mt-3 grid w-full gap-2.5">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s.label}
@@ -290,9 +311,9 @@ export default function AssistantPage() {
         )}
       </div>
 
-      {/* Composer */}
+      {/* Composer — frosted, damit er über dem Partikel-Horizont ruhig steht */}
       <div className="border-t border-white/8 pt-4">
-        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-2 focus-within:border-brand-cyan/40">
+        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-[#0d0d12]/75 p-2 backdrop-blur-xl transition-colors focus-within:border-brand-cyan/40">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}

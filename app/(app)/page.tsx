@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import Image from "next/image"
 import {
   TrendingUp,
   TrendingDown,
@@ -24,7 +25,7 @@ import { KpiCard, SectionTitle } from "@/components/kpi-card"
 import { RevenueArea, PipelineBars, DonutChart } from "@/components/charts"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, Progress } from "@/components/ui/misc"
+import { Avatar, Progress, StatPill } from "@/components/ui/misc"
 import { Button } from "@/components/ui/button"
 import {
   Dropdown,
@@ -100,31 +101,59 @@ export default function DashboardPage() {
     setRevSeries((prev) => ({ ...prev, [key]: !prev[key] }))
 
   return (
-    <div className="mx-auto max-w-[1760px] space-y-6">
-      {/* Greeting hero */}
-      <div className="animate-fade flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium tracking-wide text-muted-foreground">
-            Willkommen zurück, {ownerFirstName(db.settings)} 👋
-          </p>
-          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-[34px]">
-            Dein Business-Cockpit
-          </h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            {dateDE(new Date().toISOString())} · Alles Wichtige auf einen Blick
-          </p>
+    <div className="mx-auto max-w-[1760px] space-y-9">
+      {/* Hero — souveräne Kopfzone über dem Waves-Backdrop */}
+      <section className="animate-fade relative overflow-hidden rounded-3xl border border-white/10 bg-[#0a0a10]">
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          <Image
+            src="/backdrop-waves.png"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="animate-backdrop object-cover object-[78%_0%] opacity-75"
+          />
+          {/* Lesbarkeits-Fades: links für Copy, unten Auslauf in den Seitengrund */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#08080a]/90 via-[#08080a]/45 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#08080a]/80 via-transparent to-transparent" />
         </div>
-        <Button asChild variant="brand" size="lg" className="h-11 gap-2 px-5 text-[15px]">
-          <Link href="/assistant">
-            <Sparkles className="size-4" /> Mit KI erstellen
-          </Link>
-        </Button>
-      </div>
+
+        <div className="relative flex flex-wrap items-end justify-between gap-x-10 gap-y-7 p-6 sm:p-9 lg:p-10">
+          <div className="min-w-0">
+            <p className="eyebrow">Cockpit · {dateDE(new Date().toISOString())}</p>
+            <h1 className="mt-3 font-display text-[clamp(1.9rem,1.3rem+1.9vw,2.75rem)] font-bold leading-[1.08] tracking-tight">
+              Willkommen zurück, {ownerFirstName(db.settings)}
+            </h1>
+            <p className="mt-2.5 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
+              Finanzen, Pipeline und offene Vorgänge — alles Wichtige auf einen Blick.
+            </p>
+            <Button asChild variant="brand" size="lg" className="mt-6 h-11 gap-2 px-5 text-[15px]">
+              <Link href="/assistant">
+                <Sparkles className="size-4" /> Mit KI erstellen
+              </Link>
+            </Button>
+          </div>
+
+          <div className="sm:text-right">
+            <p className="eyebrow">Umsatz diesen Monat</p>
+            <p className="mt-3 font-display text-[clamp(2.1rem,1.5rem+2.2vw,3.15rem)] font-bold leading-none tracking-tight tnum text-brand-gradient">
+              {eur(k.monthRevenue)}
+            </p>
+            <div className="mt-2.5 flex items-center gap-2 sm:justify-end">
+              <StatPill delta={k.revDelta} />
+              <span className="text-xs text-muted-foreground">vs. Vormonat</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* KPI strip — konfigurierbar */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <SectionTitle className="mb-0">Kennzahlen</SectionTitle>
+      <section>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div>
+            <p className="eyebrow">Überblick</p>
+            <SectionTitle className="mb-0 mt-1.5">Kennzahlen</SectionTitle>
+          </div>
           <Dropdown>
             <DropdownTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5">
@@ -181,10 +210,15 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
-      </div>
+      </section>
 
       {/* Revenue + pipeline */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <section>
+        <div className="mb-4">
+          <p className="eyebrow">Finanzen</p>
+          <SectionTitle className="mb-0 mt-1.5">Umsatz & Pipeline</SectionTitle>
+        </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <div className="flex items-center justify-between p-5 pb-0">
             <div>
@@ -208,10 +242,16 @@ export default function DashboardPage() {
             <PipelineBars data={pipe} />
           </div>
         </Card>
-      </div>
+        </div>
+      </section>
 
       {/* Lower grid */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+      <section>
+        <div className="mb-4">
+          <p className="eyebrow">Operativ</p>
+          <SectionTitle className="mb-0 mt-1.5">Heute im Blick</SectionTitle>
+        </div>
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
         {/* Activity */}
         <Card className="lg:col-span-1">
           <div className="p-5 pb-2">
@@ -343,14 +383,17 @@ export default function DashboardPage() {
             </div>
           </Card>
         </div>
-      </div>
+        </div>
+      </section>
 
       {/* Top customers — volle Breite */}
-      <Card>
-        <div className="p-5 pb-2">
-          <SectionTitle className="mb-0">Top-Kunden nach Umsatz</SectionTitle>
+      <section>
+        <div className="mb-4">
+          <p className="eyebrow">Kunden</p>
+          <SectionTitle className="mb-0 mt-1.5">Top-Kunden nach Umsatz</SectionTitle>
         </div>
-        <div className="grid gap-x-8 gap-y-3 p-5 pt-2 md:grid-cols-2">
+        <Card>
+        <div className="grid gap-x-8 gap-y-3 p-5 md:grid-cols-2">
           {topCustomers.map(({ c, revenue }) => (
             <div key={c.id} className="flex items-center gap-3">
               <Avatar name={c.company} className="size-9" />
@@ -364,7 +407,8 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
-      </Card>
+        </Card>
+      </section>
     </div>
   )
 }
