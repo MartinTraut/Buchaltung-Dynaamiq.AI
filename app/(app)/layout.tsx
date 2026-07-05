@@ -19,7 +19,7 @@ export default function AppLayout({
           <Sidebar />
           <div className="flex min-w-0 flex-1 flex-col">
             <Topbar />
-            <main className="flex-1 px-4 pb-24 pt-7 sm:px-5 lg:px-8 lg:pb-12">
+            <main className="flex-1 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-7 sm:px-5 lg:px-8 lg:pb-12">
               {children}
             </main>
             <MobileNav />

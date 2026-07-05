@@ -99,6 +99,8 @@
     /* Sanfter globaler Zoom: skaliert alle rem-basierten Schrift- & Box-Größen
        proportional hoch → großzügigeres, klareres Premium-Layout. */
     font-size: 16.5px;
+    /* iOS: kein graues Aufblitzen beim Tippen */
+    -webkit-tap-highlight-color: transparent;
   }
   @media (min-width: 1536px) {
     html {
@@ -110,6 +112,8 @@
     color: var(--foreground);
     font-feature-settings: "ss01", "cv01";
     -webkit-font-smoothing: antialiased;
+    /* iOS: kein Gummiband-Scrollen der ganzen App-Shell */
+    overscroll-behavior-y: none;
   }
   /* Atmospheric backdrop — subtle brand aurora baked into the page */
   body::before {

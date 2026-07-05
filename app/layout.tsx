@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Sora, Manrope, JetBrains_Mono } from "next/font/google"
 
 import "./globals.css"
@@ -22,6 +22,14 @@ const fontMono = JetBrains_Mono({
   variable: "--font-mono",
   weight: ["400", "500", "600", "700"],
 })
+
+// viewport-fit=cover → env(safe-area-inset-*) liefert echte Werte (iPhone-Notch/Home-Bar)
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#08080a",
+}
 
 export const metadata: Metadata = {
   title: "DYNAAMIQ AI — Business Cockpit",
