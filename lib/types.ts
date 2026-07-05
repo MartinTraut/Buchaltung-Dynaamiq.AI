@@ -92,6 +92,9 @@ export interface Invoice {
   status: InvoiceStatus
   issueDate: string
   dueDate: string
+  serviceDate?: string // Leistungsdatum (§14 UStG) — Fallback: Rechnungsdatum
+  servicePeriodEnd?: string // optionales Ende bei Leistungszeitraum
+  cancelsInvoiceId?: string // gesetzt bei Stornorechnung → ID der Originalrechnung
   items: LineItem[]
   notes?: string
   projectId?: ID
@@ -117,6 +120,7 @@ export interface Quote {
   validUntil: string
   items: LineItem[]
   notes?: string
+  projectId?: ID
   createdAt: string
 }
 
@@ -190,6 +194,8 @@ export interface CompanySettings {
   registerNumber?: string // HR-Nr.
   management?: string // Geschäftsführung
   ownerName?: string // Standard-Ansprechpartner
+  smallBusiness: boolean // §19 UStG Kleinunternehmer — keine USt auf Dokumenten
+  reminderFee: number // € Mahngebühr je Mahnstufe (ab 1. Mahnung)
   defaultTaxRate: number
   invoicePrefix: string
   quotePrefix: string

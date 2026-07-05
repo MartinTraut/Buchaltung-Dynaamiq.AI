@@ -4,6 +4,7 @@ import * as React from "react"
 import { nanoid } from "nanoid"
 import { seedDatabase } from "./seed"
 import { computeTotals } from "./format"
+import { REMINDER_LABEL } from "./types"
 import type {
   Database,
   Customer,
@@ -46,6 +47,7 @@ interface StoreContextValue {
   toggleTask: (id: string) => void
   upsertInvoice: (i: Partial<Invoice> & { id?: string }) => Invoice
   setInvoiceStatus: (id: string, status: Invoice["status"]) => void
+  createCancellation: (invoiceId: string) => Invoice | null
   sendReminder: (id: string) => { invoice: Invoice; email: EmailDraft } | null
   toggleRecurring: (id: string) => void
   duplicateRecurring: (id: string) => Invoice | null
@@ -62,6 +64,13 @@ interface StoreContextValue {
 }
 
 const StoreContext = React.createContext<StoreContextValue | null>(null)
+
+/** Nur explizit gesetzte Felder eines Partials übernehmen (undefined ausfiltern). */
+function definedProps<T extends object>(obj: Partial<T>): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined),
+  ) as Partial<T>
+}
 
 function load(): Database {
   if (typeof window === "undefined") return seedDatabase()
@@ -295,6 +304,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         createdAt: i.createdAt ?? new Date().toISOString(),
       }
       setDb((d) => {
+        // Beim Update gegen den Bestand mergen — sonst gehen Felder wie
+        // reminderLevel, lastReminderAt, recurring, cancelsInvoiceId verloren.
+        const existing = d.invoices.find((x) => x.id === full.id)
+        if (existing) {
+          Object.assign(full, { ...existing, ...definedProps<Invoice>(i) })
+        }
         let number = full.number
         let settings = d.settings
         if (!number) {
@@ -302,12 +317,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           full.number = number
           settings = { ...d.settings, nextInvoiceNo: d.settings.nextInvoiceNo + 1 }
         }
-        const exists = d.invoices.some((x) => x.id === full.id)
         return {
           ...d,
           settings,
-          invoices: exists
-            ? d.invoices.map((x) => (x.id === full.id ? full : x))
+          invoices: existing
+            ? d.invoices.map((x) => (x.id === full.id ? { ...full } : x))
             : [full, ...d.invoices],
         }
       })
@@ -326,6 +340,65 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [],
   )
 
+  const createCancellation: StoreContextValue["createCancellation"] =
+    React.useCallback((invoiceId) => {
+      let created: Invoice | null = null
+      setDb((d) => {
+        const src = d.invoices.find((x) => x.id === invoiceId)
+        if (
+          !src ||
+          src.status === "draft" ||
+          src.status === "canceled" ||
+          src.cancelsInvoiceId // kein Storno eines Stornos
+        )
+          return d
+        const number = `${d.settings.invoicePrefix}-${d.settings.nextInvoiceNo}`
+        const now = new Date().toISOString()
+        const inv: Invoice = {
+          id: nanoid(8),
+          number,
+          customerId: src.customerId,
+          status: "sent",
+          issueDate: now,
+          dueDate: now,
+          serviceDate: src.serviceDate,
+          servicePeriodEnd: src.servicePeriodEnd,
+          cancelsInvoiceId: src.id,
+          items: src.items.map((it) => ({
+            ...it,
+            id: nanoid(6),
+            qty: it.qty * -1,
+          })),
+          notes: `Stornorechnung zu Rechnung ${src.number}.`,
+          projectId: src.projectId,
+          createdAt: now,
+        }
+        created = inv
+        const c = d.customers.find((x) => x.id === src.customerId)
+        return {
+          ...d,
+          settings: { ...d.settings, nextInvoiceNo: d.settings.nextInvoiceNo + 1 },
+          invoices: [
+            inv,
+            ...d.invoices.map((x) =>
+              x.id === invoiceId ? { ...x, status: "canceled" as const } : x,
+            ),
+          ],
+          activities: [
+            {
+              id: nanoid(8),
+              type: "invoice" as const,
+              title: `Stornorechnung ${number} zu ${src.number}`,
+              meta: c?.company,
+              at: now,
+            },
+            ...d.activities,
+          ],
+        }
+      })
+      return created
+    }, [])
+
   const sendReminder: StoreContextValue["sendReminder"] = React.useCallback(
     (id) => {
       let result: { invoice: Invoice; email: EmailDraft } | null = null
@@ -333,15 +406,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const inv = d.invoices.find((x) => x.id === id)
         if (!inv) return d
         const level = Math.min((inv.reminderLevel ?? 0) + 1, 4)
-        const labels: Record<number, string> = {
-          1: "Zahlungserinnerung",
-          2: "1. Mahnung",
-          3: "2. Mahnung",
-          4: "Letzte Mahnung",
-        }
         const c = d.customers.find((x) => x.id === inv.customerId)
-        const gross = computeTotals(inv.items).gross
-        const fee = level >= 2 ? (level - 1) * 5 : 0
+        // Stufe 1 = Zahlungserinnerung ohne Gebühr, danach je Mahnstufe kumuliert.
+        const fee = level >= 2 ? d.settings.reminderFee * (level - 1) : 0
+        // Idempotent: vorhandene Mahngebühr-Positionen erst entfernen, dann neu setzen.
+        const baseItems = inv.items.filter(
+          (it) => !it.description.startsWith("Mahngebühr"),
+        )
+        const items: LineItem[] =
+          fee > 0
+            ? [
+                ...baseItems,
+                {
+                  id: nanoid(6),
+                  description: `Mahngebühr (${REMINDER_LABEL[level]})`,
+                  unit: "Pauschal",
+                  qty: 1,
+                  unitPrice: fee,
+                  taxRate: 0,
+                },
+              ]
+            : baseItems
+        const gross = computeTotals(baseItems).gross
         const dueStr = new Date(inv.dueDate).toLocaleDateString("de-DE")
         const body =
           level === 1
@@ -351,7 +437,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           id: nanoid(8),
           to: c?.email ?? "",
           customerId: inv.customerId,
-          subject: `${labels[level]} — Rechnung ${inv.number}`,
+          subject: `${REMINDER_LABEL[level]} — Rechnung ${inv.number}`,
           body,
           status: "draft",
           relatedType: "invoice",
@@ -363,6 +449,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           status: inv.status === "paid" ? inv.status : "overdue",
           reminderLevel: level,
           lastReminderAt: new Date().toISOString(),
+          items,
         }
         result = { invoice: updatedInv, email }
         return {
@@ -373,7 +460,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             {
               id: nanoid(8),
               type: "invoice" as const,
-              title: `${labels[level]} erstellt — ${inv.number}`,
+              title: `${REMINDER_LABEL[level]} erstellt — ${inv.number}`,
               meta: c?.company,
               at: new Date().toISOString(),
             },
@@ -415,6 +502,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           items: src.items.map((it) => ({ ...it, id: nanoid(6) })),
           reminderLevel: 0,
           lastReminderAt: undefined,
+          serviceDate: undefined,
+          servicePeriodEnd: undefined,
+          cancelsInvoiceId: undefined,
           createdAt: new Date().toISOString(),
         }
         created = inv
@@ -448,9 +538,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       validUntil: q.validUntil ?? new Date().toISOString(),
       items: q.items ?? [],
       notes: q.notes,
+      projectId: q.projectId,
       createdAt: q.createdAt ?? new Date().toISOString(),
     }
     setDb((d) => {
+      // Beim Update gegen den Bestand mergen (z. B. projectId erhalten).
+      const existing = d.quotes.find((x) => x.id === full.id)
+      if (existing) {
+        Object.assign(full, { ...existing, ...definedProps<Quote>(q) })
+      }
       let number = full.number
       let settings = d.settings
       if (!number) {
@@ -458,12 +554,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         full.number = number
         settings = { ...d.settings, nextQuoteNo: d.settings.nextQuoteNo + 1 }
       }
-      const exists = d.quotes.some((x) => x.id === full.id)
       return {
         ...d,
         settings,
-        quotes: exists
-          ? d.quotes.map((x) => (x.id === full.id ? full : x))
+        quotes: existing
+          ? d.quotes.map((x) => (x.id === full.id ? { ...full } : x))
           : [full, ...d.quotes],
       }
     })
@@ -487,6 +582,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         dueDate: dueDate.toISOString(),
         items: q.items.map((it) => ({ ...it, id: nanoid(6) })),
         notes: q.notes,
+        projectId: q.projectId,
         createdAt: new Date().toISOString(),
       }
       created = inv
@@ -607,6 +703,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toggleTask,
     upsertInvoice,
     setInvoiceStatus,
+    createCancellation,
     sendReminder,
     toggleRecurring,
     duplicateRecurring,
