@@ -139,21 +139,21 @@ export default function AssistantPage() {
       const customerId = resolveCustomerId(action)
       const valid = new Date(); valid.setDate(valid.getDate() + (action.validDays ?? 21))
       const q = upsertQuote({ customerId, status: "draft", issueDate: new Date().toISOString(), validUntil: valid.toISOString(), items, notes: docNotes })
-      pushActivity({ type: "ai", title: `KI-Angebot ${q.number} erstellt`, meta: customerById(customerId)?.company })
+      pushActivity({ type: "ai", title: `KI-Angebot ${q.number} erstellt`, meta: customerById(customerId)?.company, customerId })
       finish(turnId, { kind: "Angebot", href: "/quotes", label: `${q.number} öffnen` })
       toast.success(`Angebot ${q.number} erstellt`)
     } else if (action.type === "invoice") {
       const customerId = resolveCustomerId(action)
       const due = new Date(); due.setDate(due.getDate() + db.settings.paymentTermsDays)
       const inv = upsertInvoice({ customerId, status: "draft", issueDate: new Date().toISOString(), dueDate: due.toISOString(), items, notes: docNotes })
-      pushActivity({ type: "ai", title: `KI-Rechnung ${inv.number} erstellt`, meta: customerById(customerId)?.company })
+      pushActivity({ type: "ai", title: `KI-Rechnung ${inv.number} erstellt`, meta: customerById(customerId)?.company, customerId })
       finish(turnId, { kind: "Rechnung", href: "/invoices", label: `${inv.number} öffnen` })
       toast.success(`Rechnung ${inv.number} erstellt`)
     } else if (action.type === "email" && action.email) {
       const customerId = action.customerName ? resolveCustomerId(action) : undefined
       const c = customerId ? customerById(customerId) : undefined
       upsertEmail({ to: c?.email ?? "", customerId, subject: action.email.subject, body: action.email.body, status: "draft" })
-      pushActivity({ type: "ai", title: `KI-E-Mail erstellt`, meta: c?.company })
+      pushActivity({ type: "ai", title: `KI-E-Mail erstellt`, meta: c?.company, customerId })
       finish(turnId, { kind: "E-Mail", href: "/emails", label: "Entwurf öffnen" })
       toast.success("E-Mail-Entwurf erstellt")
     } else if (action.type === "contact" && action.contact) {
@@ -167,7 +167,7 @@ export default function AssistantPage() {
         tags: action.contact.tags ?? [],
         health: "lead",
       })
-      pushActivity({ type: "customer", title: `KI-Kontakt angelegt — ${c.company}`, meta: c.city })
+      pushActivity({ type: "customer", title: `KI-Kontakt angelegt — ${c.company}`, meta: c.city, customerId: c.id })
       finish(turnId, { kind: "Kontakt", href: "/crm", label: `${c.company} öffnen` })
       toast.success(`Kontakt ${c.company} angelegt`)
     } else if (action.type === "expense" && action.expense) {

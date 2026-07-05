@@ -1,7 +1,9 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useQueryFlag } from "@/hooks/use-query-flag"
+import { useLocalState } from "@/hooks/use-local-state"
 import { useRouter } from "next/navigation"
 import {
   Plus,
@@ -14,11 +16,22 @@ import {
   Pencil,
   FileText,
   ReceiptEuro,
+  LayoutGrid,
+  List,
+  TrendingUp,
+  History,
+  type LucideIcon,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
-import { eur, dateDE, computeTotals } from "@/lib/format"
-import type { Customer } from "@/lib/types"
+import { eur, dateDE, relativeTime, computeTotals } from "@/lib/format"
+import {
+  DEAL_STAGES,
+  INVOICE_STATUS_LABEL,
+  QUOTE_STATUS_LABEL,
+  type Activity,
+  type Customer,
+} from "@/lib/types"
 import { DocEditorDialog } from "@/components/documents/doc-editor"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -35,13 +48,60 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 type Health = "all" | "active" | "lead" | "churned"
+type CrmView = "grid" | "list"
+type CrmSort = "name" | "revenue" | "activity"
 
 const HEALTH_BADGE: Record<Customer["health"], { label: string; variant: "success" | "brand" | "muted" }> = {
   active: { label: "Aktiv", variant: "success" },
   lead: { label: "Lead", variant: "brand" },
   churned: { label: "Inaktiv", variant: "muted" },
+}
+
+// ---------- Kunden-Verlauf (gemischte Timeline) ----------
+
+type TimelineItem = {
+  id: string
+  kind: "invoice" | "quote" | "deal" | "email" | "activity"
+  at: string
+  title: string
+  amount?: number
+  status?: string
+  href: string
+}
+
+const TIMELINE_ICON: Record<TimelineItem["kind"], LucideIcon> = {
+  invoice: ReceiptEuro,
+  quote: FileText,
+  deal: TrendingUp,
+  email: Mail,
+  activity: History,
+}
+
+const ACTIVITY_HREF: Record<Activity["type"], string> = {
+  invoice: "/invoices",
+  quote: "/quotes",
+  deal: "/pipeline",
+  customer: "/crm",
+  project: "/projects",
+  email: "/emails",
+  payment: "/finance",
+  ai: "/assistant",
+}
+
+/** Nächste freie Kundennummer — Format des Bestands respektieren (höchster numerischer Suffix + 1). */
+function nextCustomerNumber(customers: Customer[]): string {
+  let best: { prefix: string; num: number; width: number } | null = null
+  for (const c of customers) {
+    const m = /^(.*?)(\d+)$/.exec((c.customerNumber ?? "").trim())
+    if (!m) continue
+    const num = parseInt(m[2], 10)
+    if (!best || num > best.num) best = { prefix: m[1], num, width: m[2].length }
+  }
+  if (!best) return "K-1001"
+  return `${best.prefix}${String(best.num + 1).padStart(best.width, "0")}`
 }
 
 export default function CrmPage() {
@@ -51,6 +111,8 @@ export default function CrmPage() {
   const wantNew = useQueryFlag("new")
   const [query, setQuery] = React.useState("")
   const [filter, setFilter] = React.useState<Health>("all")
+  const [view, setView] = useLocalState<CrmView>("dyn-crm-view", "grid")
+  const [sortBy, setSortBy] = React.useState<CrmSort>("name")
   const [editing, setEditing] = React.useState<Customer | null>(null)
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [detailId, setDetailId] = React.useState<string | null>(null)
@@ -88,6 +150,77 @@ export default function CrmPage() {
     setDialogOpen(true)
   }
 
+  // Eine Ableitung über die ganze DB: Verlauf je Kunde + „zuletzt aktiv" + Umsatz.
+  const { timelineByCustomer, lastActivityAt, revenueByCustomer } = React.useMemo(() => {
+    const timeline = new Map<string, TimelineItem[]>()
+    const push = (cid: string | undefined, item: TimelineItem) => {
+      if (!cid) return
+      const list = timeline.get(cid) ?? []
+      list.push(item)
+      timeline.set(cid, list)
+    }
+    for (const i of db.invoices)
+      push(i.customerId, {
+        id: `inv-${i.id}`,
+        kind: "invoice",
+        at: i.issueDate,
+        title: `Rechnung ${i.number}`,
+        amount: computeTotals(i.items).gross,
+        status: INVOICE_STATUS_LABEL[i.status],
+        href: "/invoices",
+      })
+    for (const q of db.quotes)
+      push(q.customerId, {
+        id: `quo-${q.id}`,
+        kind: "quote",
+        at: q.issueDate,
+        title: `Angebot ${q.number}`,
+        amount: computeTotals(q.items).gross,
+        status: QUOTE_STATUS_LABEL[q.status],
+        href: "/quotes",
+      })
+    for (const d of db.deals)
+      push(d.customerId, {
+        id: `deal-${d.id}`,
+        kind: "deal",
+        at: d.createdAt,
+        title: `Deal — ${d.title}`,
+        amount: d.value,
+        status: DEAL_STAGES.find((s) => s.id === d.stage)?.label,
+        href: "/pipeline",
+      })
+    for (const e of db.emails)
+      push(e.customerId, {
+        id: `mail-${e.id}`,
+        kind: "email",
+        at: e.createdAt,
+        title: e.subject || "E-Mail",
+        status: e.status === "sent" ? "Gesendet" : "Entwurf",
+        href: "/emails",
+      })
+    for (const a of db.activities)
+      push(a.customerId, {
+        id: `act-${a.id}`,
+        kind: "activity",
+        at: a.at,
+        title: a.title,
+        href: ACTIVITY_HREF[a.type] ?? "/",
+      })
+
+    const last = new Map<string, string>()
+    for (const [cid, items] of timeline) {
+      items.sort((x, y) => y.at.localeCompare(x.at))
+      last.set(cid, items[0].at)
+    }
+
+    const revenue = new Map<string, number>()
+    for (const i of db.invoices) {
+      if (i.status !== "paid") continue
+      revenue.set(i.customerId, (revenue.get(i.customerId) ?? 0) + computeTotals(i.items).gross)
+    }
+    return { timelineByCustomer: timeline, lastActivityAt: last, revenueByCustomer: revenue }
+  }, [db])
+
   const filtered = db.customers.filter((c) => {
     if (filter !== "all" && c.health !== filter) return false
     const q = query.toLowerCase()
@@ -98,6 +231,15 @@ export default function CrmPage() {
       c.tags.some((t) => t.toLowerCase().includes(q))
     )
   })
+
+  const sorted = [...filtered]
+  if (sortBy === "name") sorted.sort((a, b) => a.company.localeCompare(b.company, "de"))
+  else if (sortBy === "revenue")
+    sorted.sort((a, b) => (revenueByCustomer.get(b.id) ?? 0) - (revenueByCustomer.get(a.id) ?? 0))
+  else
+    sorted.sort((a, b) =>
+      (lastActivityAt.get(b.id) ?? "").localeCompare(lastActivityAt.get(a.id) ?? ""),
+    )
 
   const counts = {
     all: db.customers.length,
@@ -110,7 +252,7 @@ export default function CrmPage() {
 
   return (
     <div className="mx-auto max-w-[1760px]">
-      <Toolbar>
+      <Toolbar className="mb-3">
         <SearchInput value={query} onChange={setQuery} placeholder="Kunde, Kontakt oder Tag…" />
         <FilterChips
           value={filter}
@@ -127,7 +269,46 @@ export default function CrmPage() {
         </Button>
       </Toolbar>
 
-      {filtered.length === 0 ? (
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <span className="text-[13px] text-muted-foreground">Sortieren:</span>
+        <FilterChips
+          value={sortBy}
+          onChange={setSortBy}
+          options={[
+            { id: "name", label: "Name" },
+            { id: "revenue", label: "Umsatz" },
+            { id: "activity", label: "Zuletzt aktiv" },
+          ]}
+        />
+        <div className="ml-auto flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+          <button
+            aria-label="Kartenansicht"
+            onClick={() => setView("grid")}
+            className={cn(
+              "grid size-9 place-items-center rounded-lg transition-colors",
+              view === "grid"
+                ? "bg-white/[0.08] text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <LayoutGrid className="size-[18px]" />
+          </button>
+          <button
+            aria-label="Listenansicht"
+            onClick={() => setView("list")}
+            className={cn(
+              "grid size-9 place-items-center rounded-lg transition-colors",
+              view === "list"
+                ? "bg-white/[0.08] text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <List className="size-[18px]" />
+          </button>
+        </div>
+      </div>
+
+      {sorted.length === 0 ? (
         <EmptyState
           icon={<Building2 className="size-6" />}
           title="Keine Kunden gefunden"
@@ -138,15 +319,14 @@ export default function CrmPage() {
             </Button>
           }
         />
-      ) : (
+      ) : view === "grid" ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((c) => {
-            const revenue = db.invoices
-              .filter((i) => i.customerId === c.id && i.status === "paid")
-              .reduce((s, i) => s + computeTotals(i.items).gross, 0)
+          {sorted.map((c) => {
+            const revenue = revenueByCustomer.get(c.id) ?? 0
             const openDeals = db.deals.filter(
               (d) => d.customerId === c.id && d.stage !== "won" && d.stage !== "lost",
             ).length
+            const last = lastActivityAt.get(c.id)
             const hb = HEALTH_BADGE[c.health]
             return (
               <Card
@@ -183,17 +363,82 @@ export default function CrmPage() {
                     <p className="font-semibold tnum">{openDeals}</p>
                   </div>
                 </div>
+
+                <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/8 pt-2.5 text-[11.5px] text-muted-foreground">
+                  <span className="font-mono">{c.customerNumber ?? ""}</span>
+                  <span className="truncate">
+                    {last ? `zuletzt aktiv ${relativeTime(last)}` : "noch keine Aktivität"}
+                  </span>
+                </div>
               </Card>
             )
           })}
         </div>
+      ) : (
+        <div className="glass overflow-hidden rounded-2xl">
+          <div className="overflow-x-auto">
+            <div className="min-w-[900px]">
+              <div className="grid grid-cols-[minmax(240px,1.8fr)_110px_110px_130px_110px_170px] items-center gap-4 border-b border-white/10 px-6 py-4 text-[11px] font-semibold tracking-[0.1em] text-muted-foreground/70 uppercase">
+                <span>Kunde</span>
+                <span>Nr.</span>
+                <span>Status</span>
+                <span className="text-right">Umsatz</span>
+                <span className="text-right">Offene Deals</span>
+                <span>Zuletzt aktiv</span>
+              </div>
+              {sorted.map((c) => {
+                const revenue = revenueByCustomer.get(c.id) ?? 0
+                const openDeals = db.deals.filter(
+                  (d) => d.customerId === c.id && d.stage !== "won" && d.stage !== "lost",
+                ).length
+                const last = lastActivityAt.get(c.id)
+                const hb = HEALTH_BADGE[c.health]
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setDetailId(c.id)}
+                    className="grid w-full grid-cols-[minmax(240px,1.8fr)_110px_110px_130px_110px_170px] items-center gap-4 border-b border-white/[0.05] px-6 py-4 text-left transition-colors last:border-0 hover:bg-white/[0.025]"
+                  >
+                    <span className="flex min-w-0 items-center gap-3.5">
+                      <Avatar name={c.company} className="size-11 text-[12px]" />
+                      <span className="min-w-0">
+                        <span className="block truncate text-[15px] font-semibold">
+                          {c.company}
+                        </span>
+                        <span className="block truncate text-[13px] text-muted-foreground">
+                          {c.contactName || "—"}
+                        </span>
+                      </span>
+                    </span>
+                    <span className="font-mono text-[13px] text-muted-foreground">
+                      {c.customerNumber ?? "—"}
+                    </span>
+                    <span>
+                      <Badge variant={hb.variant}>{hb.label}</Badge>
+                    </span>
+                    <span className="text-right text-[15px] font-semibold tnum">
+                      {eur(revenue, { compact: true })}
+                    </span>
+                    <span className="text-right text-[15px] tnum text-muted-foreground">
+                      {openDeals}
+                    </span>
+                    <span className="truncate text-[14px] text-muted-foreground">
+                      {last ? relativeTime(last) : "—"}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
       )}
 
       <CustomerDialog
-        key={editing?.id ?? "new"}
+        key={dialogOpen ? (editing?.id ?? "new") : "closed"}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         customer={editing}
+        suggestedNumber={editing ? undefined : nextCustomerNumber(db.customers)}
         onSave={(data) => {
           upsertCustomer(data)
           toast.success(editing ? "Kunde aktualisiert" : "Kunde angelegt")
@@ -210,7 +455,14 @@ export default function CrmPage() {
                 <Avatar name={detail.company} className="size-12" />
                 <div>
                   <DialogTitle>{detail.company}</DialogTitle>
-                  <p className="text-sm text-muted-foreground">{detail.contactName}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {detail.contactName}
+                    {detail.customerNumber && (
+                      <span className="ml-2 font-mono text-[12px] text-muted-foreground/70">
+                        {detail.customerNumber}
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
             </DialogHeader>
@@ -240,10 +492,7 @@ export default function CrmPage() {
 
             <div className="grid grid-cols-3 gap-3">
               {(() => {
-                const inv = db.invoices.filter((i) => i.customerId === detail.id)
-                const revenue = inv
-                  .filter((i) => i.status === "paid")
-                  .reduce((s, i) => s + computeTotals(i.items).gross, 0)
+                const revenue = revenueByCustomer.get(detail.id) ?? 0
                 const deals = db.deals.filter((d) => d.customerId === detail.id)
                 const projects = db.projects.filter((p) => p.customerId === detail.id)
                 return (
@@ -261,6 +510,54 @@ export default function CrmPage() {
                 {detail.notes}
               </div>
             )}
+
+            <div>
+              <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground">
+                Verlauf
+              </p>
+              {(() => {
+                const items = timelineByCustomer.get(detail.id) ?? []
+                if (items.length === 0)
+                  return (
+                    <p className="rounded-xl border border-white/8 bg-white/[0.02] p-3 text-sm text-muted-foreground">
+                      Noch keine Aktivitäten zu diesem Kunden.
+                    </p>
+                  )
+                return (
+                  <div className="max-h-64 space-y-0.5 overflow-y-auto rounded-xl border border-white/8 bg-white/[0.02] p-2">
+                    {items.map((item) => {
+                      const Icon = TIMELINE_ICON[item.kind]
+                      return (
+                        <Link
+                          key={item.id}
+                          href={item.href}
+                          onClick={() => setDetailId(null)}
+                          className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
+                        >
+                          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white/[0.05] text-muted-foreground">
+                            <Icon className="size-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[13.5px] font-medium">
+                              {item.title}
+                            </span>
+                            <span className="block text-[11.5px] text-muted-foreground">
+                              {dateDE(item.at)} · {relativeTime(item.at)}
+                              {item.status ? ` · ${item.status}` : ""}
+                            </span>
+                          </span>
+                          {item.amount !== undefined && (
+                            <span className="shrink-0 text-[13px] font-semibold tnum">
+                              {eur(item.amount)}
+                            </span>
+                          )}
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
 
             <div>
               <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground">
@@ -367,15 +664,22 @@ function CustomerDialog({
   open,
   onOpenChange,
   customer,
+  suggestedNumber,
   onSave,
 }: {
   open: boolean
   onOpenChange: (o: boolean) => void
   customer: Customer | null
+  suggestedNumber?: string
   onSave: (data: Partial<Customer> & { id?: string }) => void
 }) {
   const [form, setForm] = React.useState<Partial<Customer>>(
-    customer ?? { health: "lead", country: "Deutschland", tags: [] },
+    customer ?? {
+      health: "lead",
+      country: "Deutschland",
+      tags: [],
+      customerNumber: suggestedNumber,
+    },
   )
   const [tagText, setTagText] = React.useState((customer?.tags ?? []).join(", "))
   const set = (patch: Partial<Customer>) => setForm((f) => ({ ...f, ...patch }))
@@ -404,6 +708,9 @@ function CustomerDialog({
           </Field>
           <Field label="USt-IdNr.">
             <Input value={form.vatId ?? ""} onChange={(e) => set({ vatId: e.target.value })} placeholder="DE…" />
+          </Field>
+          <Field label="Kundennummer">
+            <Input value={form.customerNumber ?? ""} onChange={(e) => set({ customerNumber: e.target.value })} placeholder="z. B. K-1001" />
           </Field>
           <Field label="Adresse">
             <Input value={form.address ?? ""} onChange={(e) => set({ address: e.target.value })} placeholder="Straße & Nr." />

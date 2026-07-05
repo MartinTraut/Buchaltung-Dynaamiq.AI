@@ -117,6 +117,7 @@ export function DocEditorDialog({
           type: "invoice",
           title: `Rechnung ${saved.number} erstellt`,
           meta: db.customers.find((c) => c.id === customerId)?.company,
+          customerId,
         })
       onSaved?.(saved)
     } else {
@@ -135,6 +136,7 @@ export function DocEditorDialog({
           type: "quote",
           title: `Angebot ${saved.number} erstellt`,
           meta: db.customers.find((c) => c.id === customerId)?.company,
+          customerId,
         })
       onSaved?.(saved)
     }

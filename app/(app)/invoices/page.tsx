@@ -137,6 +137,7 @@ export default function InvoicesPage() {
                 type: "payment",
                 title: `Zahlung erhalten — ${inv.number}`,
                 meta: `${c?.company ?? ""} · ${eur(total)}`,
+                customerId: inv.customerId,
               })
               toast.success("Als bezahlt markiert")
             }}

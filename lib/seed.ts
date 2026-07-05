@@ -322,12 +322,12 @@ const emails: EmailDraft[] = [
 ]
 
 const activities: Activity[] = [
-  { id: "a1", type: "payment", title: "Zahlung erhalten — DYN-RE-1042", meta: "Nordlicht Immobilien · 3.357,00 €", at: iso(2) },
-  { id: "a2", type: "deal", title: "Deal gewonnen — Funnel Relaunch", meta: "Lumen Kosmetik · 6.900 €", at: iso(5) },
-  { id: "a3", type: "invoice", title: "Rechnung versendet — DYN-RE-1043", meta: "Lumen Kosmetik", at: iso(8) },
-  { id: "a4", type: "quote", title: "Angebot versendet — DYN-AN-1026", meta: "EcoMove Mobility", at: iso(6) },
-  { id: "a5", type: "customer", title: "Neuer Lead — Bergmann Rechtsanwälte", meta: "Frankfurt · Legal", at: iso(18) },
-  { id: "a6", type: "ai", title: "KI-Angebot generiert", meta: "Studio Vega Interior", at: iso(2) },
+  { id: "a1", type: "payment", title: "Zahlung erhalten — DYN-RE-1042", meta: "Nordlicht Immobilien · 3.357,00 €", customerId: "c1", at: iso(2) },
+  { id: "a2", type: "deal", title: "Deal gewonnen — Funnel Relaunch", meta: "Lumen Kosmetik · 6.900 €", customerId: "c6", at: iso(5) },
+  { id: "a3", type: "invoice", title: "Rechnung versendet — DYN-RE-1043", meta: "Lumen Kosmetik", customerId: "c6", at: iso(8) },
+  { id: "a4", type: "quote", title: "Angebot versendet — DYN-AN-1026", meta: "EcoMove Mobility", customerId: "c5", at: iso(6) },
+  { id: "a5", type: "customer", title: "Neuer Lead — Bergmann Rechtsanwälte", meta: "Frankfurt · Legal", customerId: "c7", at: iso(18) },
+  { id: "a6", type: "ai", title: "KI-Angebot generiert", meta: "Studio Vega Interior", customerId: "c4", at: iso(2) },
 ]
 
 export function seedDatabase(): Database {
