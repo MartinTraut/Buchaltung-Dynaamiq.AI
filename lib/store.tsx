@@ -3,7 +3,7 @@
 import * as React from "react"
 import { nanoid } from "nanoid"
 import { seedDatabase } from "./seed"
-import { computeTotals } from "./format"
+import { computeTotals, emailSignature, ownerFirstName } from "./format"
 import { REMINDER_LABEL } from "./types"
 import type {
   Database,
@@ -99,15 +99,48 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setReady(true)
   }, [])
 
-  // persist
-  React.useEffect(() => {
-    if (!ready) return
+  // persist — debounced (300 ms), damit schnelle Folge-Updates (z. B. Tippen
+  // in Editoren) nicht bei jeder Änderung synchron serialisieren/schreiben.
+  const persistTimer = React.useRef<number | null>(null)
+  const latest = React.useRef<{ db: Database; ready: boolean }>({ db, ready })
+
+  const flush = React.useCallback(() => {
+    if (persistTimer.current !== null) {
+      window.clearTimeout(persistTimer.current)
+      persistTimer.current = null
+    }
+    if (!latest.current.ready) return
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(db))
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(latest.current.db))
     } catch {
       /* quota / private mode — ignore */
     }
-  }, [db, ready])
+  }, [])
+
+  React.useEffect(() => {
+    latest.current = { db, ready }
+    if (!ready) return
+    if (persistTimer.current !== null) window.clearTimeout(persistTimer.current)
+    persistTimer.current = window.setTimeout(flush, 300)
+  }, [db, ready, flush])
+
+  // Kein Datenverlust: bei Tab-Schließen/-Wechsel und beim Unmount sofort
+  // schreiben (pagehide/visibilitychange sind auf Mobile zuverlässiger als
+  // beforeunload).
+  React.useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush()
+    }
+    window.addEventListener("beforeunload", flush)
+    window.addEventListener("pagehide", flush)
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => {
+      window.removeEventListener("beforeunload", flush)
+      window.removeEventListener("pagehide", flush)
+      document.removeEventListener("visibilitychange", onVisibility)
+      flush()
+    }
+  }, [flush])
 
   const pushActivity = React.useCallback(
     (a: Omit<Activity, "id" | "at"> & { at?: string }) => {
@@ -187,12 +220,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       stage: dd.stage ?? "lead",
       value: dd.value ?? 0,
       probability: dd.probability ?? 10,
-      owner: dd.owner ?? "Martin",
+      owner: dd.owner ?? "",
       expectedClose: dd.expectedClose,
       notes: dd.notes,
       createdAt: dd.createdAt ?? new Date().toISOString(),
     }
     setDb((d) => {
+      // Owner-Default aus den Settings (wie Rechnungsnummer in upsertInvoice).
+      if (!full.owner) full.owner = ownerFirstName(d.settings)
       const exists = d.deals.some((x) => x.id === full.id)
       return {
         ...d,
@@ -431,10 +466,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             : baseItems
         const gross = computeTotals(baseItems).gross
         const dueStr = new Date(inv.dueDate).toLocaleDateString("de-DE")
+        const signature = emailSignature(d.settings)
         const body =
           level === 1
-            ? `Hallo ${c?.contactName ?? ""},\n\nunsere Rechnung ${inv.number} über ${gross.toLocaleString("de-DE", { style: "currency", currency: "EUR" })} war am ${dueStr} fällig. Vermutlich ist sie nur untergegangen — bitte gleichen Sie den Betrag in den nächsten Tagen aus.\n\nFalls bereits geschehen, betrachten Sie diese Nachricht als gegenstandslos.\n\nBeste Grüße\nMartin — Dynaamiq AI`
-            : `Hallo ${c?.contactName ?? ""},\n\ntrotz unserer Erinnerung ist die Rechnung ${inv.number} über ${gross.toLocaleString("de-DE", { style: "currency", currency: "EUR" })} (fällig am ${dueStr}) weiterhin offen.\n\nWir bitten Sie, den Betrag${fee ? ` zzgl. ${fee.toFixed(2)} € Mahngebühr` : ""} umgehend zu begleichen.\n\nBeste Grüße\nMartin — Dynaamiq AI`
+            ? `Hallo ${c?.contactName ?? ""},\n\nunsere Rechnung ${inv.number} über ${gross.toLocaleString("de-DE", { style: "currency", currency: "EUR" })} war am ${dueStr} fällig. Vermutlich ist sie nur untergegangen — bitte gleichen Sie den Betrag in den nächsten Tagen aus.\n\nFalls bereits geschehen, betrachten Sie diese Nachricht als gegenstandslos.\n\n${signature}`
+            : `Hallo ${c?.contactName ?? ""},\n\ntrotz unserer Erinnerung ist die Rechnung ${inv.number} über ${gross.toLocaleString("de-DE", { style: "currency", currency: "EUR" })} (fällig am ${dueStr}) weiterhin offen.\n\nWir bitten Sie, den Betrag${fee ? ` zzgl. ${fee.toFixed(2)} € Mahngebühr` : ""} umgehend zu begleichen.\n\n${signature}`
         const email: EmailDraft = {
           id: nanoid(8),
           to: c?.email ?? "",
@@ -694,34 +730,66 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [db.customers],
   )
 
-  const value: StoreContextValue = {
-    db,
-    ready,
-    add,
-    update,
-    remove,
-    upsertCustomer,
-    upsertDeal,
-    moveDeal,
-    upsertProject,
-    upsertTask,
-    toggleTask,
-    upsertInvoice,
-    setInvoiceStatus,
-    createCancellation,
-    sendReminder,
-    toggleRecurring,
-    duplicateRecurring,
-    upsertQuote,
-    convertQuoteToInvoice,
-    upsertTemplate,
-    upsertEmail,
-    addTransaction,
-    updateSettings,
-    pushActivity,
-    resetDemo,
-    customerById,
-  }
+  // Memoized, damit Consumer nicht bei jedem Provider-Render ein neues
+  // Objekt bekommen — alle Helfer sind useCallback-stabil.
+  const value = React.useMemo<StoreContextValue>(
+    () => ({
+      db,
+      ready,
+      add,
+      update,
+      remove,
+      upsertCustomer,
+      upsertDeal,
+      moveDeal,
+      upsertProject,
+      upsertTask,
+      toggleTask,
+      upsertInvoice,
+      setInvoiceStatus,
+      createCancellation,
+      sendReminder,
+      toggleRecurring,
+      duplicateRecurring,
+      upsertQuote,
+      convertQuoteToInvoice,
+      upsertTemplate,
+      upsertEmail,
+      addTransaction,
+      updateSettings,
+      pushActivity,
+      resetDemo,
+      customerById,
+    }),
+    [
+      db,
+      ready,
+      add,
+      update,
+      remove,
+      upsertCustomer,
+      upsertDeal,
+      moveDeal,
+      upsertProject,
+      upsertTask,
+      toggleTask,
+      upsertInvoice,
+      setInvoiceStatus,
+      createCancellation,
+      sendReminder,
+      toggleRecurring,
+      duplicateRecurring,
+      upsertQuote,
+      convertQuoteToInvoice,
+      upsertTemplate,
+      upsertEmail,
+      addTransaction,
+      updateSettings,
+      pushActivity,
+      resetDemo,
+      customerById,
+    ],
+  )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }
