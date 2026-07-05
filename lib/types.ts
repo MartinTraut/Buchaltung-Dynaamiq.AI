@@ -171,6 +171,7 @@ export interface Activity {
     | "ai"
   title: string
   meta?: string
+  customerId?: ID // optional: verknüpfter Kunde für den CRM-Verlauf
   at: string
 }
 
