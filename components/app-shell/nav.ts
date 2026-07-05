@@ -63,3 +63,15 @@ export const NAV: NavGroup[] = [
 export const NAV_BOTTOM: NavItem[] = [
   { href: "/settings", label: "Einstellungen", icon: Settings },
 ]
+
+/** Module, die auf dem Phone im „Mehr"-Sheet statt in der Tab-Bar liegen */
+export const NAV_MORE: NavItem[] = [
+  { href: "/quotes", label: "Angebote", icon: FileText },
+  { href: "/projects", label: "Projekte", icon: FolderKanban },
+  { href: "/expenses", label: "Ausgaben", icon: ReceiptText },
+  { href: "/finance", label: "Buchhaltung", icon: Wallet },
+  { href: "/assistant", label: "KI-Assistent", icon: Sparkles },
+  { href: "/emails", label: "E-Mails", icon: Mail },
+  { href: "/templates", label: "Vorlagen", icon: LayoutTemplate },
+  { href: "/settings", label: "Einstellungen", icon: Settings },
+]

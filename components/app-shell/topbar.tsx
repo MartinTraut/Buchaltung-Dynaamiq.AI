@@ -48,13 +48,13 @@ export function Topbar() {
   const go = (path: string) => router.push(path)
 
   return (
-    <header className="sticky top-0 z-30 flex h-[84px] items-center gap-4 border-b border-white/[0.06] bg-[#08080a]/75 px-6 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-white/[0.06] bg-[#08080a]/75 px-4 backdrop-blur-xl sm:h-[84px] sm:gap-4 sm:px-6">
       <div className="flex items-center gap-2.5 lg:hidden">
         <DynaamiqMark size={28} />
       </div>
 
       <div className="min-w-0 flex-1">
-        <h1 className="truncate font-display text-[26px] font-bold leading-tight tracking-tight">
+        <h1 className="truncate font-display text-[20px] font-bold leading-tight tracking-tight sm:text-[26px]">
           {meta.title}
         </h1>
         <p className="hidden truncate text-sm text-muted-foreground sm:block">
@@ -71,7 +71,18 @@ export function Topbar() {
         <kbd className="ml-3 rounded bg-white/8 px-1.5 py-0.5 text-[10px]">⌘K</kbd>
       </button>
 
-      <Button asChild variant="ghost" size="lg" className="gap-2 text-muted-foreground hover:text-foreground">
+      {/* Phone: Suche als Icon-Button (Desktop hat den ⌘K-Trigger oben) */}
+      <Button
+        variant="ghost"
+        size="icon-lg"
+        className="size-11 md:hidden"
+        aria-label="Suche"
+        onClick={() => window.dispatchEvent(new Event("open-command"))}
+      >
+        <Search className="size-5" />
+      </Button>
+
+      <Button asChild variant="ghost" size="lg" className="gap-2 px-3 text-muted-foreground hover:text-foreground sm:px-5">
         <Link href="/assistant">
           <Sparkles className="size-[18px] text-brand-cyan" />
           <span className="hidden sm:inline">KI-Assistent</span>
@@ -80,7 +91,7 @@ export function Topbar() {
 
       <Dropdown>
         <DropdownTrigger asChild>
-          <Button variant="brand" size="lg" className="gap-1.5">
+          <Button variant="brand" size="lg" className="gap-1.5 px-3.5 sm:px-5">
             <Plus className="size-4" />
             <span className="hidden sm:inline">Neu</span>
           </Button>
