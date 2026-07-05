@@ -8,6 +8,8 @@ import {
   Circle,
   Clock,
   Trash2,
+  Pencil,
+  CalendarClock,
   LayoutGrid,
   ChartNoAxesGantt,
 } from "lucide-react"
@@ -25,6 +27,8 @@ import { Input, Label, Select, Textarea } from "@/components/ui/input"
 import { Toolbar, FilterChips } from "@/components/page-toolbar"
 import { Segmented } from "@/components/ui/segmented"
 import { ProjectTimeline, PROJECT_STATUS_VARIANT } from "@/components/projects/timeline"
+import { TaskDialog } from "@/components/tasks/task-dialog"
+import type { Task } from "@/lib/types"
 import {
   Dialog,
   DialogContent,
@@ -46,6 +50,11 @@ export default function ProjectsPage() {
   const [open, setOpen] = React.useState(false)
   const [detailId, setDetailId] = React.useState<string | null>(null)
   const [newTask, setNewTask] = React.useState("")
+  const [taskDialog, setTaskDialog] = React.useState<{
+    open: boolean
+    taskId?: string | null
+    defaults?: Partial<Task>
+  }>({ open: false })
 
   React.useEffect(() => {
     if (wantNew) setOpen(true)
@@ -91,6 +100,7 @@ export default function ProjectsPage() {
           tasks={db.tasks}
           customerName={(id) => customerById(id)?.company}
           onOpen={setDetailId}
+          onOpenTask={(taskId) => setTaskDialog({ open: true, taskId })}
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -163,23 +173,44 @@ export default function ProjectsPage() {
               <Label>Aufgaben</Label>
               <div className="space-y-1">
                 {detailTasks.map((t) => (
-                  <button
+                  <div
                     key={t.id}
-                    onClick={() => toggleTask(t.id)}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/[0.03]"
+                    className="group flex items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-white/[0.03]"
                   >
-                    {t.status === "done" ? (
-                      <CheckCircle2 className="size-4 text-[#2fd3a5]" />
-                    ) : t.status === "doing" ? (
-                      <Clock className="size-4 text-brand-blue" />
-                    ) : (
-                      <Circle className="size-4 text-muted-foreground/40" />
+                    <button
+                      onClick={() => toggleTask(t.id)}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-2 text-left"
+                    >
+                      {t.status === "done" ? (
+                        <CheckCircle2 className="size-4 shrink-0 text-[#2fd3a5]" />
+                      ) : t.status === "doing" ? (
+                        <Clock className="size-4 shrink-0 text-brand-blue" />
+                      ) : (
+                        <Circle className="size-4 shrink-0 text-muted-foreground/40" />
+                      )}
+                      {t.kind === "event" && (
+                        <CalendarClock className="size-3.5 shrink-0 text-brand-cyan/70" />
+                      )}
+                      <span className={t.status === "done" ? "min-w-0 flex-1 truncate text-sm line-through opacity-50" : "min-w-0 flex-1 truncate text-sm"}>
+                        {t.title}
+                      </span>
+                    </button>
+                    {t.due && (
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                        {t.kind === "event" && t.time ? `${t.time} · ` : ""}
+                        {dateDE(t.due)}
+                      </span>
                     )}
-                    <span className={t.status === "done" ? "flex-1 text-sm line-through opacity-50" : "flex-1 text-sm"}>
-                      {t.title}
-                    </span>
-                    {t.due && <span className="text-[11px] text-muted-foreground">{dateDE(t.due)}</span>}
-                  </button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Aufgabe bearbeiten"
+                      className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                      onClick={() => setTaskDialog({ open: true, taskId: t.id })}
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                  </div>
                 ))}
               </div>
               <div className="mt-2 flex gap-2">
@@ -234,6 +265,14 @@ export default function ProjectsPage() {
           </DialogContent>
         )}
       </Dialog>
+
+      {/* Aufgabe/Termin bearbeiten (aus Task-Liste oder Zeitstrahl-Marker) */}
+      <TaskDialog
+        open={taskDialog.open}
+        onOpenChange={(o) => setTaskDialog((s) => ({ ...s, open: o }))}
+        taskId={taskDialog.taskId}
+        defaults={taskDialog.defaults}
+      />
     </div>
   )
 }

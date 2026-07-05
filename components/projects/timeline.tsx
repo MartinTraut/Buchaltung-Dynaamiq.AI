@@ -38,11 +38,14 @@ export function ProjectTimeline({
   tasks,
   customerName,
   onOpen,
+  onOpenTask,
 }: {
   projects: Project[]
   tasks: Task[]
   customerName: (id: string) => string | undefined
   onOpen: (id: string) => void
+  /** Klick auf einen Aufgaben-Marker (Datum) — öffnet den Aufgaben-Dialog. */
+  onOpenTask?: (taskId: string) => void
 }) {
   const reduceMotion = useReducedMotion()
   const scrollRef = React.useRef<HTMLDivElement>(null)
@@ -302,6 +305,33 @@ export function ProjectTimeline({
                       {pct !== null ? `${pct} %` : p.name}
                     </span>
                   </motion.div>
+
+                  {/* Aufgaben-Marker: Rauten an ihrer Datumsposition auf dem Balken */}
+                  {pTasks.map((t) => {
+                    if (!t.due) return null
+                    const tx = xOf(t.due)
+                    if (tx < -6 || tx > chartW + 6) return null
+                    const done = t.status === "done"
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        title={`${t.title}${t.kind === "event" && t.time ? ` · ${t.time}` : ""}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onOpenTask?.(t.id)
+                        }}
+                        className="absolute z-10 size-2 rotate-45 rounded-[1px] outline-none transition-transform duration-150 hover:scale-150 focus-visible:scale-150"
+                        style={{
+                          left: tx - 4,
+                          top: (ROW_H + BAR_H) / 2 - 5,
+                          background: p.color,
+                          opacity: done ? 0.4 : 1,
+                          boxShadow: `0 0 0 2px #151519`,
+                        }}
+                      />
+                    )
+                  })}
 
                   {/* Überfällig: dezenter roter Punkt am Balkenende */}
                   {overdue && (
