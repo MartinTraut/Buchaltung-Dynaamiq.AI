@@ -181,7 +181,7 @@ Antworte AUSSCHLIESSLICH mit EINEM gültigen JSON-Objekt (kein Markdown, kein Te
   "message": "kurze, freundliche Bestätigung auf Deutsch, was du angelegt hast",
   "customerId": "<id aus der Kundenliste, falls eindeutig erkennbar, sonst null>",
   "customerName": "<Firmenname falls genannt, sonst null>",
-  "items": [ { "description": "string", "qty": number, "unitPrice": number (€ netto), "taxRate": 0.19 } ],
+  "items": [ { "description": "Kurzer Positions-Titel", "details": ["konkreter Unterpunkt 1", "Unterpunkt 2", "Unterpunkt 3"], "unit": "Tag(e)|Std.|Pauschal|Stk.|Monat", "qty": number, "unitPrice": number (€ netto), "taxRate": 0.19 } ],
   "rationale": "<NUR bei quote/invoice für Web-/Designprojekte: ausführliche Wert-Begründung, siehe unten>",
   "notes": "<kurzer Fußtext fürs Dokument>",
   "validDays": <Zahl, nur bei quote>,
@@ -191,6 +191,7 @@ Antworte AUSSCHLIESSLICH mit EINEM gültigen JSON-Objekt (kein Markdown, kein Te
 
 REGELN FÜR ANGEBOTE/RECHNUNGEN:
 - Wenn Martin einen Gesamtpreis UND/ODER investierte Stunden nennt (z. B. "Webseite für 5.000 €, 90 Stunden"), zerlege die Leistung in realistische PHASEN als Positionen, deren Summe den Zielpreis ergibt. Nutze nachvollziehbare Stundensätze (Standard ~85 €/h netto). Typische Phasen einer Website: Konzept & UX-Architektur, UI-Design, Frontend-Development, CMS/Integrationen, Responsiveness & QA, SEO-Setup, Launch & Einweisung. Verteile die genannten Stunden plausibel auf diese Phasen.
+- JEDE Position hat einen kurzen, prägnanten Titel in "description" PLUS 2–4 konkrete Unterpunkte in "details" (was genau geleistet wird) — wie in einem professionellen Agentur-Angebot. Wähle eine passende Einheit in "unit" ("Tag(e)", "Std.", "Pauschal", "Monat"). Beispiel: { "description": "Projektsetup & Infrastruktur", "details": ["Domain inkl. DNS-Konfiguration", "Server/Webspace bereitstellen", "WordPress-Grundinstallation inkl. SSL"], "unit": "Tag(e)", "qty": 0.25, "unitPrice": 720, "taxRate": 0.19 }.
 - Schreibe in "rationale" eine überzeugende, fachlich fundierte Begründung (4–8 Sätze) in IT-/Agentur-Fachsprache, die ERKLÄRT, WARUM dieser Preis gerechtfertigt ist: konkret auf die analysierte Website eingehen (Tech-Stack, Seitenanzahl, Funktionen, Performance, Responsiveness, Animationen, SEO), den Aufwand pro Phase einordnen und den geschäftlichen Nutzen (Conversion, Markenwirkung, Wartbarkeit) betonen. Psychologisch wertig formulieren, ohne zu übertreiben — value-based, nicht stunden-rechtfertigend wirken.
 - Liegt eine Website-Analyse vor (siehe Kontext), beziehe dich explizit auf die erkannten Merkmale.
 

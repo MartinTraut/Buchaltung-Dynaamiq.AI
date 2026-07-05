@@ -40,6 +40,11 @@ const settings: CompanySettings = {
   iban: "DE89 3704 0044 0532 0130 00",
   bic: "COBADEFFXXX",
   bankName: "Commerzbank",
+  accountNumber: "0532013000",
+  registerCourt: "Amtsgericht Köln",
+  registerNumber: "HRB 102345",
+  management: "Martin Traut",
+  ownerName: "Martin Traut",
   defaultTaxRate: 0.19,
   invoicePrefix: "DYN-RE",
   quotePrefix: "DYN-AN",
@@ -112,9 +117,12 @@ const customers: Customer[] = [
     contactName: "Janina Wolf",
     email: "j.wolf@ecomove.io",
     website: "ecomove.io",
+    address: "Rheinuferstraße 9",
     city: "Köln",
     zip: "50667",
     country: "Deutschland",
+    vatId: "DE401290334",
+    customerNumber: "1005",
     tags: ["SaaS", "Performance", "B2B"],
     health: "lead",
     createdAt: iso(38),
@@ -207,7 +215,11 @@ const invoices: Invoice[] = [
 ]
 
 const quotes: Quote[] = [
-  { id: "q1", number: "DYN-AN-1026", customerId: "c5", status: "sent", issueDate: iso(6), validUntil: isoIn(14), createdAt: iso(6), items: mkItems([["Meta Ads Retainer (mtl.)", 1, 2400, 0.19], ["Onboarding & Setup (einmalig)", 1, 1200, 0.19], ["Creative Paket (10 Assets)", 1, 600, 0.19]]) },
+  { id: "q1", number: "DYN-AN-1026", customerId: "c5", status: "sent", issueDate: iso(6), validUntil: isoIn(14), createdAt: iso(6), items: [
+    { id: "q1-1", description: "Meta Ads Retainer", details: ["Laufende Kampagnen-Steuerung (Advantage+, Retargeting, Prospecting)", "Wöchentliche Optimierung von Budget, Zielgruppen & Geboten", "Monatliches Performance-Reporting inkl. Handlungsempfehlungen"], unit: "Monat", qty: 1, unitPrice: 2400, taxRate: 0.19 },
+    { id: "q1-2", description: "Onboarding & Account-Setup", details: ["Einrichtung Business Manager, Pixel & Conversions-API", "Tracking- & Event-Konfiguration (Server-Side)", "Aufbau Kampagnenstruktur & Zielgruppen-Audiences"], unit: "Pauschal", qty: 1, unitPrice: 1200, taxRate: 0.19 },
+    { id: "q1-3", description: "Creative-Paket", details: ["10 conversion-optimierte Ad-Creatives (Statics & Reels)", "2 Iterationsrunden inkl. A/B-Testvarianten"], unit: "Pauschal", qty: 1, unitPrice: 600, taxRate: 0.19 },
+  ] },
   { id: "q2", number: "DYN-AN-1025", customerId: "c7", status: "sent", issueDate: iso(10), validUntil: isoIn(10), createdAt: iso(10), items: mkItems([["Google Ads Setup", 1, 980, 0.19], ["Monatliche Betreuung", 1, 1200, 0.19]]) },
   { id: "q3", number: "DYN-AN-1024", customerId: "c4", status: "draft", issueDate: iso(2), validUntil: isoIn(20), createdAt: iso(2), items: mkItems([["Brand Identity Sprint", 1, 4200, 0.19], ["Performance Kampagnen-Setup", 1, 2400, 0.19]]) },
   { id: "q4", number: "DYN-AN-1023", customerId: "c2", status: "accepted", issueDate: iso(28), validUntil: iso(7), createdAt: iso(28), items: mkItems([["TikTok Creative Paket", 1, 1800, 0.19]]) },

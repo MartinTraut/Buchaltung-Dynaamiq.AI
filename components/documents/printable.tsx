@@ -1,8 +1,33 @@
 "use client"
 
 import { eur, dateDE, computeTotals } from "@/lib/format"
-import { DynaamiqMark } from "@/components/brand/logo"
-import type { Invoice, Quote, Customer, CompanySettings } from "@/lib/types"
+import type { Invoice, Quote, Customer, CompanySettings, LineItem } from "@/lib/types"
+
+const C = {
+  ink: "#16161a",
+  body: "#3f3f46",
+  muted: "#8a8a93",
+  faint: "#b6b6bd",
+  line: "#e6e6ea",
+  zebra: "#f7f7f9",
+  brand: "#ff2d7e",
+} as const
+
+function qtyLabel(it: LineItem) {
+  const n = it.qty.toLocaleString("de-DE", { maximumFractionDigits: 2 })
+  return `${n} ${it.unit ?? "Stk."}`
+}
+
+/** Titel + Unterpunkte einer Position ableiten (aus details[] oder Newlines). */
+function splitItem(it: LineItem) {
+  if (it.details?.length) return { title: it.description, bullets: it.details }
+  const lines = it.description.split("\n").map((s) => s.trim()).filter(Boolean)
+  const [title, ...rest] = lines
+  return {
+    title: title ?? it.description,
+    bullets: rest.map((r) => r.replace(/^[•\-*]\s*/, "")),
+  }
+}
 
 export function PrintableDoc({
   kind,
@@ -17,167 +42,269 @@ export function PrintableDoc({
 }) {
   const isInvoice = kind === "invoice"
   const totals = computeTotals(doc.items)
-  const secondDate = isInvoice
-    ? (doc as Invoice).dueDate
-    : (doc as Quote).validUntil
+  const secondDate = isInvoice ? (doc as Invoice).dueDate : (doc as Quote).validUntil
+  const validityDays = settings.paymentTermsDays || 14
+
+  const senderLine = [settings.legalName, settings.address, `${settings.zip} ${settings.city}`]
+    .filter(Boolean)
+    .join("  ·  ")
 
   return (
     <div className="doc-sheet">
-      {/* Header */}
+      {/* ── Kopf: Logo oben rechts ── */}
       <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <DynaamiqMark size={48} />
-          <div>
-            <div className="text-[17px] font-bold tracking-[0.12em] text-[#1a1a1a]">
-              DYNAAMIQ AI
-            </div>
-            <div className="text-[10px] tracking-[0.25em] text-[#ff6a00]">
-              PERFORMANCE MARKETING
-            </div>
-          </div>
+        <div className="pt-1 text-[10.5px] font-semibold tracking-wide" style={{ color: C.body }}>
+          {senderLine}
         </div>
-        <div className="text-right text-[11px] leading-relaxed text-[#555]">
-          <div className="font-semibold text-[#1a1a1a]">{settings.legalName}</div>
-          <div>{settings.address}</div>
-          <div>{settings.zip} {settings.city}</div>
-          <div>{settings.email}</div>
-          <div>{settings.website}</div>
+        <div className="logo-tile">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-mark.png" alt={settings.name} width={40} height={40} />
         </div>
       </div>
 
-      <div className="my-8 h-1 w-full rounded-full bg-gradient-to-r from-[#ff6a00] via-[#ff2d7e] to-[#e81ccb]" />
+      {/* ── Empfänger + Meta ── */}
+      <div className="mt-10 flex items-start justify-between gap-10">
+        <div className="text-[12.5px] leading-[1.5]" style={{ color: C.body }}>
+          <div className="font-semibold" style={{ color: C.ink }}>{customer?.company}</div>
+          {customer?.contactName && <div>{customer.contactName}</div>}
+          {customer?.address && <div>{customer.address}</div>}
+          <div>{[customer?.zip, customer?.city].filter(Boolean).join(" ")}</div>
+          <div>{customer?.country ?? "Deutschland"}</div>
+        </div>
 
-      {/* Recipient + meta */}
-      <div className="flex items-start justify-between gap-8">
-        <div>
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[#999]">
-            Rechnungsempfänger
-          </div>
-          <div className="text-[13px] font-semibold text-[#1a1a1a]">
-            {customer?.company}
-          </div>
-          {customer?.contactName && (
-            <div className="text-[12px] text-[#555]">{customer.contactName}</div>
-          )}
-          {customer?.address && (
-            <div className="text-[12px] text-[#555]">{customer.address}</div>
-          )}
-          <div className="text-[12px] text-[#555]">
-            {[customer?.zip, customer?.city].filter(Boolean).join(" ")}
-          </div>
-          {customer?.vatId && (
-            <div className="mt-1 text-[11px] text-[#888]">
-              USt-IdNr.: {customer.vatId}
-            </div>
-          )}
-        </div>
-        <div className="shrink-0 text-right">
-          <h1 className="text-[26px] font-bold tracking-tight text-[#1a1a1a]">
-            {isInvoice ? "Rechnung" : "Angebot"}
-          </h1>
-          <div className="mt-2 space-y-0.5 text-[12px] text-[#555]">
-            <div>
-              <span className="text-[#999]">Nr.: </span>
-              <span className="font-semibold text-[#1a1a1a]">{doc.number}</span>
-            </div>
-            <div>
-              <span className="text-[#999]">Datum: </span>
-              {dateDE(doc.issueDate)}
-            </div>
-            <div>
-              <span className="text-[#999]">
-                {isInvoice ? "Fällig: " : "Gültig bis: "}
-              </span>
-              {dateDE(secondDate)}
-            </div>
-          </div>
-        </div>
+        <table className="shrink-0 text-[11.5px]">
+          <tbody>
+            {[
+              [isInvoice ? "Rechnungs-Nr." : "Angebots-Nr.", doc.number],
+              ["Datum", dateDE(doc.issueDate)],
+              ["Ihre Kundennummer", customer?.customerNumber ?? customer?.id?.slice(0, 6).toUpperCase()],
+              ["Ihr Ansprechpartner", settings.ownerName ?? settings.management],
+            ].map(([label, value]) =>
+              value ? (
+                <tr key={label as string}>
+                  <td className="pr-8 py-[2px] uppercase tracking-[0.08em]" style={{ color: C.muted }}>
+                    {label}
+                  </td>
+                  <td className="py-[2px] text-right font-semibold" style={{ color: C.ink }}>
+                    {value}
+                  </td>
+                </tr>
+              ) : null,
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Items */}
-      <table className="mt-10 w-full border-collapse text-[12px]">
+      {/* ── Titel ── */}
+      <div className="mt-12 flex items-end justify-between">
+        <h1 className="text-[28px] font-bold tracking-tight" style={{ color: C.brand }}>
+          {isInvoice ? "Rechnung" : "Angebot"} {doc.number}
+        </h1>
+        <div className="text-[12px]" style={{ color: C.body }}>{dateDE(doc.issueDate)}</div>
+      </div>
+
+      {/* ── Intro ── */}
+      <div className="mt-5 space-y-2.5 text-[12.5px] leading-[1.6]" style={{ color: C.body }}>
+        {isInvoice ? (
+          <p>
+            Vielen Dank für die Zusammenarbeit. Hiermit stellen wir Ihnen die folgenden Leistungen in
+            Rechnung. Bitte begleichen Sie den Betrag bis zum{" "}
+            <strong style={{ color: C.ink }}>{dateDE(secondDate)}</strong> unter Angabe der
+            Rechnungsnummer <strong style={{ color: C.ink }}>{doc.number}</strong>.
+          </p>
+        ) : (
+          <>
+            <p>
+              Vielen Dank für Ihre Anfrage und Ihr Interesse an einer Zusammenarbeit mit der{" "}
+              <strong style={{ color: C.ink }}>{settings.legalName}</strong>.
+            </p>
+            <p>
+              Im Folgenden finden Sie unser unverbindliches Angebot basierend auf den besprochenen
+              Anforderungen. Unser Ziel ist es, digitale Lösungen zu entwickeln, die nicht nur
+              funktionieren – sondern begeistern.
+            </p>
+          </>
+        )}
+        {customer?.company && (
+          <p style={{ color: C.muted }}>
+            Kunde: <strong style={{ color: C.ink }}>{customer.company}</strong>
+          </p>
+        )}
+      </div>
+
+      {/* ── Positionstabelle ── */}
+      <table className="mt-7 w-full border-collapse text-[12px]">
         <thead>
-          <tr className="border-b-2 border-[#1a1a1a] text-left text-[10px] uppercase tracking-wider text-[#999]">
-            <th className="py-2">Pos.</th>
-            <th className="py-2">Beschreibung</th>
-            <th className="py-2 text-right">Menge</th>
-            <th className="py-2 text-right">Einzelpreis</th>
-            <th className="py-2 text-right">USt</th>
-            <th className="py-2 text-right">Netto</th>
+          <tr style={{ background: C.zebra }}>
+            <th className="w-[52%] rounded-l-md px-3 py-2.5 text-left text-[10.5px] font-bold uppercase tracking-[0.06em]" style={{ color: C.ink }}>
+              Beschreibung
+            </th>
+            <th className="px-3 py-2.5 text-right text-[10.5px] font-bold uppercase tracking-[0.06em]" style={{ color: C.ink }}>
+              Menge
+            </th>
+            <th className="px-3 py-2.5 text-right text-[10.5px] font-bold uppercase tracking-[0.06em]" style={{ color: C.ink }}>
+              Einzelpreis
+            </th>
+            <th className="rounded-r-md px-3 py-2.5 text-right text-[10.5px] font-bold uppercase tracking-[0.06em]" style={{ color: C.ink }}>
+              Gesamtpreis
+            </th>
           </tr>
         </thead>
         <tbody>
-          {doc.items.map((it, idx) => (
-            <tr key={it.id} className="border-b border-[#eee]">
-              <td className="py-2.5 text-[#999]">{idx + 1}</td>
-              <td className="py-2.5 font-medium text-[#1a1a1a]">{it.description}</td>
-              <td className="py-2.5 text-right text-[#555]">{it.qty}</td>
-              <td className="py-2.5 text-right text-[#555]">{eur(it.unitPrice)}</td>
-              <td className="py-2.5 text-right text-[#555]">
-                {Math.round(it.taxRate * 100)} %
-              </td>
-              <td className="py-2.5 text-right font-medium text-[#1a1a1a]">
-                {eur(it.qty * it.unitPrice)}
-              </td>
-            </tr>
-          ))}
+          {doc.items.map((it, idx) => {
+            const { title, bullets } = splitItem(it)
+            return (
+              <tr key={it.id} className="align-top break-inside-avoid" style={{ borderBottom: `1px solid ${C.line}` }}>
+                <td className="px-3 py-3">
+                  <div className="flex gap-2">
+                    <span className="tabular-nums" style={{ color: C.muted }}>{idx + 1}.</span>
+                    <div>
+                      <div className="font-semibold" style={{ color: C.ink }}>{title}</div>
+                      {bullets.length > 0 && (
+                        <ul className="mt-1.5 space-y-1">
+                          {bullets.map((b, i) => (
+                            <li key={i} className="flex gap-2 text-[11.5px] leading-snug" style={{ color: C.body }}>
+                              <span style={{ color: C.brand }}>•</span>
+                              <span>{b}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums" style={{ color: C.body }}>
+                  {qtyLabel(it)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums" style={{ color: C.body }}>
+                  {eur(it.unitPrice)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums" style={{ color: C.ink }}>
+                  {eur(it.qty * it.unitPrice)}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
 
-      {/* Totals */}
-      <div className="mt-6 flex justify-end">
-        <div className="w-72 space-y-1.5 text-[12px]">
-          <div className="flex justify-between text-[#555]">
-            <span>Zwischensumme (netto)</span>
-            <span>{eur(totals.net)}</span>
-          </div>
-          {totals.taxBreakdown.map((t) => (
-            <div key={t.rate} className="flex justify-between text-[#555]">
-              <span>zzgl. {Math.round(t.rate * 100)} % USt</span>
-              <span>{eur(t.tax)}</span>
-            </div>
-          ))}
-          <div className="mt-2 flex justify-between border-t-2 border-[#1a1a1a] pt-2 text-[15px] font-bold text-[#1a1a1a]">
-            <span>Gesamtbetrag</span>
-            <span>{eur(totals.gross)}</span>
-          </div>
-        </div>
+      {/* ── Summen ── */}
+      <div className="mt-5 break-inside-avoid">
+        <Row label="Gesamtbetrag netto" value={eur(totals.net)} />
+        {totals.taxBreakdown.map((t) => (
+          <Row key={t.rate} label={`Umsatzsteuer ${Math.round(t.rate * 100)} %`} value={eur(t.tax)} muted />
+        ))}
+        <Row label="Gesamtbetrag brutto" value={eur(totals.gross)} strong />
       </div>
 
-      {/* Notes */}
-      {doc.notes && (
-        <p className="mt-10 max-w-xl text-[11px] leading-relaxed text-[#666]">
-          {doc.notes}
-        </p>
-      )}
+      {/* ── Bedingungen ── */}
+      <div className="mt-9 space-y-4 break-inside-avoid text-[11px] leading-[1.6]" style={{ color: C.body }}>
+        {!isInvoice && (
+          <p>
+            Dieses Angebot ist <strong style={{ color: C.ink }}>{validityDays} Tage gültig</strong> (bis{" "}
+            {dateDE(secondDate)}). Bei Rückfragen oder Anpassungswünschen stehen wir Ihnen jederzeit
+            gerne zur Verfügung – telefonisch, per Mail oder im persönlichen Gespräch.
+          </p>
+        )}
 
-      {isInvoice && (
-        <p className="mt-4 text-[11px] text-[#666]">
-          Bitte überweisen Sie den Betrag bis zum {dateDE(secondDate)} unter
-          Angabe der Rechnungsnummer {doc.number}.
-        </p>
-      )}
+        {doc.notes && (
+          <div>
+            <div className="mb-1 font-bold" style={{ color: C.ink }}>Anmerkungen</div>
+            <p className="whitespace-pre-wrap">{doc.notes}</p>
+          </div>
+        )}
 
-      {/* Footer */}
-      <div className="mt-auto grid grid-cols-3 gap-4 border-t border-[#eee] pt-4 text-[9.5px] leading-relaxed text-[#888]">
         <div>
-          <div className="font-semibold text-[#555]">{settings.legalName}</div>
+          <div className="mb-1 font-bold" style={{ color: C.ink }}>Zahlungsbedingungen</div>
+          <p>
+            Sofern nicht anders vereinbart, beträgt das Zahlungsziel{" "}
+            <strong style={{ color: C.ink }}>{validityDays} Tage nach Rechnungsdatum ohne Abzug</strong>.
+            Bei laufenden oder wiederkehrenden Leistungen (z. B. Hosting, Wartung, Retainer) erfolgt die
+            Abrechnung quartalsweise im Voraus. Alle Preise verstehen sich zuzüglich der gesetzlichen
+            Mehrwertsteuer.
+          </p>
+        </div>
+
+        <div>
+          <div className="mb-1 font-bold" style={{ color: C.ink }}>Lieferbedingungen</div>
+          <p>
+            Die Leistungen werden digital erbracht und gelten mit Bereitstellung, Freigabe oder Übergabe
+            der entsprechenden Dateien, Zugänge oder Systeme als geliefert. Lieferzeiten richten sich nach
+            Projektumfang und werden individuell abgestimmt.
+          </p>
+        </div>
+
+        <p className="pt-1" style={{ color: C.ink }}>
+          Wir freuen uns auf die Zusammenarbeit und die gemeinsame Umsetzung Ihres Projekts.
+        </p>
+      </div>
+
+      {/* ── Footer (Rechtsangaben) ── */}
+      <div
+        className="mt-auto grid grid-cols-4 gap-5 pt-5 text-[8.5px] leading-[1.5]"
+        style={{ borderTop: `1px solid ${C.line}`, color: C.muted }}
+      >
+        <FootCol>
+          <b style={{ color: C.body }}>{settings.legalName}</b>
           <div>{settings.address}</div>
           <div>{settings.zip} {settings.city}</div>
-        </div>
-        <div>
-          <div className="font-semibold text-[#555]">Kontakt</div>
-          <div>{settings.email}</div>
-          <div>{settings.phone}</div>
-          <div>USt-IdNr.: {settings.vatId}</div>
-        </div>
-        <div>
-          <div className="font-semibold text-[#555]">Bankverbindung</div>
-          <div>{settings.bankName}</div>
-          <div>IBAN: {settings.iban}</div>
-          <div>BIC: {settings.bic}</div>
-        </div>
+          <div>{settings.country}</div>
+        </FootCol>
+        <FootCol>
+          <FootRow k="Tel." v={settings.phone} />
+          <FootRow k="E-Mail" v={settings.email} />
+          <FootRow k="Web" v={settings.website} />
+        </FootCol>
+        <FootCol>
+          {settings.registerCourt && <FootRow k="Amtsgericht" v={settings.registerCourt} />}
+          {settings.registerNumber && <FootRow k="HR-Nr." v={settings.registerNumber} />}
+          <FootRow k="USt.-ID" v={settings.vatId} />
+          <FootRow k="Steuer-Nr." v={settings.taxNumber} />
+          {settings.management && <FootRow k="Geschäftsf." v={settings.management} />}
+        </FootCol>
+        <FootCol>
+          <FootRow k="Bank" v={settings.bankName} />
+          {settings.accountNumber && <FootRow k="Konto" v={settings.accountNumber} />}
+          <FootRow k="IBAN" v={settings.iban} />
+          <FootRow k="BIC" v={settings.bic} />
+        </FootCol>
       </div>
+    </div>
+  )
+}
+
+function Row({ label, value, strong, muted }: { label: string; value: string; strong?: boolean; muted?: boolean }) {
+  return (
+    <div
+      className="flex items-center justify-between rounded-md px-3 py-2.5"
+      style={{
+        background: strong ? "#f0eef1" : C.zebra,
+        marginBottom: 4,
+      }}
+    >
+      <span className={strong ? "text-[13px] font-bold" : "text-[12px]"} style={{ color: strong ? C.ink : muted ? C.muted : C.body }}>
+        {label}
+      </span>
+      <span
+        className={strong ? "text-[15px] font-bold tabular-nums" : "text-[12.5px] tabular-nums"}
+        style={{ color: strong ? C.brand : C.ink }}
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function FootCol({ children }: { children: React.ReactNode }) {
+  return <div className="space-y-[2px]">{children}</div>
+}
+
+function FootRow({ k, v }: { k: string; v?: string }) {
+  if (!v) return null
+  return (
+    <div>
+      <span className="uppercase tracking-[0.06em]">{k} </span>
+      <b style={{ color: C.body }}>{v}</b>
     </div>
   )
 }

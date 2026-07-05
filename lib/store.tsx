@@ -71,7 +71,10 @@ function load(): Database {
     const parsed = JSON.parse(raw) as Database
     // basic shape guard
     if (!parsed.customers || !parsed.settings) return seedDatabase()
-    return parsed
+    // Neue Settings-Felder (z. B. Amtsgericht, HR-Nr.) aus den Defaults ergänzen,
+    // ohne eigene Änderungen zu überschreiben.
+    const seed = seedDatabase()
+    return { ...parsed, settings: { ...seed.settings, ...parsed.settings } }
   } catch {
     return seedDatabase()
   }

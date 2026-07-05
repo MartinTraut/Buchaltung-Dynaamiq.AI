@@ -31,6 +31,7 @@ export interface Customer {
   zip?: string
   country?: string
   vatId?: string // USt-IdNr.
+  customerNumber?: string // Kundennummer für Dokumente
   tags: string[]
   notes?: string
   health: "active" | "lead" | "churned"
@@ -77,6 +78,8 @@ export interface Task {
 export interface LineItem {
   id: ID
   description: string
+  details?: string[] // optionale Unterpunkte (Bullets) für die PDF-Position
+  unit?: string // z. B. "Tag(e)", "Std.", "Stk." — Standard: Stk.
   qty: number
   unitPrice: number // € net
   taxRate: number // 0.19 | 0.07 | 0
@@ -182,6 +185,11 @@ export interface CompanySettings {
   iban: string
   bic: string
   bankName: string
+  accountNumber?: string // Kontonummer
+  registerCourt?: string // Amtsgericht
+  registerNumber?: string // HR-Nr.
+  management?: string // Geschäftsführung
+  ownerName?: string // Standard-Ansprechpartner
   defaultTaxRate: number
   invoicePrefix: string
   quotePrefix: string
