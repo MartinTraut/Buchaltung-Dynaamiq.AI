@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import {
   Plus,
   FolderKanban,
@@ -12,6 +13,8 @@ import {
   CalendarClock,
   LayoutGrid,
   ChartNoAxesGantt,
+  Building2,
+  ReceiptEuro,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
@@ -260,6 +263,20 @@ export default function ProjectsPage() {
               >
                 <Trash2 className="size-4" /> Löschen
               </Button>
+              {detail.customerId && (
+                <>
+                  <Button variant="outline" asChild className="gap-1.5">
+                    <Link href={`/crm?c=${detail.customerId}`}>
+                      <Building2 className="size-4" /> Kunde öffnen
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild className="gap-1.5">
+                    <Link href={`/invoices?new=1&customer=${detail.customerId}`}>
+                      <ReceiptEuro className="size-4" /> Neue Rechnung
+                    </Link>
+                  </Button>
+                </>
+              )}
               <DialogClose asChild><Button variant="outline">Schließen</Button></DialogClose>
             </DialogFooter>
           </DialogContent>

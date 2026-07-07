@@ -82,6 +82,7 @@ export default function PipelinePage() {
       status: "planning",
       budget: deal.value,
       color: "#00ffe6",
+      dealId: deal.id, // verknüpft — verhindert ein Doppel-Projekt beim späteren „gewonnen"
     })
     setDetail(null)
     toast.success("Projekt aus Deal angelegt")
@@ -111,7 +112,9 @@ export default function PipelinePage() {
         meta: `${customerById(deal.customerId)?.company ?? ""} · ${eur(deal.value)}`,
         customerId: deal.customerId,
       })
-      toast.success(`🎉 Deal gewonnen: ${eur(deal.value)}`)
+      toast.success(`🎉 Deal gewonnen: ${eur(deal.value)}`, {
+        description: "Projekt & Rechnungsentwurf automatisch angelegt.",
+      })
     }
   }
 

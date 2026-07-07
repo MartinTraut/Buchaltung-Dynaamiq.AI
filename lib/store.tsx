@@ -240,9 +240,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const moveDeal = React.useCallback((id: string, stage: DealStage) => {
-    setDb((d) => ({
-      ...d,
-      deals: d.deals.map((x) =>
+    setDb((d) => {
+      const deal = d.deals.find((x) => x.id === id)
+      const deals = d.deals.map((x) =>
         x.id === id
           ? {
               ...x,
@@ -251,8 +251,65 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 stage === "won" ? 100 : stage === "lost" ? 0 : x.probability,
             }
           : x,
-      ),
-    }))
+      )
+      // Frisch gewonnen → Folge-Projekt + Rechnungsentwurf anlegen (einmalig je Deal)
+      const freshlyWon = !!deal && stage === "won" && deal.stage !== "won"
+      const already = deal ? d.projects.some((p) => p.dealId === deal.id) : false
+      if (!deal || !freshlyWon || already) {
+        return { ...d, deals }
+      }
+      const now = new Date().toISOString()
+      const project: Project = {
+        id: nanoid(8),
+        name: deal.title,
+        customerId: deal.customerId,
+        status: "planning",
+        budget: deal.value,
+        spent: 0,
+        startDate: now,
+        color: "#1f7bf2",
+        description: `Automatisch aus gewonnenem Deal „${deal.title}" erstellt.`,
+        dealId: deal.id,
+        createdAt: now,
+      }
+      // Entwurf ohne Nummer — die wird erst beim Finalisieren im Editor vergeben,
+      // damit gewonnene Deals keinen Rechnungsnummernkreis verbrauchen.
+      const draft: Invoice = {
+        id: nanoid(8),
+        number: "",
+        customerId: deal.customerId,
+        status: "draft",
+        issueDate: now,
+        dueDate: now,
+        items: [
+          {
+            id: nanoid(6),
+            description: deal.title,
+            qty: 1,
+            unitPrice: deal.value,
+            taxRate: 0.19,
+          },
+        ],
+        notes: `Rechnungsentwurf aus gewonnenem Deal „${deal.title}".`,
+        projectId: project.id,
+        createdAt: now,
+      }
+      const activity: Activity = {
+        id: nanoid(8),
+        type: "project",
+        title: `Projekt angelegt — ${project.name}`,
+        meta: "aus gewonnenem Deal · Rechnungsentwurf bereit",
+        customerId: deal.customerId,
+        at: now,
+      }
+      return {
+        ...d,
+        deals,
+        projects: [project, ...d.projects],
+        invoices: [draft, ...d.invoices],
+        activities: [activity, ...d.activities].slice(0, 60),
+      }
+    })
   }, [])
 
   const upsertProject: StoreContextValue["upsertProject"] = React.useCallback(
@@ -268,6 +325,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         dueDate: p.dueDate,
         color: p.color ?? "#1f7bf2",
         description: p.description,
+        dealId: p.dealId,
         createdAt: p.createdAt ?? new Date().toISOString(),
       }
       setDb((d) => {
@@ -375,10 +433,47 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const setInvoiceStatus = React.useCallback(
     (id: string, status: Invoice["status"]) => {
-      setDb((d) => ({
-        ...d,
-        invoices: d.invoices.map((x) => (x.id === id ? { ...x, status } : x)),
-      }))
+      setDb((d) => {
+        const inv = d.invoices.find((x) => x.id === id)
+        if (!inv) return d
+        const wasPaid = inv.status === "paid"
+        const nowPaid = status === "paid"
+        let transactions = d.transactions
+        if (nowPaid && !wasPaid) {
+          // Zahlungseingang automatisch als Einnahme verbuchen (einmalig je Rechnung)
+          const already = transactions.some(
+            (t) => t.invoiceId === inv.id && t.type === "income",
+          )
+          if (!already) {
+            const totals = computeTotals(inv.items)
+            const rate = inv.items.find((it) => it.taxRate > 0)?.taxRate ?? 0
+            const company =
+              d.customers.find((c) => c.id === inv.customerId)?.company ?? ""
+            const tx: Transaction = {
+              id: nanoid(8),
+              type: "income",
+              category: "Rechnung",
+              description: `Rechnung ${inv.number}${company ? " · " + company : ""}`,
+              amount: totals.gross,
+              taxRate: rate,
+              date: new Date().toISOString(),
+              customerId: inv.customerId,
+              invoiceId: inv.id,
+            }
+            transactions = [tx, ...transactions]
+          }
+        } else if (!nowPaid && wasPaid) {
+          // Nicht mehr bezahlt → die automatische Einnahme-Buchung wieder entfernen
+          transactions = transactions.filter(
+            (t) => !(t.invoiceId === inv.id && t.type === "income"),
+          )
+        }
+        return {
+          ...d,
+          transactions,
+          invoices: d.invoices.map((x) => (x.id === id ? { ...x, status } : x)),
+        }
+      })
     },
     [],
   )

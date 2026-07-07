@@ -21,3 +21,26 @@ export function useQueryFlag(key: string, expected = "1") {
   }, [key, expected])
   return active
 }
+
+/**
+ * Reads an arbitrary URL query value once on mount (e.g. ?c=<id>) and cleans it
+ * from the URL, so Deep-Links wie /crm?c=abc oder /invoices?doc=xyz einmalig greifen.
+ */
+export function useQueryValue(key: string) {
+  const [value, setValue] = React.useState<string | null>(null)
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const v = params.get(key)
+    if (v) {
+      setValue(v)
+      params.delete(key)
+      const qs = params.toString()
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + (qs ? `?${qs}` : ""),
+      )
+    }
+  }, [key])
+  return value
+}

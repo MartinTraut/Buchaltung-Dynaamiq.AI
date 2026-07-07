@@ -6,6 +6,7 @@ import {
   Plus,
   MoreHorizontal,
   FileDown,
+  Building2,
   Mail,
   CheckCircle2,
   Send,
@@ -20,7 +21,7 @@ import {
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
-import { useQueryFlag } from "@/hooks/use-query-flag"
+import { useQueryFlag, useQueryValue } from "@/hooks/use-query-flag"
 import { eur, dateDE, computeTotals, emailSignature } from "@/lib/format"
 import { REMINDER_LABEL } from "@/lib/types"
 import type { Invoice, InvoiceStatus } from "@/lib/types"
@@ -56,6 +57,8 @@ export default function InvoicesPage() {
   } = useStore()
   const confirm = useConfirm()
   const wantNew = useQueryFlag("new")
+  const newCustomer = useQueryValue("customer") // Vorbelegung z. B. aus Kunden-/Projektansicht
+  const focusDoc = useQueryValue("doc") // Deep-Link: bestimmte Rechnung direkt öffnen
   const [query, setQuery] = React.useState("")
   const [filter, setFilter] = React.useState<Filter>("all")
   const [editing, setEditing] = React.useState<Invoice | null>(null)
@@ -67,6 +70,15 @@ export default function InvoicesPage() {
       setOpen(true)
     }
   }, [wantNew])
+
+  React.useEffect(() => {
+    if (!focusDoc) return
+    const inv = db.invoices.find((i) => i.id === focusDoc)
+    if (inv) {
+      setEditing(inv)
+      setOpen(true)
+    }
+  }, [focusDoc, db.invoices])
 
   const rows = db.invoices
     .filter((i) => (filter === "all" ? true : i.status === filter))
@@ -121,6 +133,13 @@ export default function InvoicesPage() {
         <DropdownItem onSelect={() => openEditor(inv)}>
           <Pencil /> Bearbeiten
         </DropdownItem>
+        {inv.customerId && (
+          <DropdownItem asChild>
+            <Link href={`/crm?c=${inv.customerId}`}>
+              <Building2 /> Kunde öffnen
+            </Link>
+          </DropdownItem>
+        )}
         {inv.pdfPath && (
           <DropdownItem asChild>
             <a href={inv.pdfPath} target="_blank" rel="noopener noreferrer">
@@ -418,6 +437,7 @@ export default function InvoicesPage() {
         open={open}
         onOpenChange={setOpen}
         doc={editing}
+        defaultCustomerId={editing ? undefined : newCustomer ?? undefined}
         onSaved={() => toast.success("Rechnung gespeichert")}
       />
     </div>

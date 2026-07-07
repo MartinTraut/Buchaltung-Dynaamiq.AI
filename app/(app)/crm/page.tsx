@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useQueryFlag } from "@/hooks/use-query-flag"
+import { useQueryFlag, useQueryValue } from "@/hooks/use-query-flag"
 import { useLocalState } from "@/hooks/use-local-state"
 import { useRouter } from "next/navigation"
 import {
@@ -111,6 +111,7 @@ export default function CrmPage() {
   const confirm = useConfirm()
   const router = useRouter()
   const wantNew = useQueryFlag("new")
+  const wantCustomer = useQueryValue("c") // Deep-Link aus anderen Modulen: Kunde direkt öffnen
   const [query, setQuery] = React.useState("")
   const [filter, setFilter] = React.useState<Health>("all")
   const [view, setView] = useLocalState<CrmView>("dyn-crm-view", "grid")
@@ -143,6 +144,12 @@ export default function CrmPage() {
     }
   }, [wantNew])
 
+  React.useEffect(() => {
+    if (wantCustomer && db.customers.some((c) => c.id === wantCustomer)) {
+      setDetailId(wantCustomer)
+    }
+  }, [wantCustomer, db.customers])
+
   function openNew() {
     setEditing(null)
     setDialogOpen(true)
@@ -169,7 +176,7 @@ export default function CrmPage() {
         title: `Rechnung ${i.number}`,
         amount: computeTotals(i.items).gross,
         status: INVOICE_STATUS_LABEL[i.status],
-        href: "/invoices",
+        href: `/invoices?doc=${i.id}`,
       })
     for (const q of db.quotes)
       push(q.customerId, {
@@ -179,7 +186,7 @@ export default function CrmPage() {
         title: `Angebot ${q.number}`,
         amount: computeTotals(q.items).gross,
         status: QUOTE_STATUS_LABEL[q.status],
-        href: "/quotes",
+        href: `/quotes?doc=${q.id}`,
       })
     for (const d of db.deals)
       push(d.customerId, {

@@ -62,6 +62,7 @@ export interface Project {
   dueDate?: string
   color: string
   description?: string
+  dealId?: ID // gesetzt, wenn das Projekt aus einem gewonnenen Deal entstanden ist
   createdAt: string
 }
 

@@ -17,7 +17,7 @@ import {
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
-import { useQueryFlag } from "@/hooks/use-query-flag"
+import { useQueryFlag, useQueryValue } from "@/hooks/use-query-flag"
 import { eur, dateDE, computeTotals, emailSignature } from "@/lib/format"
 import type { Quote, QuoteStatus } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -48,6 +48,7 @@ export default function QuotesPage() {
   } = useStore()
   const confirm = useConfirm()
   const wantNew = useQueryFlag("new")
+  const focusDoc = useQueryValue("doc") // Deep-Link: bestimmtes Angebot direkt öffnen
   const [query, setQuery] = React.useState("")
   const [filter, setFilter] = React.useState<Filter>("all")
   const [editing, setEditing] = React.useState<Quote | null>(null)
@@ -59,6 +60,15 @@ export default function QuotesPage() {
       setOpen(true)
     }
   }, [wantNew])
+
+  React.useEffect(() => {
+    if (!focusDoc) return
+    const q = db.quotes.find((x) => x.id === focusDoc)
+    if (q) {
+      setEditing(q)
+      setOpen(true)
+    }
+  }, [focusDoc, db.quotes])
 
   const rows = db.quotes
     .filter((q) => (filter === "all" ? true : q.status === filter))
