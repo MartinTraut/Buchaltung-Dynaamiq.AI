@@ -113,6 +113,12 @@ export function lineNet(item: LineItem): number {
   return item.qty * item.unitPrice
 }
 
+/** Dokumentnummer „PREFIX-431" — Laufnummer mindestens dreistellig aufgefüllt,
+ *  damit Rechnungs-/Angebotsnummern einheitlich und professionell aussehen. */
+export function formatDocNumber(prefix: string, no: number): string {
+  return `${prefix}-${String(no).padStart(3, "0")}`
+}
+
 export function computeTotals(items: LineItem[]): DocTotals {
   const byRate = new Map<number, { base: number; tax: number }>()
   let net = 0

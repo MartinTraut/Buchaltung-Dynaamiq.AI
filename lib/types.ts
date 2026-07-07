@@ -105,6 +105,7 @@ export interface Invoice {
   reminderLevel?: number // 0/undef = keine, 1 = Erinnerung, 2 = 1. Mahnung, 3 = 2. Mahnung
   lastReminderAt?: string
   recurring?: boolean // monatlich wiederkehrender Retainer
+  pdfPath?: string // Pfad zur final gerenderten Original-PDF (z. B. /rechnungen/…​.pdf)
   createdAt: string
 }
 

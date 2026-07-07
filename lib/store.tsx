@@ -3,7 +3,7 @@
 import * as React from "react"
 import { nanoid } from "nanoid"
 import { seedDatabase } from "./seed"
-import { computeTotals, emailSignature, ownerFirstName } from "./format"
+import { computeTotals, emailSignature, ownerFirstName, formatDocNumber } from "./format"
 import { REMINDER_LABEL } from "./types"
 import type {
   Database,
@@ -22,7 +22,7 @@ import type {
   LineItem,
 } from "./types"
 
-const STORAGE_KEY = "dynaamiq-os-db-v1"
+const STORAGE_KEY = "dynaamiq-os-db-v12"
 
 type Collections = Omit<Database, "settings">
 type CollectionKey = keyof Collections
@@ -356,7 +356,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         let number = full.number
         let settings = d.settings
         if (!number) {
-          number = `${d.settings.invoicePrefix}-${d.settings.nextInvoiceNo}`
+          number = formatDocNumber(d.settings.invoicePrefix, d.settings.nextInvoiceNo)
           full.number = number
           settings = { ...d.settings, nextInvoiceNo: d.settings.nextInvoiceNo + 1 }
         }
@@ -395,7 +395,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           src.cancelsInvoiceId // kein Storno eines Stornos
         )
           return d
-        const number = `${d.settings.invoicePrefix}-${d.settings.nextInvoiceNo}`
+        const number = formatDocNumber(d.settings.invoicePrefix, d.settings.nextInvoiceNo)
         const now = new Date().toISOString()
         const inv: Invoice = {
           id: nanoid(8),
@@ -534,7 +534,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setDb((d) => {
         const src = d.invoices.find((x) => x.id === id)
         if (!src) return d
-        const number = `${d.settings.invoicePrefix}-${d.settings.nextInvoiceNo}`
+        const number = formatDocNumber(d.settings.invoicePrefix, d.settings.nextInvoiceNo)
         const issue = new Date()
         const due = new Date()
         due.setDate(due.getDate() + d.settings.paymentTermsDays)
@@ -597,7 +597,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       let number = full.number
       let settings = d.settings
       if (!number) {
-        number = `${d.settings.quotePrefix}-${d.settings.nextQuoteNo}`
+        number = formatDocNumber(d.settings.quotePrefix, d.settings.nextQuoteNo)
         full.number = number
         settings = { ...d.settings, nextQuoteNo: d.settings.nextQuoteNo + 1 }
       }
@@ -617,7 +617,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setDb((d) => {
       const q = d.quotes.find((x) => x.id === quoteId)
       if (!q) return d
-      const number = `${d.settings.invoicePrefix}-${d.settings.nextInvoiceNo}`
+      const number = formatDocNumber(d.settings.invoicePrefix, d.settings.nextInvoiceNo)
       const dueDate = new Date()
       dueDate.setDate(dueDate.getDate() + d.settings.paymentTermsDays)
       const inv: Invoice = {

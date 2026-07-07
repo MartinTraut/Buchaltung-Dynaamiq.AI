@@ -121,6 +121,13 @@ export default function InvoicesPage() {
         <DropdownItem onSelect={() => openEditor(inv)}>
           <Pencil /> Bearbeiten
         </DropdownItem>
+        {inv.pdfPath && (
+          <DropdownItem asChild>
+            <a href={inv.pdfPath} target="_blank" rel="noopener noreferrer">
+              <ReceiptEuro /> Original-PDF öffnen
+            </a>
+          </DropdownItem>
+        )}
         <DropdownItem asChild>
           <Link href={`/print/invoice/${inv.id}`} target="_blank">
             <FileDown /> PDF / Drucken
