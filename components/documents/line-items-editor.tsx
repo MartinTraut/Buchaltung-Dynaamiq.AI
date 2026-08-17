@@ -42,9 +42,10 @@ export function LineItemsEditor({
 
   return (
     <div className="space-y-2">
-      <div className="hidden grid-cols-[1fr_70px_110px_80px_100px_32px] gap-2 px-1 text-[10px] font-semibold tracking-wider text-muted-foreground/60 uppercase sm:grid">
+      <div className="hidden grid-cols-[1fr_70px_70px_110px_80px_100px_32px] gap-2 px-1 text-[10px] font-semibold tracking-wider text-muted-foreground/60 uppercase sm:grid">
         <span>Beschreibung</span>
         <span className="text-right">Menge</span>
+        <span className="text-right">Std.</span>
         <span className="text-right">Einzelpreis</span>
         <span>USt</span>
         <span className="text-right">Netto</span>
@@ -54,7 +55,7 @@ export function LineItemsEditor({
       {items.map((it) => (
         <div
           key={it.id}
-          className="grid grid-cols-2 gap-2 rounded-xl border border-white/8 bg-white/[0.02] p-2 sm:grid-cols-[1fr_70px_110px_80px_100px_32px] sm:border-0 sm:bg-transparent sm:p-0"
+          className="grid grid-cols-2 gap-2 rounded-xl border border-white/8 bg-white/[0.02] p-2 sm:grid-cols-[1fr_70px_70px_110px_80px_100px_32px] sm:border-0 sm:bg-transparent sm:p-0"
         >
           <div className="col-span-2 sm:col-span-1">
             <Input
@@ -69,6 +70,20 @@ export function LineItemsEditor({
             step="0.5"
             value={it.qty}
             onChange={(e) => update(it.id, { qty: Number(e.target.value) })}
+            className="text-right tnum"
+          />
+          {/* Aufwand in Stunden — leer lassen heißt: erscheint nicht auf dem Beleg */}
+          <Input
+            type="number"
+            min={0}
+            step="0.5"
+            value={it.hours ?? ""}
+            placeholder="—"
+            onChange={(e) =>
+              update(it.id, {
+                hours: e.target.value === "" ? undefined : Number(e.target.value),
+              })
+            }
             className="text-right tnum"
           />
           <Input

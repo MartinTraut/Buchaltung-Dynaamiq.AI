@@ -77,17 +77,51 @@ export interface Task {
   assignee?: string
   due?: string // Kalender-Datum (ISO-Timestamp, Tages­auflösung)
   time?: string // Startuhrzeit "HH:MM" (nur relevant bei Terminen)
+  endTime?: string // Enduhrzeit "HH:MM"; fehlt → Standarddauer (60 min)
   hours?: number
 }
+
+/**
+ * Eine Teilleistung innerhalb einer Position. Als reiner String, wenn kein
+ * Aufwand hinterlegt ist — als Objekt, sobald Stunden ausgewiesen werden sollen.
+ */
+export type LineItemTask = string | { text: string; hours?: number }
 
 export interface LineItem {
   id: ID
   description: string
-  details?: string[] // optionale Unterpunkte (Bullets) für die PDF-Position
+  details?: LineItemTask[] // optionale Unterpunkte (Bullets) für die PDF-Position
+  /** Erläuternder Absatz unter dem Positionstitel — begründet den Aufwand,
+   *  bevor die Teilleistungen aufgezählt werden. Ruhiger gesetzt als der Titel. */
+  note?: string
   unit?: string // z. B. "Tag(e)", "Std.", "Stk." — Standard: Stk.
+  /** Kalkulatorischer Aufwand der Position in Stunden — wird auf dem Beleg
+   *  unter der Positionsbeschreibung ausgewiesen. Bei Festpreisen macht das
+   *  nachvollziehbar, wofür der Betrag steht. */
+  hours?: number
   qty: number
   unitPrice: number // € net
   taxRate: number // 0.19 | 0.07 | 0
+}
+
+/**
+ * Preis-Einordnung für Angebot oder Rechnung: rechnet den Beleg auf einen
+ * effektiven Stundensatz herunter und stellt ihn marktüblichen Sätzen gegenüber.
+ * Optional — ohne dieses Feld bleibt das Dokument ein reiner Beleg.
+ */
+export interface DocValuation {
+  hours: number // kalkulierter Aufwand hinter dem Preis
+  netAmount: number // Nettopreis, auf den sich der Vergleich bezieht
+  /** Marktübliche Stundensätze zum Vergleich (aufsteigend sortiert ausgeben) */
+  benchmarks: { label: string; rate: number }[]
+  /** Kurze Begründungen — zwei bis vier, je ein Satz. `stat`/`statLabel`
+   *  tragen die Kernzahl des Arguments als visuellen Anker im Druck. */
+  reasons: { title: string; text: string; stat?: string; statLabel?: string }[]
+  bottomLine?: string
+  /** Herkunft der Marktwerte; ohne Angabe erscheint der Standardhinweis */
+  sourceNote?: string
+  /** Belegte Quellen der Marktwerte — nummeriert unter der Einordnung */
+  sources?: { name: string; detail: string; link?: string }[]
 }
 
 export interface Invoice {
@@ -106,6 +140,7 @@ export interface Invoice {
   reminderLevel?: number // 0/undef = keine, 1 = Erinnerung, 2 = 1. Mahnung, 3 = 2. Mahnung
   lastReminderAt?: string
   recurring?: boolean // monatlich wiederkehrender Retainer
+  valuation?: DocValuation // optionale Preis-Einordnung
   pdfPath?: string // Pfad zur final gerenderten Original-PDF (z. B. /rechnungen/…​.pdf)
   createdAt: string
 }
@@ -127,6 +162,7 @@ export interface Quote {
   items: LineItem[]
   notes?: string
   projectId?: ID
+  valuation?: DocValuation // optionale Preis-Einordnung
   createdAt: string
 }
 

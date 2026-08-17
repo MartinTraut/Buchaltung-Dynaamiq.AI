@@ -9,11 +9,15 @@ export function eur(n: number, opts: { compact?: boolean } = {}): string {
       maximumFractionDigits: 1,
     }).format(n)
   }
+  // Echtes Minuszeichen statt Bindestrich: nur U+2212 hat Ziffernbreite und
+  // -höhe, sonst fällt jede Abzugszeile aus dem Zahlenraster.
   return new Intl.NumberFormat("de-DE", {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 2,
-  }).format(n)
+  })
+    .format(n)
+    .replace("-", "−")
 }
 
 export function num(n: number, digits = 0): string {
@@ -61,6 +65,37 @@ export function toDateInput(iso?: string): string {
 export function fromDateInput(value?: string): string | undefined {
   if (!value) return undefined
   return new Date(`${value}T00:00:00`).toISOString()
+}
+
+/** Standarddauer eines Termins ohne Endzeit (Minuten). */
+export const DEFAULT_EVENT_MINUTES = 60
+
+/** „HH:MM" → Minuten seit Mitternacht. Ungültig/leer → null. */
+export function minutesOfTime(time?: string): number | null {
+  if (!time) return null
+  const m = /^(\d{1,2}):(\d{2})$/.exec(time)
+  if (!m) return null
+  const h = Number(m[1])
+  const min = Number(m[2])
+  if (h > 23 || min > 59) return null
+  return h * 60 + min
+}
+
+/** Minuten seit Mitternacht → „HH:MM" (auf den Tag begrenzt). */
+export function timeOfMinutes(minutes: number): string {
+  const clamped = Math.max(0, Math.min(24 * 60, Math.round(minutes)))
+  const p = (n: number) => String(n).padStart(2, "0")
+  return `${p(Math.floor(clamped / 60) % 24)}:${p(clamped % 60)}`
+}
+
+/** Zeitspanne eines Termins als Text, z. B. „09:00–10:30". */
+export function timeRange(time?: string, endTime?: string): string {
+  const start = minutesOfTime(time)
+  if (start === null) return ""
+  const end = minutesOfTime(endTime)
+  return end !== null && end > start
+    ? `${timeOfMinutes(start)}–${timeOfMinutes(end)}`
+    : timeOfMinutes(start)
 }
 
 export function relativeTime(iso: string): string {

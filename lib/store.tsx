@@ -23,6 +23,28 @@ import type {
 } from "./types"
 
 const STORAGE_KEY = "dynaamiq-os-db-v12"
+/** Merkt sich, welche Seed-Datensätze schon einmal eingespielt wurden. */
+const SEEDED_KEY = "dynaamiq-os-seeded-ids"
+const SEED_REV_KEY = "dynaamiq-os-seed-revision"
+/**
+ * Hochzählen, wenn sich der Inhalt bestehender Seed-Datensätze ändert (Texte,
+ * Beträge, Preis-Einordnung). Beim nächsten Laden werden genau diese Datensätze
+ * auf den Seed-Stand gebracht — eigene Datensätze bleiben unberührt.
+ */
+const SEED_REVISION = 19
+
+/**
+ * Seed-Datensätze, die es nicht mehr geben soll. Der Merge legt nur an und
+ * aktualisiert — ohne diese Liste bliebe ein zurückgezogener Beleg in jeder
+ * bestehenden Installation für immer stehen. Wird beim Revisionssprung gelöscht.
+ */
+const RETIRED_SEED_IDS = new Set([
+  // Rechnung 2026-432 (3.000 € Website SKOPE) — nie versendet und im
+  // paketweisen Abrechnungsmodell gegenstandslos, samt Aufgabe und Aktivität.
+  "inv-2026-432",
+  "a-skope-inv",
+  "t-skope-alt",
+])
 
 type Collections = Omit<Database, "settings">
 type CollectionKey = keyof Collections
@@ -72,18 +94,114 @@ function definedProps<T extends object>(obj: Partial<T>): Partial<T> {
   ) as Partial<T>
 }
 
+const SEED_COLLECTIONS: CollectionKey[] = [
+  "customers",
+  "deals",
+  "projects",
+  "tasks",
+  "invoices",
+  "quotes",
+  "templates",
+  "activities",
+]
+
+/**
+ * Neu dazugekommene Seed-Datensätze (z. B. ein neuer Kunde samt Angebot)
+ * nachtragen, ohne bestehende Daten anzufassen. Jede ID wird nur ein einziges
+ * Mal eingespielt — was der Nutzer danach löscht, bleibt gelöscht.
+ */
+function mergeNewSeedRecords(db: Database, seed: Database): Database {
+  // Neue Revision: bestehende Seed-Datensätze auf den aktuellen Stand bringen.
+  let storedRev = 0
+  try {
+    storedRev = Number(window.localStorage.getItem(SEED_REV_KEY) ?? 0)
+  } catch {
+    /* nicht lesbar — wie Revision 0 behandeln */
+  }
+  const refresh = storedRev < SEED_REVISION
+
+  let applied: string[] = []
+  try {
+    const raw = window.localStorage.getItem(SEEDED_KEY)
+    if (raw) applied = JSON.parse(raw) as string[]
+  } catch {
+    /* defekter Eintrag — wie „noch nichts eingespielt" behandeln */
+  }
+  const seen = new Set(applied)
+  const next = { ...db }
+  const added: string[] = []
+
+  for (const key of SEED_COLLECTIONS) {
+    let existing = next[key] as { id: string }[]
+    const seedRecords = seed[key] as { id: string }[]
+
+    if (refresh) {
+      const byId = new Map(seedRecords.map((r) => [r.id, r]))
+      const purged = existing.filter((r) => !RETIRED_SEED_IDS.has(r.id))
+      if (purged.length !== existing.length) {
+        existing = purged
+        next[key] = purged as never
+        added.push("rev")
+      }
+      const replaced = existing.map((r) => byId.get(r.id) ?? r)
+      if (replaced.some((r, i) => r !== existing[i])) {
+        existing = replaced
+        next[key] = replaced as never
+        added.push("rev")
+      }
+    }
+
+    const have = new Set(existing.map((r) => r.id))
+    const fresh = seedRecords.filter((r) => !have.has(r.id) && !seen.has(r.id))
+    if (fresh.length) {
+      next[key] = [...fresh, ...existing] as never
+      added.push(...fresh.map((r) => r.id))
+    }
+  }
+
+  // Alle Seed-IDs vormerken, auch die schon vorhandenen — sonst kämen gelöschte
+  // Datensätze beim nächsten Start zurück.
+  const allIds = SEED_COLLECTIONS.flatMap((k) =>
+    (seed[k] as { id: string }[]).map((r) => r.id),
+  )
+  try {
+    window.localStorage.setItem(SEEDED_KEY, JSON.stringify(allIds))
+    window.localStorage.setItem(SEED_REV_KEY, String(SEED_REVISION))
+  } catch {
+    /* quota / private mode — ignore */
+  }
+
+  return added.length ? next : db
+}
+
 function load(): Database {
   if (typeof window === "undefined") return seedDatabase()
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return seedDatabase()
+    const seed = seedDatabase()
+    if (!raw) return seed
     const parsed = JSON.parse(raw) as Database
     // basic shape guard
-    if (!parsed.customers || !parsed.settings) return seedDatabase()
+    if (!parsed.customers || !parsed.settings) return seed
     // Neue Settings-Felder (z. B. Amtsgericht, HR-Nr.) aus den Defaults ergänzen,
     // ohne eigene Änderungen zu überschreiben.
-    const seed = seedDatabase()
-    return { ...parsed, settings: { ...seed.settings, ...parsed.settings } }
+    const merged = mergeNewSeedRecords(parsed, seed)
+    return {
+      ...merged,
+      settings: {
+        ...seed.settings,
+        // Leere Strings aus dem Speicher dürfen gepflegte Vorgaben nicht
+        // verdrängen — sonst bleibt ein später ergänztes Feld (z. B. Telefon)
+        // bei bestehenden Installationen für immer leer.
+        ...Object.fromEntries(
+          Object.entries(parsed.settings).filter(([, v]) => v !== "" && v != null),
+        ),
+        // Zähler dürfen nie hinter den Seed zurückfallen — sonst vergäbe das
+        // Tool eine Nummer erneut, die bereits auf einem Dokument steht.
+        nextInvoiceNo: Math.max(seed.settings.nextInvoiceNo, parsed.settings.nextInvoiceNo ?? 0),
+        nextQuoteNo: Math.max(seed.settings.nextQuoteNo, parsed.settings.nextQuoteNo ?? 0),
+      },
+    }
   } catch {
     return seedDatabase()
   }
@@ -352,6 +470,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       assignee: t.assignee,
       due: t.due,
       time: t.time,
+      endTime: t.endTime,
       hours: t.hours,
     }
     setDb((d) => {
