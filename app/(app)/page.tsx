@@ -75,11 +75,11 @@ export default function DashboardPage() {
   const monthExpenses = rev[rev.length - 1]?.expenses ?? 0
   const profitSpark = rev.map((m) => m.revenue - m.expenses)
   const KPI_DEFS = [
-    { key: "umsatz", label: "Umsatz (Monat)", value: k.monthRevenue, delta: k.revDelta, spark: k.spark, accent: "#1f7bf2", sparkColor: "#1f7bf2", icon: <TrendingUp className="size-4" /> },
-    { key: "gewinn", label: "Gewinn (Monat)", value: k.profit, delta: k.margin, spark: profitSpark, accent: "#2fd3a5", sparkColor: "#2fd3a5", icon: <CircleDollarSign className="size-4" /> },
-    { key: "ausgaben", label: "Ausgaben (Monat)", value: monthExpenses, spark: rev.map((m) => m.expenses), accent: "#ff4d4d", sparkColor: "#ff7a7a", icon: <TrendingDown className="size-4" /> },
-    { key: "pipeline", label: "Pipeline (gewichtet)", value: k.weightedPipeline, spark: pipe.map((p) => p.value), accent: "#00ffe6", sparkColor: "#00ffe6", icon: <KanbanSquare className="size-4" /> },
-    { key: "offen", label: "Offene Forderungen", value: k.open, accent: "#5b2eff", sparkColor: "#5b2eff", icon: <ReceiptEuro className="size-4" /> },
+    { key: "umsatz", label: "Umsatz", hint: "laufender Monat", value: k.monthRevenue, delta: k.revDelta, deltaLabel: "vs. Vormonat", spark: k.spark, accent: "#1f7bf2", sparkColor: "#1f7bf2", icon: <TrendingUp className="size-4" /> },
+    { key: "gewinn", label: "Gewinn", hint: "laufender Monat", value: k.profit, delta: k.margin, deltaLabel: "Marge", spark: profitSpark, accent: "#2fd3a5", sparkColor: "#2fd3a5", icon: <CircleDollarSign className="size-4" /> },
+    { key: "ausgaben", label: "Ausgaben", hint: "laufender Monat", value: monthExpenses, spark: rev.map((m) => m.expenses), accent: "#ff4d4d", sparkColor: "#ff7a7a", icon: <TrendingDown className="size-4" /> },
+    { key: "pipeline", label: "Pipeline", hint: "gewichtet nach Abschlussquote", value: k.weightedPipeline, spark: pipe.map((p) => p.value), accent: "#00ffe6", sparkColor: "#00ffe6", icon: <KanbanSquare className="size-4" /> },
+    { key: "offen", label: "Offene Forderungen", hint: "noch nicht bezahlt", value: k.open, accent: "#5b2eff", sparkColor: "#5b2eff", icon: <ReceiptEuro className="size-4" /> },
   ] as const
 
   const [visibleKpis, setVisibleKpis] = useLocalState<string[]>("dyn-dash-kpis", [
@@ -198,9 +198,11 @@ export default function DashboardPage() {
               <KpiCard
                 key={d.key}
                 label={d.label}
+                hint={d.hint}
                 value={d.value}
                 format={(n) => eur(n)}
                 delta={"delta" in d ? d.delta : undefined}
+                deltaLabel={"deltaLabel" in d ? d.deltaLabel : undefined}
                 spark={"spark" in d ? d.spark : undefined}
                 accent={d.accent}
                 sparkColor={d.sparkColor}

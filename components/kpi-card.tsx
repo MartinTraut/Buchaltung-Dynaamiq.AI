@@ -8,9 +8,11 @@ import { MiniSpark } from "@/components/charts"
 
 export function KpiCard({
   label,
+  hint,
   value,
   format,
   delta,
+  deltaLabel = "vs. Vormonat",
   spark,
   sparkColor,
   icon,
@@ -18,9 +20,12 @@ export function KpiCard({
   delay = 0,
 }: {
   label: string
+  /** Zeitbezug o. Ä. — steht klein unter dem Label statt es umbrechen zu lassen. */
+  hint?: string
   value: number
   format: (n: number) => string
   delta?: number
+  deltaLabel?: string
   spark?: number[]
   sparkColor?: string
   icon?: React.ReactNode
@@ -28,35 +33,82 @@ export function KpiCard({
   delay?: number
 }) {
   const animated = useCountUp(value)
+  // Eine Linie aus lauter gleichen Werten ist keine Information, sondern ein
+  // Strich — in dem Fall lieber nichts zeigen.
+  const sparkVaries = !!spark && spark.length > 1 && new Set(spark).size > 1
+
   return (
     <div
-      className="glass glass-hover animate-rise relative overflow-hidden rounded-2xl p-7"
+      className="glass glass-hover animate-rise group relative flex min-h-[172px] flex-col overflow-hidden rounded-2xl p-5 sm:p-6"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {icon && (
-            <span
-              className="grid size-11 place-items-center rounded-xl [&>svg]:size-5"
-              style={{ background: `${accent}1a`, color: accent }}
-            >
-              {icon}
-            </span>
-          )}
-          <span className="text-[13px] font-semibold tracking-[0.1em] text-muted-foreground uppercase">
-            {label}
+      {/* Akzentschimmer aus der oberen Ecke — gibt der Karte Tiefe, ohne Rahmen */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-16 -top-20 size-44 rounded-full opacity-[0.16] blur-[46px] transition-opacity duration-300 group-hover:opacity-[0.26]"
+        style={{ background: accent }}
+      />
+      {/* Akzent-Hairline an der Oberkante — verankert die Karte farblich,
+          auch wenn Wert und Sparkline (noch) nichts hergeben */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[2px] opacity-60 transition-opacity duration-300 group-hover:opacity-90"
+        style={{ background: `linear-gradient(90deg, ${accent}, transparent 68%)` }}
+      />
+
+      <div className="relative flex items-start gap-3">
+        {icon && (
+          <span
+            className="grid size-10 shrink-0 place-items-center rounded-xl ring-1 ring-inset [&>svg]:size-[18px]"
+            style={{
+              background: `${accent}16`,
+              color: accent,
+              boxShadow: `inset 0 0 0 1px ${accent}2e`,
+            }}
+          >
+            {icon}
           </span>
+        )}
+        <div className="min-w-0 pt-0.5">
+          <p className="truncate text-[11.5px] font-semibold uppercase leading-tight tracking-[0.13em] text-muted-foreground">
+            {label}
+          </p>
+          {hint && (
+            <p className="mt-1 truncate text-[11px] leading-none text-muted-foreground/60">
+              {hint}
+            </p>
+          )}
         </div>
-        {typeof delta === "number" && <StatPill delta={delta} />}
       </div>
 
-      <div className="mt-5 font-display text-[34px] leading-none font-bold tracking-tight tnum sm:text-[30px] 2xl:text-[32px]">
-        {format(animated)}
+      <div className="relative mt-auto pt-6">
+        {/* Nullwerte gedämpft: vier leuchtende 0,00 € nebeneinander sehen
+            nach Fehler aus — der Blick soll zur Kennzahl mit Inhalt gehen. */}
+        <div
+          className={cn(
+            "font-display text-[clamp(1.65rem,1.1rem+1.5vw,2.05rem)] font-bold leading-none tracking-tight tnum",
+            value === 0 && "text-foreground/40",
+          )}
+        >
+          {format(animated)}
+        </div>
+
+        {/* Zeile bleibt reserviert, auch ohne Delta — sonst sitzen die Beträge
+            benachbarter Karten auf unterschiedlicher Höhe. */}
+        <div className="mt-2.5 flex min-h-[22px] items-center gap-2">
+          {typeof delta === "number" && (
+            <>
+              <StatPill delta={delta} />
+              <span className="truncate text-[11.5px] text-muted-foreground">{deltaLabel}</span>
+            </>
+          )}
+        </div>
       </div>
 
-      {spark && (
-        <div className="mt-3 -mb-1">
-          <MiniSpark data={spark} color={sparkColor ?? accent} />
+      {/* Verlauf randlos bis an die Kante — ersetzt die frühere Haarlinie */}
+      {sparkVaries && (
+        <div className={cn("relative -mx-5 -mb-5 mt-4 sm:-mx-6 sm:-mb-6")}>
+          <MiniSpark data={spark!} color={sparkColor ?? accent} />
         </div>
       )}
     </div>

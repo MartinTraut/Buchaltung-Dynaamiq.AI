@@ -8,8 +8,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Line,
-  LineChart,
+  LabelList,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -26,6 +25,12 @@ const axis = {
   axisLine: false,
   tick: { fill: "rgba(255,255,255,0.42)" },
 }
+
+/** Achsenbeträge: ganze Euro mit Tausenderpunkt („8.000 €"), nie „8000 €"
+ *  oder Cent-Stellen — die kompakte Intl-Notation lässt unter 10.000 die
+ *  Gruppierung weg und mischt dadurch zwei Formate auf einer Achse. Das
+ *  geschützte Leerzeichen verhindert, dass SVG-Labels vor dem € umbrechen. */
+const fmtAxis = (v: number) => `${Math.round(v).toLocaleString("de-DE")} €`
 
 function TipBox({
   label,
@@ -91,6 +96,9 @@ export function RevenueArea({
     onToggleProp ?? ((key: string) => setInternal((p) => ({ ...p, [key]: !p[key] })))
   const chartData = data.map((d) => ({ ...d, profit: d.revenue - d.expenses }))
   const shown = REV_SERIES.filter((s) => visible[s.key])
+  // Ohne Buchungen skaliert die Achse sonst auf 0–4 € und wirkt kaputt —
+  // stattdessen feste, glaubwürdige Skala und eine klare Leermeldung.
+  const empty = data.every((d) => d.revenue === 0 && d.expenses === 0)
 
   return (
     <div>
@@ -119,7 +127,18 @@ export function RevenueArea({
         })}
       </div>
 
-      <ResponsiveContainer width="100%" height={248}>
+      <div className="relative">
+      {empty && (
+        <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
+          <div className="rounded-xl border border-white/10 bg-[#101014]/85 px-4 py-2.5 text-center backdrop-blur-sm">
+            <p className="text-sm font-medium text-foreground/85">Noch keine Buchungen im Zeitraum</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Umsätze erscheinen mit der ersten bezahlten Rechnung
+            </p>
+          </div>
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height={248} className={empty ? "opacity-45" : undefined}>
         <AreaChart data={chartData} margin={{ top: 8, right: 6, bottom: 0, left: 0 }}>
           <defs>
             {REV_SERIES.map((s) => (
@@ -131,7 +150,12 @@ export function RevenueArea({
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
           <XAxis dataKey="label" {...axis} />
-          <YAxis {...axis} tickFormatter={(v) => eur(Number(v), { compact: true })} width={56} />
+          <YAxis
+            {...axis}
+            tickFormatter={fmtAxis}
+            width={70}
+            domain={empty ? [0, 12000] : undefined}
+          />
           <Tooltip
             cursor={{ stroke: "rgba(255,255,255,0.15)" }}
             content={({ active, payload, label }) =>
@@ -159,6 +183,7 @@ export function RevenueArea({
           ))}
         </AreaChart>
       </ResponsiveContainer>
+      </div>
     </div>
   )
 }
@@ -171,17 +196,27 @@ export function MiniSpark({
   color?: string
 }) {
   const chartData = data.map((v, i) => ({ i, v }))
+  // Eigene Gradient-ID je Farbe — sonst teilen sich mehrere Sparks eine Füllung.
+  const gid = `spark-${color.replace(/[^a-z0-9]/gi, "")}`
   return (
-    <ResponsiveContainer width="100%" height={40}>
-      <LineChart data={chartData} margin={{ top: 4, bottom: 4, left: 0, right: 0 }}>
-        <Line
+    <ResponsiveContainer width="100%" height={46}>
+      <AreaChart data={chartData} margin={{ top: 6, bottom: 0, left: 0, right: 0 }}>
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.28} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <Area
           type="monotone"
           dataKey="v"
           stroke={color}
-          strokeWidth={2}
+          strokeWidth={1.75}
+          fill={`url(#${gid})`}
           dot={false}
+          isAnimationActive={false}
         />
-      </LineChart>
+      </AreaChart>
     </ResponsiveContainer>
   )
 }
@@ -189,22 +224,18 @@ export function MiniSpark({
 export function PipelineBars({
   data,
 }: {
-  data: { label: string; value: number; fill: string }[]
+  data: { label: string; value: number; count?: number; fill: string }[]
 }) {
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} margin={{ top: 8, right: 6, bottom: 0, left: 0 }}>
+      <BarChart data={data} margin={{ top: 22, right: 6, bottom: 0, left: 0 }}>
         <CartesianGrid
           strokeDasharray="3 3"
           stroke="rgba(255,255,255,0.05)"
           vertical={false}
         />
         <XAxis dataKey="label" {...axis} />
-        <YAxis
-          {...axis}
-          tickFormatter={(v) => eur(Number(v), { compact: true })}
-          width={56}
-        />
+        <YAxis {...axis} tickFormatter={fmtAxis} width={70} />
         <Tooltip
           cursor={{ fill: "rgba(255,255,255,0.04)" }}
           content={({ active, payload, label }) =>
@@ -213,12 +244,34 @@ export function PipelineBars({
                 label={String(label)}
                 rows={[
                   { name: "Volumen", value: eur(Number(payload[0]?.value)) },
+                  ...(typeof payload[0]?.payload?.count === "number"
+                    ? [
+                        {
+                          name: "Deals",
+                          value: String(payload[0].payload.count),
+                        },
+                      ]
+                    : []),
                 ]}
               />
             ) : null
           }
         />
-        <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+        {/* Die Spur zeigt leere Phasen als bewusste Fläche — eine einzelne
+            Säule steht sonst verloren im Nichts. Wertelabel direkt am Balken,
+            damit die Zahl nicht erst an der Achse abgelesen werden muss. */}
+        <Bar
+          dataKey="value"
+          radius={[7, 7, 2, 2]}
+          maxBarSize={52}
+          background={{ fill: "rgba(255,255,255,0.035)", radius: 7 }}
+        >
+          <LabelList
+            dataKey="value"
+            position="top"
+            formatter={(v) => (Number(v) > 0 ? fmtAxis(Number(v)) : "")}
+            style={{ fill: "rgba(255,255,255,0.78)", fontSize: 11.5, fontWeight: 600 }}
+          />
           {data.map((d, i) => (
             <Cell key={i} fill={d.fill} />
           ))}

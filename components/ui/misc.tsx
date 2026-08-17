@@ -98,18 +98,23 @@ export function StatPill({
   delta: number
   className?: string
 }) {
-  const up = delta >= 0
+  // Bei ±0 ist weder ein grüner noch ein roter Pfeil ehrlich — neutral zeigen.
+  const zero = Math.abs(delta) < 0.05
+  const up = delta > 0
   return (
     <span
       className={cn(
         "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold tnum",
-        up
-          ? "bg-[#2fd3a5]/12 text-[#3ee3b5]"
-          : "bg-[#ff4d4d]/12 text-[#ff7a7a]",
+        zero
+          ? "bg-white/[0.07] text-muted-foreground"
+          : up
+            ? "bg-[#2fd3a5]/12 text-[#3ee3b5]"
+            : "bg-[#ff4d4d]/12 text-[#ff7a7a]",
         className,
       )}
     >
-      {up ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}%
+      {zero ? "±" : up ? "▲" : "▼"}{" "}
+      {Math.abs(delta).toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %
     </span>
   )
 }
