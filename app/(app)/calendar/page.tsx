@@ -12,7 +12,7 @@ import {
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useLocalState } from "@/hooks/use-local-state"
-import { dayKey, fromDateInput } from "@/lib/format"
+import { dayKey, fromDateInput, minutesOfTime, timeRange } from "@/lib/format"
 import { TASK_KIND_LABEL, type Task } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ import { Segmented } from "@/components/ui/segmented"
 import { EmptyState } from "@/components/ui/misc"
 import { Toolbar } from "@/components/page-toolbar"
 import { TaskDialog } from "@/components/tasks/task-dialog"
+import { TimeGrid, type TimedChange } from "@/components/calendar/time-grid"
 import {
   Dialog,
   DialogContent,
@@ -31,13 +32,26 @@ import {
 const NEUTRAL = "#6c7693"
 const WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
-type View = "month" | "week" | "list"
+type View = "month" | "week" | "day" | "list"
 
-/** Termine/Aufgaben eines Tages chronologisch: Termine mit Uhrzeit zuerst. */
+/** Termine/Aufgaben eines Tages chronologisch: Einträge mit Uhrzeit zuerst. */
 function sortEntries(a: Task, b: Task): number {
-  const ta = a.kind === "event" && a.time ? a.time : "99:99"
-  const tb = b.kind === "event" && b.time ? b.time : "99:99"
-  return ta === tb ? a.title.localeCompare(b.title) : ta < tb ? -1 : 1
+  const ta = minutesOfTime(a.time) ?? 24 * 60 + 1
+  const tb = minutesOfTime(b.time) ?? 24 * 60 + 1
+  return ta === tb ? a.title.localeCompare(b.title) : ta - tb
+}
+
+/** ISO-8601-Kalenderwoche (Woche mit dem ersten Donnerstag). */
+function isoWeek(d: Date): number {
+  const t = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  t.setDate(t.getDate() + 3 - ((t.getDay() + 6) % 7))
+  const first = new Date(t.getFullYear(), 0, 4)
+  return (
+    1 +
+    Math.round(
+      ((t.getTime() - first.getTime()) / 86400000 - 3 + ((first.getDay() + 6) % 7)) / 7,
+    )
+  )
 }
 
 function isDesktop() {
@@ -45,7 +59,7 @@ function isDesktop() {
 }
 
 export default function CalendarPage() {
-  const { db } = useStore()
+  const { db, upsertTask } = useStore()
   const reduce = useReducedMotion()
   const [view, setView] = useLocalState<View>("dyn-calendar-view", "month")
   const [anchor, setAnchor] = React.useState<Date>(() => new Date())
@@ -96,8 +110,46 @@ export default function CalendarPage() {
     setAnchor((a) => {
       const d = new Date(a)
       if (view === "week") d.setDate(d.getDate() + dir * 7)
+      else if (view === "day") d.setDate(d.getDate() + dir)
       else d.setMonth(d.getMonth() + dir)
       return d
+    })
+
+  // Tastatur wie in gängigen Kalendern: ←/→ blättern, T = heute,
+  // M/W/D/L wechseln die Ansicht. Nicht greifen, während getippt wird.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
+      const views: Record<string, View> = { m: "month", w: "week", d: "day", l: "list" }
+      const v = views[e.key.toLowerCase()]
+      if (v) return setView(v)
+      if (e.key === "ArrowLeft") shift(-1)
+      else if (e.key === "ArrowRight") shift(1)
+      else if (e.key.toLowerCase() === "t") setAnchor(new Date())
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  })
+
+  /** Aufziehen im Raster: Dialog mit vorbelegter Spanne öffnen. */
+  const onGridCreate = (c: TimedChange) =>
+    openNew({
+      kind: "event",
+      due: fromDateInput(c.day),
+      time: c.time,
+      endTime: c.endTime,
+    })
+
+  /** Verschieben/Resize im Raster: direkt speichern, kein Dialog. */
+  const onGridChange = (id: string, c: TimedChange) =>
+    upsertTask({
+      id,
+      kind: "event",
+      due: fromDateInput(c.day),
+      time: c.time,
+      endTime: c.endTime,
     })
 
   // ---- Titel je View ----
@@ -108,9 +160,26 @@ export default function CalendarPage() {
     return d
   }, [anchor])
 
+  const weekDays = React.useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(weekStart)
+        d.setDate(weekStart.getDate() + i)
+        return d
+      }),
+    [weekStart],
+  )
+
   const title =
     view === "list"
       ? "Agenda"
+      : view === "day"
+        ? anchor.toLocaleDateString("de-DE", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
       : view === "week"
         ? (() => {
             const end = new Date(weekStart)
@@ -151,30 +220,39 @@ export default function CalendarPage() {
           <h2 className="ml-1 font-display text-[clamp(1.15rem,0.9rem+1vw,1.6rem)] font-bold capitalize leading-none tracking-tight">
             {title}
           </h2>
+          {view === "week" && (
+            <span className="hidden rounded-full bg-white/[0.06] px-2 py-1 text-[11px] font-medium tnum text-muted-foreground sm:inline">
+              KW {isoWeek(weekStart)}
+            </span>
+          )}
         </div>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
           <Segmented
+            className="max-sm:min-w-0 max-sm:overflow-x-auto"
             value={view}
             onChange={setView}
             options={[
               { id: "month", label: "Monat" },
               { id: "week", label: "Woche" },
+              { id: "day", label: "Tag" },
               { id: "list", label: "Liste" },
             ]}
           />
           <Button
             variant="brand"
             size="lg"
-            className="gap-1.5"
+            aria-label="Termin anlegen"
+            className="shrink-0 gap-1.5 max-sm:aspect-square max-sm:px-0"
             onClick={() => openNew({ kind: "event", due: fromDateInput(todayKey) })}
           >
-            <Plus className="size-4" /> Termin
+            <Plus className="size-4" />
+            <span className="max-sm:hidden">Termin</span>
           </Button>
         </div>
       </Toolbar>
 
-      {!hasAny ? (
+      {!hasAny && view === "list" ? (
         <EmptyState
           icon={<CalendarDays className="size-6" />}
           title="Noch nichts geplant"
@@ -200,16 +278,23 @@ export default function CalendarPage() {
           onEntry={openEdit}
           onMore={openDaySheet}
         />
-      ) : view === "week" ? (
-        <WeekView
-          weekStart={weekStart}
-          byDay={byDay}
-          todayKey={todayKey}
-          colorOf={colorOf}
-          reduce={!!reduce}
-          onDayClick={onDayClick}
-          onEntry={openEdit}
-        />
+      ) : view === "week" || view === "day" ? (
+        <motion.div
+          key={view}
+          initial={reduce ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28, ease: "easeOut" }}
+        >
+          <TimeGrid
+            days={view === "week" ? weekDays : [anchor]}
+            byDay={byDay}
+            todayKey={todayKey}
+            colorOf={colorOf}
+            onOpenEntry={openEdit}
+            onCreate={onGridCreate}
+            onChange={onGridChange}
+          />
+        </motion.div>
       ) : (
         <AgendaView
           tasks={db.tasks}
@@ -268,7 +353,7 @@ function EntryChip({
       style={{ background: `${color}20`, boxShadow: `inset 0 0 0 1px ${color}33` }}
     >
       <span className="size-1.5 shrink-0 rounded-full" style={{ background: color }} />
-      {t.kind === "event" && t.time && (
+      {t.time && (
         <span className="shrink-0 tnum text-[10px] text-muted-foreground">{t.time}</span>
       )}
       <span
@@ -433,95 +518,6 @@ function MonthView({
 }
 
 /* ------------------------------------------------------------------ */
-/* Week                                                                */
-/* ------------------------------------------------------------------ */
-
-function WeekView({
-  weekStart,
-  byDay,
-  todayKey,
-  colorOf,
-  reduce,
-  onDayClick,
-  onEntry,
-}: {
-  weekStart: Date
-  byDay: Map<string, Task[]>
-  todayKey: string
-  colorOf: (t: Task) => string
-  reduce: boolean
-  onDayClick: (d: Date) => void
-  onEntry: (id: string) => void
-}) {
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart)
-    d.setDate(weekStart.getDate() + i)
-    return d
-  })
-  return (
-    <motion.div
-      initial={reduce ? false : { opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, ease: "easeOut" }}
-      className="grid grid-cols-1 gap-3 sm:grid-cols-7 sm:gap-2"
-    >
-      {days.map((d) => {
-        const k = dayKey(d)
-        const entries = byDay.get(k) ?? []
-        const isToday = k === todayKey
-        return (
-          <div
-            key={k}
-            className={cn(
-              "glass flex min-h-[80px] flex-col rounded-2xl p-2.5 sm:min-h-[340px]",
-              isToday && "ring-1 ring-brand-cyan/40",
-            )}
-          >
-            <button
-              onClick={() => onDayClick(d)}
-              className="mb-2 flex items-center justify-between rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-white/[0.03]"
-            >
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {WEEKDAYS[(d.getDay() + 6) % 7]}
-              </span>
-              <span
-                className={cn(
-                  "grid size-6 place-items-center rounded-full text-[12px] font-semibold tnum",
-                  isToday ? "bg-brand-cyan/15 text-brand-cyan" : "text-foreground/80",
-                )}
-              >
-                {d.getDate()}
-              </span>
-            </button>
-            <div className="flex flex-1 flex-col gap-1">
-              {entries.map((t) => (
-                <EntryChip
-                  key={t.id}
-                  t={t}
-                  color={colorOf(t)}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onEntry(t.id)
-                  }}
-                />
-              ))}
-              {entries.length === 0 && (
-                <button
-                  onClick={() => onDayClick(d)}
-                  className="hidden flex-1 items-center justify-center rounded-lg text-[11px] text-muted-foreground/50 transition-colors hover:bg-white/[0.02] hover:text-muted-foreground sm:flex"
-                >
-                  +
-                </button>
-              )}
-            </div>
-          </div>
-        )
-      })}
-    </motion.div>
-  )
-}
-
-/* ------------------------------------------------------------------ */
 /* Agenda / List                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -626,8 +622,10 @@ function AgendaRow({
         className="grid w-14 shrink-0 justify-items-center gap-0.5 text-center"
         aria-hidden
       >
-        {isEvent && t.time ? (
-          <span className="text-[13px] font-semibold tnum text-foreground/90">{t.time}</span>
+        {t.time ? (
+          <span className="text-[12px] font-semibold leading-tight tnum text-foreground/90">
+            {timeRange(t.time, t.endTime).replace("–", "–​")}
+          </span>
         ) : (
           <span className="grid size-6 place-items-center rounded-lg bg-white/[0.05] text-muted-foreground">
             {isEvent ? <Clock className="size-3.5" /> : <CircleDot className="size-3.5" />}
@@ -711,7 +709,7 @@ function DaySheet({
                     {t.title}
                   </p>
                   <p className="truncate text-[12px] text-muted-foreground">
-                    {t.kind === "event" && t.time ? `${t.time} · ` : ""}
+                    {t.time ? `${timeRange(t.time, t.endTime)} · ` : ""}
                     {TASK_KIND_LABEL[t.kind ?? "task"]}
                   </p>
                 </div>

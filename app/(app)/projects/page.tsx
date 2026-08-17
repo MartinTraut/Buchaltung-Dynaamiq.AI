@@ -155,7 +155,7 @@ export default function ProjectsPage() {
       {/* Detail with tasks */}
       <Dialog open={!!detailId} onOpenChange={(o) => !o && setDetailId(null)}>
         {detail && (
-          <DialogContent size="lg">
+          <DialogContent size="xl">
             <DialogHeader>
               <div className="flex items-center gap-2.5">
                 <span className="size-3 rounded-full" style={{ background: detail.color }} />
@@ -166,10 +166,12 @@ export default function ProjectsPage() {
 
             {detail.description && <p className="text-sm text-muted-foreground">{detail.description}</p>}
 
+            {/* Volle Beträge statt Kurzform — im breiten Dialog ist Platz, und
+                „3000 €" neben „14.000 €" sah wie zwei Formate aus. */}
             <div className="grid grid-cols-3 gap-3">
-              <Mini label="Budget" value={eur(detail.budget, { compact: true })} />
-              <Mini label="Verbraucht" value={eur(detail.spent, { compact: true })} />
-              <Mini label="Verbleibend" value={eur(detail.budget - detail.spent, { compact: true })} />
+              <Mini label="Budget" value={eur(detail.budget)} />
+              <Mini label="Verbraucht" value={eur(detail.spent)} />
+              <Mini label="Verbleibend" value={eur(detail.budget - detail.spent)} />
             </div>
 
             <div>
@@ -296,9 +298,11 @@ export default function ProjectsPage() {
 
 function Mini({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
-      <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className="mt-0.5 font-display text-base font-bold tnum">{value}</p>
+    // min-w-0: sonst drückt der längste Betrag die Grid-Spalte auf und das
+    // ganze Fenster bekommt einen horizontalen Scrollbalken.
+    <div className="min-w-0 rounded-xl border border-white/8 bg-white/[0.02] p-3">
+      <p className="truncate text-[11px] text-muted-foreground">{label}</p>
+      <p className="mt-0.5 truncate font-display text-base font-bold tnum">{value}</p>
     </div>
   )
 }

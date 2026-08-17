@@ -30,7 +30,10 @@ function DialogContent({
       <DialogPrimitive.Content
         className={cn(
           // Phone: Bottom-Sheet — volle Breite, von unten einfahrend, Safe-Area unten
-          "fixed inset-x-0 bottom-0 z-50 grid w-full gap-4 rounded-t-2xl border border-white/10 bg-[#111114] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl outline-none",
+          // grid-cols-1 = repeat(1, minmax(0,1fr)): begrenzt die Spalte auf die
+          // Fensterbreite. Ohne das wird der Track max-content breit und ein
+          // langer Inhalt schiebt das ganze Sheet seitlich aus dem Bild.
+          "fixed inset-x-0 bottom-0 z-50 grid w-full grid-cols-1 gap-4 rounded-t-2xl border border-white/10 bg-[#111114] p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl outline-none",
           "max-h-[92dvh] overflow-y-auto",
           // ab sm: zentriertes Dialog-Fenster (unveränderter Ist-Zustand)
           "sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:w-[calc(100vw-2rem)] sm:max-h-[90vh] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:pb-6",
@@ -93,7 +96,8 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         // Phone: sticky am Sheet-Boden (lange Formulare), ab sm normaler Footer
         "sticky bottom-0 z-10 -mx-6 -mb-6 flex flex-col-reverse gap-2 border-t border-white/10 bg-[#111114] px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
-        "sm:static sm:mx-0 sm:mb-0 sm:flex-row sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:pt-2",
+        // flex-wrap: mehrere Aktionen brechen um, statt aus dem Fenster zu laufen
+        "sm:static sm:mx-0 sm:mb-0 sm:flex-row sm:flex-wrap sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:pt-2",
         className,
       )}
       {...props}

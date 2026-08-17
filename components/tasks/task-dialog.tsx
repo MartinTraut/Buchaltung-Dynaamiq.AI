@@ -4,7 +4,13 @@ import * as React from "react"
 import { Trash2, CalendarClock, CheckSquare } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
-import { toDateInput, fromDateInput } from "@/lib/format"
+import {
+  toDateInput,
+  fromDateInput,
+  minutesOfTime,
+  timeOfMinutes,
+  DEFAULT_EVENT_MINUTES,
+} from "@/lib/format"
 import { type Task, type TaskKind, type TaskStatus } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input, Label, Select } from "@/components/ui/input"
@@ -39,6 +45,10 @@ export function TaskDialog({
 }) {
   const { db, upsertTask, remove, add } = useStore()
   const confirm = useConfirm()
+  // Labels mit ihren Feldern verknüpfen — sonst greifen Screenreader
+  // und Label-Klicks ins Leere.
+  const uid = React.useId()
+  const fid = (name: string) => `${uid}-${name}`
 
   const existing = taskId ? db.tasks.find((t) => t.id === taskId) : undefined
 
@@ -46,6 +56,7 @@ export function TaskDialog({
   const [kind, setKind] = React.useState<TaskKind>("task")
   const [due, setDue] = React.useState("")
   const [time, setTime] = React.useState("")
+  const [endTime, setEndTime] = React.useState("")
   const [projectId, setProjectId] = React.useState("")
   const [assignee, setAssignee] = React.useState("")
   const [status, setStatus] = React.useState<TaskStatus>("todo")
@@ -59,6 +70,7 @@ export function TaskDialog({
     setKind(base.kind ?? "task")
     setDue(toDateInput(base.due))
     setTime(base.time ?? "")
+    setEndTime(base.endTime ?? "")
     setProjectId(base.projectId ?? "")
     setAssignee(base.assignee ?? "")
     setStatus(base.status ?? "todo")
@@ -69,14 +81,32 @@ export function TaskDialog({
   const isEvent = kind === "event"
   const canSave = title.trim().length > 0
 
+  const startMin = minutesOfTime(time)
+  const endMin = minutesOfTime(endTime)
+  /** Ende vor Start ist kein gültiger Termin — Speichern sperren statt still zu kippen. */
+  const endInvalid = startMin !== null && endMin !== null && endMin <= startMin
+
+  /** Startzeit setzen und ein bestehendes Ende um dieselbe Dauer mitziehen. */
+  const onStartChange = (v: string) => {
+    const prev = minutesOfTime(time)
+    const next = minutesOfTime(v)
+    if (prev !== null && next !== null && endMin !== null && endMin > prev) {
+      setEndTime(timeOfMinutes(next + (endMin - prev)))
+    } else if (next !== null && !endTime) {
+      setEndTime(timeOfMinutes(next + DEFAULT_EVENT_MINUTES))
+    }
+    setTime(v)
+  }
+
   const save = () => {
-    if (!canSave) return
+    if (!canSave || endInvalid) return
     upsertTask({
       id: taskId ?? undefined,
       title: title.trim(),
       kind,
       due: fromDateInput(due),
       time: isEvent ? time || undefined : undefined,
+      endTime: isEvent && time ? endTime || undefined : undefined,
       projectId: projectId || undefined,
       assignee: assignee.trim() || undefined,
       status,
@@ -123,8 +153,9 @@ export function TaskDialog({
 
         <div className="grid gap-4">
           <div>
-            <Label>Titel</Label>
+            <Label htmlFor={fid("title")}>Titel</Label>
             <Input
+              id={fid("title")}
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -147,30 +178,53 @@ export function TaskDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className={isEvent ? "" : "col-span-2"}>
-              <Label>Datum</Label>
+          <div className={isEvent ? "grid grid-cols-2 gap-3 sm:grid-cols-4" : ""}>
+            <div className={isEvent ? "col-span-2" : ""}>
+              <Label htmlFor={fid("due")}>Datum</Label>
               <Input
+                id={fid("due")}
                 type="date"
                 value={due}
                 onChange={(e) => setDue(e.target.value)}
               />
             </div>
             {isEvent && (
-              <div>
-                <Label>Uhrzeit</Label>
-                <Input
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                />
-              </div>
+              <>
+                <div>
+                  <Label htmlFor={fid("from")}>Von</Label>
+                  <Input
+                    id={fid("from")}
+                    type="time"
+                    step={900}
+                    value={time}
+                    onChange={(e) => onStartChange(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor={fid("to")}>Bis</Label>
+                  <Input
+                    id={fid("to")}
+                    type="time"
+                    step={900}
+                    value={endTime}
+                    disabled={!time}
+                    aria-invalid={endInvalid}
+                    onChange={(e) => setEndTime(e.target.value)}
+                  />
+                </div>
+              </>
             )}
           </div>
+          {endInvalid && (
+            <p className="-mt-2 text-[12px] text-[#ff7a7a]">
+              Das Ende muss nach dem Beginn liegen.
+            </p>
+          )}
 
           <div>
-            <Label>Projekt</Label>
+            <Label htmlFor={fid("project")}>Projekt</Label>
             <Select
+              id={fid("project")}
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
             >
@@ -184,8 +238,9 @@ export function TaskDialog({
           </div>
 
           <div>
-            <Label>Verantwortlich</Label>
+            <Label htmlFor={fid("assignee")}>Verantwortlich</Label>
             <Input
+              id={fid("assignee")}
               value={assignee}
               onChange={(e) => setAssignee(e.target.value)}
               placeholder="optional"
@@ -230,7 +285,7 @@ export function TaskDialog({
           <DialogClose asChild>
             <Button variant="outline">Abbrechen</Button>
           </DialogClose>
-          <Button variant="brand" disabled={!canSave} onClick={save}>
+          <Button variant="brand" disabled={!canSave || endInvalid} onClick={save}>
             {taskId ? "Speichern" : "Anlegen"}
           </Button>
         </DialogFooter>

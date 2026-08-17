@@ -206,7 +206,14 @@
 }
 
 @layer utilities {
+  /* Nur gleich breite Ziffern — die Schriftart bleibt die des Kontexts.
+     Vorher zog .tnum überall JetBrains Mono herein; große Beträge sahen
+     dadurch wie Schreibmaschinentext aus statt nach Display-Typo. */
   .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Für bewusst technische Stellen (IDs, Codes) weiterhin verfügbar. */
+  .tnum-mono {
     font-variant-numeric: tabular-nums;
     font-family: var(--font-mono);
   }
