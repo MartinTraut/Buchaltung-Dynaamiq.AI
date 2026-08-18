@@ -11,11 +11,14 @@ import {
   ArrowUpRight,
   Sparkles,
   CircleDollarSign,
-  CheckCircle2,
   Circle,
   Clock,
   SlidersHorizontal,
   Check,
+  Activity,
+  ListChecks,
+  PieChart,
+  Users,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { kpis, monthlyRevenue, pipelineByStage, expenseBreakdown } from "@/lib/metrics"
@@ -27,6 +30,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, Progress, StatPill } from "@/components/ui/misc"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
 import {
   Dropdown,
   DropdownTrigger,
@@ -70,6 +74,9 @@ export default function DashboardPage() {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 4)
   const maxRev = Math.max(...topCustomers.map((t) => t.revenue), 1)
+  // Vier Kunden mit 0,00 € und leerem Balken sind keine Rangliste, sondern ein
+  // defekt wirkendes Diagramm — dann lieber sagen, wann die Liste entsteht.
+  const hasCustomerRevenue = topCustomers.some((t) => t.revenue > 0)
 
   // ---- Konfigurierbare KPIs (Auswahl wird gespeichert) ----
   const monthExpenses = rev[rev.length - 1]?.expenses ?? 0
@@ -143,6 +150,24 @@ export default function DashboardPage() {
               <StatPill delta={k.revDelta} />
               <span className="text-xs text-muted-foreground">vs. Vormonat</span>
             </div>
+            {/* Kontextzeile: solange der Monatsumsatz bei null steht, ist die
+                große Zahl allein eine schwache Aussage — offene Forderungen und
+                Pipeline zeigen, was tatsächlich in Arbeit ist. */}
+            <dl className="mt-5 flex flex-wrap gap-x-7 gap-y-3 border-t border-white/8 pt-4 sm:justify-end">
+              {[
+                { label: "Offen", value: k.open },
+                { label: "Pipeline", value: k.pipelineValue },
+              ].map((s) => (
+                <div key={s.label} className="sm:text-right">
+                  <dt className="text-[10.5px] font-semibold uppercase tracking-[0.13em] text-muted-foreground/70">
+                    {s.label}
+                  </dt>
+                  <dd className="mt-1 font-display text-[17px] font-semibold leading-none tracking-tight tnum text-foreground/90">
+                    {eur(s.value)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
           </div>
         </div>
       </section>
@@ -253,13 +278,22 @@ export default function DashboardPage() {
           <p className="eyebrow">Operativ</p>
           <SectionTitle className="mb-0 mt-1.5">Heute im Blick</SectionTitle>
         </div>
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+        {/* Drei gleich hohe Karten: die Reihe darf nicht daran zerfallen, wie
+            viele Einträge zufällig vorhanden sind. */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Activity */}
-        <Card className="lg:col-span-1">
+        <Card className="flex min-h-[236px] flex-col">
           <div className="p-5 pb-2">
             <SectionTitle className="mb-0">Aktivität</SectionTitle>
           </div>
-          <div className="flex flex-col gap-1 p-3 pt-0">
+          {db.activities.length === 0 && (
+            <EmptyState
+              icon={<Activity />}
+              title="Noch keine Aktivität"
+              hint="Angebote, Rechnungen und Zahlungen erscheinen hier automatisch."
+            />
+          )}
+          <div className="flex flex-col gap-1 p-3 pt-0 empty:hidden">
             {db.activities.slice(0, 7).map((a) => (
               <div
                 key={a.id}
@@ -286,7 +320,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Open invoices */}
-        <Card>
+        <Card className="flex min-h-[236px] flex-col">
           <div className="flex items-center justify-between p-5 pb-2">
             <SectionTitle className="mb-0">Offene Rechnungen</SectionTitle>
             <Button asChild variant="ghost" size="sm">
@@ -295,7 +329,15 @@ export default function DashboardPage() {
               </Link>
             </Button>
           </div>
-          <div className="flex flex-col gap-1 p-3 pt-0">
+          {openInvoices.length === 0 && (
+            <EmptyState
+              icon={<ReceiptEuro />}
+              title="Keine offenen Forderungen"
+              hint="Alles bezahlt — versendete Rechnungen stehen hier bis zum Zahlungseingang."
+              action={{ label: "Rechnung schreiben", href: "/invoices" }}
+            />
+          )}
+          <div className="flex flex-col gap-1 p-3 pt-0 empty:hidden">
             {openInvoices.map((inv) => {
               const c = customerById(inv.customerId)
               const overdue = inv.status === "overdue"
@@ -327,17 +369,24 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        {/* Tasks + expenses gestapelt → füllt die Spaltenhöhe aus */}
-        <div className="flex flex-col gap-4">
-          <Card>
-            <div className="flex items-center justify-between p-5 pb-2">
-              <SectionTitle className="mb-0">Anstehende Aufgaben</SectionTitle>
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/calendar">
-                  Kalender <ArrowUpRight className="size-3.5" />
-                </Link>
-              </Button>
-            </div>
+        {/* Tasks */}
+        <Card className="flex min-h-[236px] flex-col">
+          <div className="flex items-center justify-between p-5 pb-2">
+            <SectionTitle className="mb-0">Anstehende Aufgaben</SectionTitle>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/calendar">
+                Kalender <ArrowUpRight className="size-3.5" />
+              </Link>
+            </Button>
+          </div>
+          {openTasks.length === 0 ? (
+            <EmptyState
+              icon={<ListChecks />}
+              title="Alles erledigt"
+              hint="Offene Aufgaben aus Kalender und Projekten laufen hier zusammen."
+              action={{ label: "Aufgabe anlegen", href: "/calendar" }}
+            />
+          ) : (
             <div className="flex flex-col gap-1 p-3 pt-0">
               {openTasks.map((t) => (
                 <div
@@ -359,15 +408,57 @@ export default function DashboardPage() {
                   )}
                 </div>
               ))}
-              {openTasks.length === 0 && (
-                <p className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
-                  <CheckCircle2 className="size-4 text-[#2fd3a5]" /> Alles erledigt!
-                </p>
-              )}
             </div>
+          )}
+        </Card>
+        </div>
+      </section>
+
+      {/* Kunden & Kosten — die beiden Auswertungen mit dem längsten Zeithorizont */}
+      <section>
+        <div className="mb-4">
+          <p className="eyebrow">Auswertung</p>
+          <SectionTitle className="mb-0 mt-1.5">Kunden & Kosten</SectionTitle>
+        </div>
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+          <Card className="flex flex-col xl:col-span-2">
+            <div className="flex items-center justify-between p-5 pb-0">
+              <div>
+                <SectionTitle className="mb-0">Top-Kunden nach Umsatz</SectionTitle>
+                <p className="text-xs text-muted-foreground">Bezahlte Rechnungen, brutto</p>
+              </div>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/crm">
+                  Alle <ArrowUpRight className="size-3.5" />
+                </Link>
+              </Button>
+            </div>
+            {hasCustomerRevenue ? (
+              <div className="grid gap-x-8 gap-y-4 p-5 md:grid-cols-2">
+                {topCustomers.map(({ c, revenue }) => (
+                  <div key={c.id} className="flex items-center gap-3">
+                    <Avatar name={c.company} className="size-9" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-medium">{c.company}</p>
+                        <p className="text-sm font-semibold tnum">{eur(revenue)}</p>
+                      </div>
+                      <Progress value={(revenue / maxRev) * 100} className="mt-1.5" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={<Users />}
+                title="Noch kein bezahlter Umsatz"
+                hint="Die Rangliste entsteht, sobald die erste Rechnung als bezahlt gebucht ist."
+                action={{ label: "Zu den Rechnungen", href: "/invoices" }}
+              />
+            )}
           </Card>
 
-          <Card>
+          <Card className="flex flex-col">
             <div className="flex items-center justify-between p-5 pb-0">
               <SectionTitle className="mb-0">Ausgaben-Struktur</SectionTitle>
               <Button asChild variant="ghost" size="sm">
@@ -376,45 +467,31 @@ export default function DashboardPage() {
                 </Link>
               </Button>
             </div>
-            <div className="p-3 pb-1">
-              <DonutChart data={expenses} />
-            </div>
-            <div className="space-y-1.5 px-5 pb-5">
-              {expenses.map((e) => (
-                <div key={e.name} className="flex items-center gap-2 text-xs">
-                  <span className="size-2 rounded-full" style={{ background: e.fill }} />
-                  <span className="flex-1 truncate text-muted-foreground">{e.name}</span>
-                  <span className="font-medium tnum">{eur(e.value, { compact: true })}</span>
+            {expenses.length === 0 ? (
+              <EmptyState
+                icon={<PieChart />}
+                title="Noch keine Ausgaben erfasst"
+                hint="Belege und laufende Kosten verteilen sich hier auf ihre Kategorien."
+                action={{ label: "Ausgabe erfassen", href: "/expenses" }}
+              />
+            ) : (
+              <>
+                <div className="p-3 pb-1">
+                  <DonutChart data={expenses} />
                 </div>
-              ))}
-            </div>
+                <div className="space-y-1.5 px-5 pb-5">
+                  {expenses.map((e) => (
+                    <div key={e.name} className="flex items-center gap-2 text-xs">
+                      <span className="size-2 rounded-full" style={{ background: e.fill }} />
+                      <span className="flex-1 truncate text-muted-foreground">{e.name}</span>
+                      <span className="font-medium tnum">{eur(e.value, { compact: true })}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </Card>
         </div>
-        </div>
-      </section>
-
-      {/* Top customers — volle Breite */}
-      <section>
-        <div className="mb-4">
-          <p className="eyebrow">Kunden</p>
-          <SectionTitle className="mb-0 mt-1.5">Top-Kunden nach Umsatz</SectionTitle>
-        </div>
-        <Card>
-        <div className="grid gap-x-8 gap-y-3 p-5 md:grid-cols-2">
-          {topCustomers.map(({ c, revenue }) => (
-            <div key={c.id} className="flex items-center gap-3">
-              <Avatar name={c.company} className="size-9" />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-sm font-medium">{c.company}</p>
-                  <p className="text-sm font-semibold tnum">{eur(revenue)}</p>
-                </div>
-                <Progress value={(revenue / maxRev) * 100} className="mt-1.5" />
-              </div>
-            </div>
-          ))}
-        </div>
-        </Card>
       </section>
     </div>
   )

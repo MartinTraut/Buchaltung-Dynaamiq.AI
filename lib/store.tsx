@@ -31,7 +31,7 @@ const SEED_REV_KEY = "dynaamiq-os-seed-revision"
  * Beträge, Preis-Einordnung). Beim nächsten Laden werden genau diese Datensätze
  * auf den Seed-Stand gebracht — eigene Datensätze bleiben unberührt.
  */
-const SEED_REVISION = 19
+const SEED_REVISION = 30
 
 /**
  * Seed-Datensätze, die es nicht mehr geben soll. Der Merge legt nur an und
@@ -44,7 +44,21 @@ const RETIRED_SEED_IDS = new Set([
   "inv-2026-432",
   "a-skope-inv",
   "t-skope-alt",
+  // Stornorechnung 2026-432, die zwischenzeitlich als Entwurf angelegt war.
+  // Sie wurde nie versendet und ist gegenstandslos: Rechnung 2026-431 steht
+  // selbst auf storniert. Ohne diesen Eintrag bliebe der Minus-Beleg in
+  // bestehenden Installationen als Entwurf stehen.
+  "inv-2026-432-storno",
 ])
+
+/**
+ * Seed-Datensätze, die trotz früherer Löschung wieder eingespielt werden.
+ * Normalerweise gilt „einmal gelöscht, bleibt gelöscht" — hier nicht: Rechnung
+ * 2026-431 ist versendet und verweist auf Kunde c1. Ohne den Kunden steht der
+ * Beleg ohne Empfänger da, und §14 UStG verlangt Name und Anschrift des
+ * Leistungsempfängers. Wird beim Revisionssprung einmalig nachgetragen.
+ */
+const RESTORE_SEED_IDS = new Set(["c1", "inv-2026-431"])
 
 type Collections = Omit<Database, "settings">
 type CollectionKey = keyof Collections
@@ -152,7 +166,9 @@ function mergeNewSeedRecords(db: Database, seed: Database): Database {
     }
 
     const have = new Set(existing.map((r) => r.id))
-    const fresh = seedRecords.filter((r) => !have.has(r.id) && !seen.has(r.id))
+    const fresh = seedRecords.filter(
+      (r) => !have.has(r.id) && (!seen.has(r.id) || (refresh && RESTORE_SEED_IDS.has(r.id))),
+    )
     if (fresh.length) {
       next[key] = [...fresh, ...existing] as never
       added.push(...fresh.map((r) => r.id))

@@ -73,7 +73,10 @@ const customers: Customer[] = [
     country: "Deutschland",
     customerNumber: "K-1004",
     tags: ["Medizintechnik", "Website", "Betreuung"],
-    health: "active",
+    // Zerstrittener Altkunde: Leistung erbracht, Preis abgelehnt, nichts
+    // übergeben, nichts gezahlt (siehe stornierte Rechnung 2026-431).
+    // Bleibt als Historie erhalten, zählt aber nicht mehr als aktiv.
+    health: "churned",
     createdAt: iso(4),
   },
   {
@@ -105,7 +108,7 @@ const deals: Deal[] = [
     owner: "Martin Traut",
     expectedClose: "2026-09-13T10:00:00.000Z",
     notes:
-      "Zwei Pakete zum Regelsatz 80 €/Std.: Paket 1 Website, Marke & Verkaufskanal (81,25 Std. = 6.500 €, nach Nachlass 5.000 €), Paket 2 System & Automatisierung (175,75 Std. = 14.060 €, nach Nachlass 11.000 €). Zusammen 257 Std. = 20.560 € zum Regelsatz, abzüglich 4.560 € Nachlass = 16.000 € netto. Paket 1 einzeln beauftragbar, Paket 2 setzt darauf auf. Das Angebot ist der Überblick; abgerechnet wird paketweise mit je eigener Rechnung bei Beauftragung. Pflege/Wartung nicht monatlich, sondern erfolgsabhängig: 15 % des Nettogewinns aus jedem über die Website zustande gekommenen Geschäft (Verkauf, Inspektion, Reparatur, Zubehör). Keine Monatspauschale, keine Obergrenze.",
+      "Zwei Pakete zum Regelsatz 80 €/Std.: Paket 1 Website, Marke & Verkaufskanal (81,25 Std. = 6.500 €, nach Nachlass 5.000 €), Paket 2 System & Automatisierung (175,75 Std. = 14.060 €, nach Nachlass 11.000 €). Zusammen 257 Std. = 20.560 € zum Regelsatz, abzüglich 4.560 € Nachlass = 16.000 € netto. Paket 1 einzeln beauftragbar, Paket 2 setzt darauf auf. Das Angebot ist der Überblick; abgerechnet wird paketweise mit je eigener Rechnung bei Beauftragung. Pflege/Wartung nicht monatlich, sondern erfolgsabhängig: 15 % des provisionsrelevanten Deckungsbeitrags aus Geschäften, die durch die Website entstehen (Verkauf, Inspektion, Reparatur, Zubehör). Keine feste Monatspauschale.",
     createdAt: "2026-08-14T09:00:00.000Z",
   },
 ]
@@ -190,7 +193,7 @@ const PAKET_1_AUFGABEN: LineItemTask[] = [
     hours: 4,
   },
   {
-    text: "Rechtstexte, Barrierefreiheit und Messung auf allen Bildschirmbreiten; keine externen Dienste im Seitenaufruf — Karte, Schriften und Bewertungen selbst gehostet, deshalb kein Cookie-Banner nötig",
+    text: "Rechtstexte, Barrierefreiheit und Messung auf allen Bildschirmbreiten; keine externen Dienste im Seitenaufruf — Karte, Schriften und Bewertungen selbst gehostet — mit dem Ziel, ohne Consent-Banner auszukommen, sofern im finalen Setup ausschließlich technisch erforderliche Technologien eingesetzt werden",
     hours: 4,
   },
 ]
@@ -240,8 +243,12 @@ const invoices: Invoice[] = [
     id: "inv-2026-431",
     number: "2026-431",
     customerId: "c1",
-    // Feste Daten der real ausgestellten & versendeten Rechnung (nicht relativ):
-    status: "sent",
+    // Ausgestellt und per WhatsApp versendet, danach Streit über den Preis.
+    // Der Kunde hat weder gezahlt noch die Leistung erhalten — nichts wurde
+    // übergeben, nichts veröffentlicht. Kein Zahlungseingang, kein Umsatz,
+    // keine Einnahme. Der Beleg bleibt als storniert stehen, damit der
+    // Nummernkreis lückenlos bleibt und nachvollziehbar ist, was passiert ist.
+    status: "canceled",
     issueDate: "2026-07-07T10:00:00.000Z",
     dueDate: "2026-07-10T10:00:00.000Z",
     serviceDate: "2026-07-07T10:00:00.000Z",
@@ -252,7 +259,7 @@ const invoices: Invoice[] = [
       { id: "p-kal", description: "Individualsoftware Wartungs- & Terminkalender (PWA) — eigenes, sicheres Backend mit geschütztem Login, Termine mit Prüfzyklen & Überfälligkeit, Kundenübersicht, Echtzeit-Synchronisation (2 Nutzer), Foto-/Datei-Doku, installierbar wie eine native App", unit: "Paket", qty: 1, unitPrice: 1500, taxRate: 0.19 },
       { id: "p-rab", description: "Paket- & Verhandlungsrabatt (Komplettpaket)", unit: "Rabatt", qty: 1, unitPrice: -2900, taxRate: 0.19 },
     ],
-    notes: "Komplettpaket Website + Wartungskalender — regulär 9.200 € netto, verhandelter Paketpreis 6.300 € netto (Ersparnis 2.900 € / 32 %). Eigentums- und Rechtevorbehalt: Alle Nutzungs- und Verwertungsrechte an Website und Software gehen erst mit vollständiger Bezahlung auf den Auftraggeber über.",
+    notes: "Komplettpaket Website + Wartungskalender — regulär 9.200 € netto, verhandelter Paketpreis 6.300 € netto (Ersparnis 2.900 € / 32 %). Eigentums- und Rechtevorbehalt: Alle Nutzungs- und Verwertungsrechte an Website und Software gehen erst mit vollständiger Bezahlung auf den Auftraggeber über.\n\nSTORNIERT: Der Preis wurde erst nach Fertigstellung genannt und vom Auftraggeber abgelehnt; eine Preisvereinbarung kam nie zustande. Die Leistung wurde daraufhin nicht übergeben, es erfolgte kein Zahlungseingang. Forderung nicht weiterverfolgt.",
   },
 ]
 
@@ -270,8 +277,8 @@ const quotes: Quote[] = [
       {
         id: "paket-1",
         description:
-          "Paket 1 — Website, Marke und Verkaufskanal: Redesign mit neuem Logo, vollständiger Webauftritt mit eigener Seite je Gerät, Shopify-Anbindung, Auffindbarkeit bei Google, in der Umkreissuche und in KI-Assistenten, eingerichtetes Google-Unternehmensprofil. Betrieb und Pflege danach ohne monatliche Gebühr — siehe Anmerkungen",
-        note: "Der Aufwand steckt weniger in den elf festen Seiten als darin, dass jedes Gerät eine eigene Seite bekommt, die sich aus dem Bestand füllt, und dass diese Seiten einzeln bei Google, in der Umkreissuche und in KI-Assistenten gefunden werden. Wer das nachträglich anbaut, baut die Website ein zweites Mal.",
+          "Paket 1 — Website, Marke und Verkaufskanal: Redesign mit neuem Logo, vollständiger Webauftritt mit eigener Seite je Gerät, Shopify-Anbindung, Optimierung der Auffindbarkeit für Google, die Umkreissuche und KI-Systeme, eingerichtetes Google-Unternehmensprofil. Betrieb und Pflege danach ohne monatliche Gebühr — siehe Anmerkungen",
+        note: "Der Aufwand steckt weniger in den elf festen Seiten als darin, dass jedes Gerät eine eigene Seite bekommt, die sich aus dem Bestand füllt, und dass diese Seiten einzeln für Google, die Umkreissuche und KI-Systeme auffindbar aufgebaut sind. Wer das nachträglich anbaut, baut die Website ein zweites Mal.",
         details: PAKET_1_AUFGABEN,
         unit: "Std.",
         qty: 81.25,
@@ -313,14 +320,14 @@ const quotes: Quote[] = [
       netAmount: 16000,
       benchmarks: [
         { label: "Mein Regelsatz ohne Nachlass", rate: 80 },
-        { label: "Freelancer Web & Software", rate: 90 },
-        { label: "IT-Freelancer, Schnitt", rate: 105 },
+        { label: "Freelancer Web & Software", rate: 91 },
+        { label: "Freelancer DACH, Schnitt", rate: 103 },
         { label: "Agentur", rate: 130 },
       ],
       reasons: [
         {
           title: "Unter dem eigenen Regelsatz",
-          text: "257 Std. ergeben zum Regelsatz 20.560 €. Berechnet werden 16.000 € — marktübliche Sätze für Web- und Softwareentwicklung liegen bei etwa 90 bis 105 €/Std.",
+          text: "257 Std. ergeben zum Regelsatz 20.560 €. Berechnet werden 16.000 € — marktübliche Sätze für Web- und Softwareentwicklung liegen bei etwa 91 bis 103 €/Std.",
           stat: "62 €",
           statLabel: "je Std.",
         },
@@ -328,7 +335,7 @@ const quotes: Quote[] = [
           title: "Ein Ansprechpartner",
           text: "Kein Agentur-Apparat, keine Weitergabe an Dritte: direkte Abstimmung, kurze Wege, ein Verantwortlicher.",
           stat: "1",
-          statLabel: "Verantwortlicher",
+          statLabel: "Ansprechpartner",
         },
         {
           title: "Der Unterbau trägt alle Kanäle",
@@ -337,24 +344,24 @@ const quotes: Quote[] = [
           statLabel: "Kanäle",
         },
         {
-          title: "Einmalig statt dauerhaft",
+          title: "Erfolgsabhängig statt Fixkosten",
           text: "Eine Warenwirtschaft von der Stange kostet 150 bis 400 € monatlich, unbefristet. Hier fällt danach keine Grundgebühr an.",
           stat: "0 €",
-          statLabel: "monatlich",
+          statLabel: "feste Pauschale",
         },
       ],
       sources: [
         {
-          name: "freelancermap — Freelancer-Kompass 2025/2026.",
+          name: "freelancermap — Freelancer-Kompass 2026.",
           detail:
-            "Größte Freelancer-Studie im DACH-Raum (10. Ausgabe): Ø aller Freelancer 104 €/h, IT-Freelancer 105 €/h, Software- und Webentwicklung rund 90 €/h.",
+            "Größte Freelancer-Studie im DACH-Raum: Ø-Stundensatz aller Freelancer 103 €/h (Vorjahr 104 €/h), Software- und Webentwicklung 91 €/h.",
           link: "freelancermap.de/freelancer-kompass",
         },
         {
-          name: "Computerwoche",
+          name: "Gründerküche",
           detail:
-            "(unabhängige IT-Fachpresse) — Bericht zum Freelancer-Kompass 2025: „IT-Freiberufler verdienen 105 Euro in der Stunde\".",
-          link: "computerwoche.de/article/3853444",
+            "(unabhängige Fachpresse) — Bericht zum Freelancer-Kompass 2026: Stundensätze erstmals seit Studienbeginn rückläufig, im Durchschnitt 103 Euro.",
+          link: "gruenderkueche.de/news/freelancer-kompass-2026",
         },
         {
           name: "GULP / Randstad Professional",
@@ -369,7 +376,7 @@ const quotes: Quote[] = [
         "Zum Vergleich: 257 Std. entsprechen rechnerisch rund 23.100 € zu Freelancer-Sätzen und rund 33.400 € zu Agentursätzen. Beide Pakete zusammen kosten 16.000 € netto — 4.560 € unter der eigenen Kalkulation von 20.560 €.",
     },
     notes:
-      "## Festpreis und Leistungsumfang\n\nPaket 1 kostet 5.000,00 € netto, Paket 2 11.000,00 € netto. Die Stundenangaben dienen der nachvollziehbaren Kalkulation — Sie kaufen keine Stunden, sondern den beschriebenen Leistungsumfang. Bleibt dieser unverändert, liegt das Risiko eines höheren tatsächlichen Aufwands bei uns.\n\nEnthalten sind ausschließlich die hier beschriebenen Funktionen. Was nach Auftragserteilung dazukommt, ist eine Zusatzleistung: Wir stimmen sie vorher ab, bieten sie separat an und setzen sie erst nach Ihrer Freigabe um. Ohne Freigabe entstehen keine zusätzlichen Kosten.\n\n## Wann Paket 1 fertig ist\n\nWebsite veröffentlicht und funktionsfähig, die vereinbarten Seiten umgesetzt, Darstellung auf Telefon, Tablet und Computer geprüft, Formulare stellen zu, Shopify-Anbindung im beschriebenen Umfang in Betrieb, SEO-Grundstruktur und strukturierte Daten eingebaut, Google-Unternehmensprofil eingerichtet beziehungsweise optimiert (sofern die Zugänge vorliegen), Kontakt- und Anfragewege getestet. Zum Abschluss läuft ein gemeinsamer Funktionstest.\n\n## Wann Paket 2 fertig ist\n\nWenn ein vollständiger Vorgang durchläuft: Gerät erfassen, Rahmennummer hinterlegen, Zustand und Prüfstatus dokumentieren, Bilder hochladen, Preis festlegen, Verkaufsinformationen erzeugen, Gerät auf den angebundenen Kanälen bereitstellen, Reservierung oder Verkauf erfassen, Bestand aktualisieren, Gerät gegen Doppelverkauf sperren, Vorgang protokollieren und Verkauf samt Spanne in der Auswertung sehen. Bei Kleinanzeigen erfolgt die Veröffentlichung wie beschrieben halbautomatisch.\n\n## Zeitrahmen und Mitwirkung\n\nPaket 1 rund 3 bis 5 Wochen ab Projektstart, Paket 2 rund 6 bis 10 weitere Wochen. Das sind Planwerte. Sie setzen voraus, dass Zugänge, Gerätedaten, Bilder, Rechtstexte und Freigaben rechtzeitig vorliegen; fehlende Zugänge oder Daten, ausstehende Freigaben, Änderungen am Leistungsumfang und Wartezeiten bei Drittanbietern verschieben den Zeitraum entsprechend.\n\n## Angebundene Kanäle und Drittanbieter\n\nWebsite und internes System sind vollständig verbunden. Shopify wird automatisch abgeglichen — Geräte, Artikeldaten, Preise, Bilder, Verfügbarkeit und Bestellungen, soweit die Schnittstelle das zulässt. Kleinanzeigen bleibt bewusst halbautomatisch: Titel, Beschreibung, Preis und zugeschnittene Bilder werden vorbereitet, veröffentlicht wird per Klick von Hand, weil automatisches Einstellen gegen die Nutzungsbedingungen verstößt.\n\nFunktionen, die von Shopify, Kleinanzeigen, Google oder KI-Anbietern abhängen, lassen sich nur im Rahmen der dort jeweils verfügbaren Schnittstellen und Nutzungsbedingungen umsetzen. Ändert ein Anbieter Schnittstelle, Bedingungen oder Funktionsumfang grundlegend, ist das keine Nichterfüllung unsererseits; größere Anpassungen daraus werden separat vereinbart.\n\n## Pflege und Betreuung statt Monatspauschale\n\nEs gibt keine feste monatliche Pflegegebühr. Stattdessen 15 % des provisionsrelevanten Deckungsbeitrags aus jedem Geschäft, das über die Website oder das bereitgestellte System zustande kommt. Kein solches Geschäft, keine Vergütung.\n\nProvisionsrelevanter Deckungsbeitrag = Nettoerlös abzüglich direktem Einkaufspreis, zurechenbarem Material, zurechenbarer Instandsetzung und zurechenbaren Fremdleistungen. Für Reparatur, Inspektion, Wartung und Zubehör gilt dieselbe Rechnung. Beispiel: Gerät für 1.900,00 € verkauft, Einkauf und Instandsetzung 1.300,00 € — Deckungsbeitrag 600,00 €, Anteil 90,00 €.\n\nAls digital vermittelt gilt ein Geschäft, wenn Anfrage, Bestellung, Terminbuchung oder ein eindeutig zuordenbarer Kontakt zuerst über Website, Website-Formular, den angebundenen Shop oder einen vom System erzeugten Anfrageweg eingegangen ist. Laufkundschaft, Telefon und Bestandskunden ohne digitalen Ursprung bleiben außen vor. Anfragen aus Kleinanzeigen zählen dann, wenn die Anzeige aus dem System erzeugt wurde — sonst nicht, auch wenn die Abwicklung später über die Website läuft.\n\nEnthalten sind Betrieb der Anwendung, Fehlerbehebung, Sicherheitsaktualisierungen, technische Pflege, Überwachung der angebundenen Schnittstellen, Pflege der Automatisierungen, kleinere Anpassungen und Optimierungen sowie Unterstützung bei Störungen. Nicht enthalten sind neue Funktionen und Module, umfangreiche Redesigns und die Anbindung weiterer Anbieter — das sind eigene Projekte und werden separat angeboten.\n\nAbgerechnet wird monatlich nachträglich anhand der tatsächlich angefallenen Geschäfte; die Regel „quartalsweise im Voraus\u201c gilt hierfür ausdrücklich nicht. Bei Storno oder Rückgabe wird der Anteil im Folgemonat abgezogen. Laufzeit 12 Monate, danach mit drei Monaten Frist zum Quartalsende kündbar.\n\n## Zahlung, Rechte und Beauftragung\n\nJe Paket 40 % bei Auftrag, 30 % bei Abnahme, 30 % bei Livegang, jeweils 14 Tage netto ohne Abzug. Mit vollständiger Zahlung gehen alle Nutzungsrechte an Quelltext, Gestaltung, Logo und erzeugten Grafiken an Sie über. Paket 1 ist einzeln beauftragbar, Paket 2 jederzeit nachrüstbar; jedes beauftragte Paket wird einzeln in Rechnung gestellt, nicht beauftragte Pakete werden nicht berechnet.\n\n## Nicht enthalten\n\nDomain, Hosting, Shopify und die eingesetzten KI-Dienste zahlen Sie direkt beim jeweiligen Anbieter. Anbieter und Umfang legen wir vor der Einrichtung gemeinsam fest, damit Sie die monatlichen Kosten vorher kennen. Alle Beträge netto zuzüglich der gesetzlichen Umsatzsteuer.",
+      "## Festpreis und Leistungsumfang\n\nPaket 1 kostet 5.000,00 € netto, Paket 2 kostet 11.000,00 € netto. Die Stundenangaben dienen der nachvollziehbaren Kalkulation — Sie kaufen keine Stunden, sondern den beschriebenen Leistungsumfang. Bleibt dieser unverändert, liegt das Risiko eines höheren tatsächlichen Aufwands bei uns.\n\nEnthalten sind ausschließlich die hier beschriebenen Funktionen. Was nach Auftragserteilung dazukommt, ist eine Zusatzleistung: Wir stimmen sie vorher ab, bieten sie separat an und setzen sie erst nach Ihrer Freigabe um. Ohne Freigabe entstehen keine zusätzlichen Kosten.\n\n## Wann Paket 1 fertig ist\n\nWebsite veröffentlicht und funktionsfähig, die vereinbarten Seiten umgesetzt, Darstellung auf Telefon, Tablet und Computer geprüft, Formulare stellen zu, Shopify-Anbindung im beschriebenen Umfang in Betrieb, SEO-Grundstruktur und strukturierte Daten eingebaut, Google-Unternehmensprofil eingerichtet beziehungsweise optimiert (sofern die Zugänge vorliegen), Kontakt- und Anfragewege getestet. Zum Abschluss läuft ein gemeinsamer Funktionstest.\n\n## Wann Paket 2 fertig ist\n\nWenn ein vollständiger Vorgang durchläuft: Gerät erfassen, Rahmennummer hinterlegen, Zustand und Prüfstatus dokumentieren, Bilder hochladen, Preis festlegen, Verkaufsinformationen erzeugen, Gerät auf den angebundenen Kanälen bereitstellen, Reservierung oder Verkauf erfassen, Bestand aktualisieren, Gerät gegen Doppelverkauf sperren, Vorgang protokollieren und Verkauf samt Spanne in der Auswertung sehen. Bei Kleinanzeigen erfolgt die Veröffentlichung wie beschrieben halbautomatisch.\n\n## Zeitrahmen und Mitwirkung\n\nPaket 1 rund 3 bis 5 Wochen ab Projektstart, Paket 2 rund 6 bis 10 weitere Wochen. Das sind Planwerte. Sie setzen voraus, dass Zugänge, Gerätedaten, Bilder, Rechtstexte und Freigaben rechtzeitig vorliegen; fehlende Zugänge oder Daten, ausstehende Freigaben, Änderungen am Leistungsumfang und Wartezeiten bei Drittanbietern verschieben den Zeitraum entsprechend.\n\n## Angebundene Kanäle und Drittanbieter\n\nWebsite und internes System sind vollständig verbunden. Shopify wird automatisch abgeglichen — Geräte, Artikeldaten, Preise, Bilder, Verfügbarkeit und Bestellungen, soweit die Schnittstelle das zulässt. Kleinanzeigen bleibt bewusst halbautomatisch: Titel, Beschreibung, Preis und zugeschnittene Bilder werden vorbereitet, veröffentlicht wird per Klick von Hand, weil automatisches Einstellen gegen die Nutzungsbedingungen verstößt.\n\nFunktionen, die von Shopify, Kleinanzeigen, Google oder KI-Anbietern abhängen, lassen sich nur im Rahmen der dort jeweils verfügbaren Schnittstellen und Nutzungsbedingungen umsetzen. Ändert ein Anbieter Schnittstelle, Bedingungen oder Funktionsumfang grundlegend, ist das keine Nichterfüllung unsererseits; größere Anpassungen daraus werden separat vereinbart.\n\n## Pflege und Betreuung statt Monatspauschale\n\nEs gibt keine feste monatliche Pflegegebühr. Stattdessen 15 % des provisionsrelevanten Deckungsbeitrags aus jedem Geschäft, das durch die Website entsteht. Kein Websitegeschäft, keine Vergütung.\n\nProvisionsrelevanter Deckungsbeitrag = Nettoerlös abzüglich direktem Einkaufspreis, zurechenbarem Material, zurechenbarer Instandsetzung und zurechenbaren Fremdleistungen. Für Reparatur, Inspektion, Wartung und Zubehör gilt dieselbe Rechnung. Beispiel: Gerät für 1.900,00 € verkauft, Einkauf und Instandsetzung 1.300,00 € — Deckungsbeitrag 600,00 €, Anteil 90,00 €.\n\nAls Websitegeschäft gilt ein Auftrag, wenn Kauf, Anfrage, Formular, Terminbuchung oder ein nachweisbarer Erstkontakt über die Website oder den angebundenen Shop eingegangen ist — auch dann, wenn daraus erst später ein bezahlter Auftrag wird. Laufkundschaft, Telefon, Kleinanzeigen und Bestandskunden ohne Website-Ursprung bleiben außen vor.\n\nEnthalten sind Betrieb der Anwendung, Fehlerbehebung, Sicherheitsaktualisierungen, technische Pflege, Überwachung der angebundenen Schnittstellen, Pflege der Automatisierungen, kleinere Anpassungen und Optimierungen sowie Unterstützung bei Störungen. Nicht enthalten sind neue Funktionen und Module, umfangreiche Redesigns und die Anbindung weiterer Anbieter — das sind eigene Projekte und werden separat angeboten.\n\nAbgerechnet wird monatlich nachträglich anhand der Geschäfte, die in diesem Monat zustande gekommen sind. Storniert ein Kunde oder gibt er zurück, wird der bereits berechnete Anteil mit der nächsten Rechnung gutgeschrieben. Die Laufzeit beträgt 12 Monate; danach ist die Vereinbarung mit drei Monaten Frist zum Monatsende kündbar.\n\n## Nutzungsrechte und Beauftragung\n\nMit vollständiger Zahlung gehen alle Nutzungsrechte an Quelltext, Gestaltung, Logo und erzeugten Grafiken an Sie über. Paket 1 ist einzeln beauftragbar, Paket 2 jederzeit nachrüstbar; jedes beauftragte Paket wird einzeln in Rechnung gestellt, nicht beauftragte Pakete werden nicht berechnet.\n\n## Nicht enthalten\n\nDomain, Hosting, Shopify und die eingesetzten KI-Dienste zahlen Sie direkt beim jeweiligen Anbieter. Anbieter und Umfang legen wir vor der Einrichtung gemeinsam fest, damit Sie die monatlichen Kosten vorher kennen. Alle Beträge netto zuzüglich der gesetzlichen Umsatzsteuer.",
   },
 ]
 const transactions: Transaction[] = []

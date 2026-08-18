@@ -37,14 +37,17 @@ const HERO_BG = "linear-gradient(118deg,#08080d 0%,#101018 52%,#1a1a2e 100%)"
 /** Ein Radius für alle Karten und Preisboxen. */
 const R = 12
 
-const PAGES = 7
+const PAGES = 8
 
 /** Teilleistung vereinheitlichen — Strings haben keine Stunden. */
 function task(t: LineItemTask): { text: string; hours: number } {
   return typeof t === "string" ? { text: t, hours: 0 } : { text: t.text, hours: t.hours ?? 0 }
 }
 
-const std = (h: number) => `${h.toLocaleString("de-DE")} Std.`
+/** Sichtbare Stundenangaben: ganze Stunden mit „ca.". Der Kunde kauft einen
+ *  Festpreis, keine Stunden — Viertelstunden im Angebot wirken kleinteiliger,
+ *  als die Kalkulation ist. Intern (Positionen, Nachlassbeträge) bleibt exakt. */
+const std = (h: number) => `ca. ${Math.round(h).toLocaleString("de-DE")} Std.`
 
 /**
  * Gliederung der Teilleistungen für dieses Angebot. Die Texte selbst stehen im
@@ -306,7 +309,7 @@ export function ProposalDoc({
         <PackHead no="01" title="Website, Marke & digitaler Verkaufskanal" intro={p1?.note} />
         {/* Vier Leistungsgruppen über die freie Höhe verteilt — gleicher
             Rhythmus statt Inhalt oben und Leere unten. */}
-        <div className="mt-[8mm] flex flex-1 flex-col justify-between">
+        <div className="mt-[5mm] flex flex-1 flex-col justify-between">
           {PAKET_1_GRUPPEN.map((g, gi) => {
             const rows = g.idx.map((i) => task((p1?.details ?? [])[i] ?? "")).filter((r) => r.text)
             if (!rows.length) return null
@@ -382,20 +385,35 @@ export function ProposalDoc({
             ))}
           </div>
 
-          {/* Abzweig aus Schritt 05: die drei Kanäle hängen sichtbar an der
-              Veröffentlichung, statt als eigener Block darunter zu stehen. Die
-              Leitung wächst in die freie Höhe — kein zufälliger Weißraum. */}
-          <div className="mt-[6mm] flex min-h-[11mm] flex-1 items-end gap-2 pb-[3mm]">
-            <div className="ml-[8px] h-full w-[2.5px]" style={{ background: C.brand }} />
-            <span className="text-[11px] font-semibold" style={{ color: C.brand }}>
-              aus Schritt 05
-            </span>
+          {/* Leitung aus der Veröffentlichungs-Spalte in den Kanalblock. Sie
+              sitzt auf 8 mm — derselben Achse wie der Punkt im Block darunter,
+              sodass Schritt 05, Verzweigung und Karten eine Linie bilden. */}
+          <div className="flex min-h-[6mm] flex-1">
+            <div className="ml-[8mm] w-[2.5px]" style={{ background: C.brand }} />
           </div>
 
           <div
-            className="mt-[6mm] shrink-0 px-[8mm] py-[9mm]"
+            className="shrink-0 px-[8mm] py-[7mm]"
             style={{ background: C.soft, borderRadius: R }}
           >
+            {/* Verzweigung: eine Quelle, drei Kanäle — die Stichleitungen
+                sitzen im selben Raster wie die Karten und treffen sie mittig. */}
+            <div className="flex items-center gap-3">
+              <span className="h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: C.brand }} />
+              <span className="shrink-0 text-[12.5px] font-bold" style={{ color: C.ink }}>
+                Schritt 05 · Veröffentlichung
+              </span>
+              <span className="h-[2px] flex-1" style={{ background: GRAD }} />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex h-[7mm] justify-center">
+                  {/* Kleinanzeigen ist der halbautomatische Kanal — die
+                      Stichleitung trägt dieselbe Farbe wie sein Punkt. */}
+                  <div className="w-[2.5px]" style={{ background: i === 2 ? C.neutral : C.brand }} />
+                </div>
+              ))}
+            </div>
             <div className="grid grid-cols-3 gap-4">
               {[
                 { k: "Website", v: "vollständig verbunden", auto: true },
@@ -424,8 +442,9 @@ export function ProposalDoc({
             </div>
             <p className="mt-7 text-[14px] font-medium leading-[1.6]" style={{ color: C.ink }}>
               Ein Gerät wird einmal zentral erfasst — Rahmennummer, Zustand, Prüfprotokoll, Bilder
-              und Preis. Alle angebundenen Kanäle greifen anschließend auf denselben Datenstand zu;
-              ist das Gerät verkauft, ist es überall verkauft.
+              und Preis. Website und Shop greifen anschließend auf denselben Datenstand zu und
+              werden automatisch aktualisiert; bei Kleinanzeigen zeigt das System den erforderlichen
+              manuellen Schritt eindeutig an.
             </p>
           </div>
         </div>
@@ -434,7 +453,7 @@ export function ProposalDoc({
       {/* ── 4 · Paket 2, Module ───────────────────────────────────────── */}
       <Page no={4} number={doc.number} settings={settings}>
         <SectionHead eyebrow="Paket 02 · Leistungsumfang" title="Module und Aufwand" />
-        <div className="mt-[6mm] flex flex-1 flex-col">
+        <div className="mt-[4mm] flex flex-1 flex-col">
           <div className="grid flex-1 grid-cols-2 content-between gap-x-7 gap-y-[4mm]">
             {PAKET_2_MODULE.map((m) => {
               const rows = m.idx.map((i) => task((p2?.details ?? [])[i] ?? "")).filter((r) => r.text)
@@ -550,7 +569,7 @@ export function ProposalDoc({
           <div className="mt-[5mm] flex flex-1 flex-col">
             <Eyebrow>Preis-Einordnung</Eyebrow>
             <p className="mt-2 max-w-[150mm] text-[12.5px] leading-[1.6]" style={{ color: C.body }}>
-              {val.hours.toLocaleString("de-DE")} Std. kalkulierte Arbeit, hochgerechnet auf
+              {std(val.hours)} kalkulierte Arbeit, hochgerechnet auf
               marktübliche Sätze. Effektiv entspricht der Preis{" "}
               <strong style={{ color: C.ink }}>
                 {Math.round(val.netAmount / val.hours)} €/Std.
@@ -597,8 +616,11 @@ export function ProposalDoc({
                           {r.stat}
                         </div>
                         {r.statLabel && (
+                          // Lange Einwort-Labels („Verantwortlicher") sind breiter
+                          // als die Spalte und liefen sonst in den Fließtext.
+                          // Umbruch mit Trennung statt Überlauf.
                           <div
-                            className="mt-1 text-[9px] uppercase leading-[1.3] tracking-[0.08em]"
+                            className="mt-1 hyphens-auto break-words text-[9px] uppercase leading-[1.3] tracking-[0.08em]"
                             style={{ color: C.muted }}
                           >
                             {r.statLabel}
@@ -690,7 +712,7 @@ export function ProposalDoc({
       </Page>
 
       {/* ── 7 · Betreuung, Zahlung, Abschluss ─────────────────────────── */}
-      <Page no={7} number={doc.number} settings={settings} last>
+      <Page no={7} number={doc.number} settings={settings}>
         <SectionHead eyebrow="Nach dem Livegang" title="Betreuung ohne Monatspauschale" />
 
         <div
@@ -703,9 +725,8 @@ export function ProposalDoc({
                 Keine feste monatliche Pflegegebühr.
               </div>
               <p className="mt-2 text-[12.5px] leading-[1.5]" style={{ color: "rgba(255,255,255,0.72)" }}>
-                Stattdessen 15 % des provisionsrelevanten Deckungsbeitrags aus Geschäften, die über
-                die Website oder das bereitgestellte System zustande kommen. Kein solches Geschäft,
-                keine Vergütung.
+                Stattdessen 15 % des provisionsrelevanten Deckungsbeitrags aus Geschäften, die durch
+                die Website entstehen. Kein Websitegeschäft, keine Vergütung.
               </p>
             </div>
             <div
@@ -726,29 +747,167 @@ export function ProposalDoc({
           <div className="mt-4 h-[2px] w-[38%]" style={{ background: GRAD }} />
         </div>
 
-        <div className="mt-[4mm] flex flex-1 flex-col">
-          {sec.slice(5).map((s, i) => (
+        {/* Nur die Betreuung — Provision, Beispielrechnung, Zurechnung,
+            Leistungsumfang, Abrechnung und Laufzeit. Zahlung und Abschluss
+            stehen auf der Folgeseite; zusammen war das eine Bleiwüste. */}
+        {/* Die vier Absätze beantworten vier verschiedene Fragen — als Block
+            gesetzt liest sich das wie Kleingedrucktes. Mit Marginalie je Absatz
+            ist erkennbar, wo Berechnung, Zurechnung, Umfang und Laufzeit
+            stehen; zugleich füllt die Gliederung die Seite. */}
+        <div className="mt-[7mm] flex flex-1 flex-col gap-[6mm]">
+          {(sec[5]?.body ?? []).slice(1).map((b, i) => {
+            const ex = example(b)
+            return (
+              <div
+                key={i}
+                className={i ? "pt-[6mm]" : ""}
+                style={i ? { borderTop: `1px solid ${C.line}` } : undefined}
+              >
+                <div className="flex gap-6">
+                  <div
+                    className="w-[26mm] shrink-0 pt-[2px] text-[10px] font-semibold uppercase leading-[1.35] tracking-[0.1em]"
+                    style={{ color: C.muted }}
+                  >
+                    {["Berechnung", "Zurechnung", "Enthalten", "Abrechnung & Laufzeit"][i] ?? ""}
+                  </div>
+                  <p className="min-w-0 flex-1 text-[12.5px] leading-[1.6]" style={{ color: C.body }}>
+                    {ex ? ex.intro : b}
+                  </p>
+                </div>
+                {/* Die Zahlenkette braucht die volle Satzbreite — in der
+                    schmalen Textspalte brechen Beträge und Chip-Titel um. */}
+                {ex && <Calc values={ex.values} />}
+              </div>
+            )
+          })}
+        </div>
+      </Page>
+
+      {/* ── 8 · Beauftragung und Abschluss ────────────────────────────── */}
+      <Page no={8} number={doc.number} settings={settings} last>
+        <SectionHead eyebrow="Beauftragung" title="Konditionen und Abschluss" />
+
+        {/* Der Zahlungsplan ist die Information, die der Kunde auf dieser Seite
+            wirklich sucht — als Raten-Grafik beantwortet sie „wann zahle ich
+            wie viel" ohne Rechnen im Kopf. */}
+        <div className="mt-[8mm] shrink-0">
+          <div className="text-[14.5px] font-bold" style={{ color: C.ink }}>
+            Zahlungsplan
+          </div>
+          <p className="mt-2 text-[12.5px] leading-[1.6]" style={{ color: C.body }}>
+            Je Paket in drei Raten, jeweils 14 Tage netto ohne Abzug. Nicht beauftragte Pakete
+            werden nicht berechnet.
+          </p>
+          <div className="mt-[4mm] flex gap-3">
+            {[
+              { pct: 0.4, when: "bei Auftrag" },
+              { pct: 0.3, when: "bei Abnahme" },
+              { pct: 0.3, when: "bei Livegang" },
+            ].map((r) => (
+              <div
+                key={r.when}
+                className="flex-1 px-4 py-3"
+                style={{ background: C.soft, borderRadius: R, border: `1px solid ${C.line}` }}
+              >
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[19px] font-bold leading-none" style={{ color: C.brand }}>
+                    {Math.round(r.pct * 100)} %
+                  </span>
+                  <span className="text-[11px]" style={{ color: C.muted }}>
+                    {r.when}
+                  </span>
+                </div>
+                <div className="mt-3 space-y-1.5">
+                  {[
+                    { l: "Paket 1", v: fixed(p1) },
+                    { l: "Paket 2", v: fixed(p2) },
+                  ].map((k) => (
+                    <div key={k.l} className="flex items-baseline justify-between gap-3">
+                      <span className="text-[11px]" style={{ color: C.muted }}>
+                        {k.l}
+                      </span>
+                      <span
+                        className="text-[12.5px] font-semibold tabular-nums"
+                        style={{ color: C.ink }}
+                      >
+                        {eur(k.v * r.pct)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2.5 text-[11px]" style={{ color: C.muted }}>
+            Alle Beträge netto zuzüglich der gesetzlichen Umsatzsteuer.
+          </p>
+        </div>
+
+        <div className="mt-[7mm] flex flex-1 flex-col">
+          {sec.slice(6).map((s, i) => (
             <div
               key={s.title}
-              className={i ? "mt-[3mm] pt-[3mm]" : ""}
+              className={i ? "mt-[5mm] pt-[5mm]" : ""}
               style={i ? { borderTop: `1px solid ${C.line}` } : undefined}
             >
-              <div className="text-[13.5px] font-bold" style={{ color: C.ink }}>
+              <div className="text-[14.5px] font-bold" style={{ color: C.ink }}>
                 {s.title}
               </div>
-              {/* Der erste Absatz der Betreuungs-Sektion steht wörtlich schon
-                  in der Akzentbox darüber — zweimal dieselbe Aussage liest
-                  sich wie ein Copy-Fehler. */}
-              <Paragraphs body={i === 0 ? s.body.slice(1) : s.body} />
+              <Paragraphs body={s.body} />
             </div>
           ))}
 
-          <p className="mt-[3mm] text-[13.5px] font-semibold" style={{ color: C.ink }}>
+          {/* Ein Angebot muss sagen, wie man es annimmt — ohne diesen Schritt
+              endet das Dokument im Nichts. */}
+          <div
+            className="mt-[7mm] px-[7mm] py-[5mm]"
+            style={{ background: C.soft, borderRadius: R, border: `1px solid ${C.line}` }}
+          >
+            <div className="flex items-start justify-between gap-8">
+              <div className="min-w-0">
+                <div className="text-[14.5px] font-bold" style={{ color: C.ink }}>
+                  So beauftragen Sie
+                </div>
+                <p className="mt-2 max-w-[105mm] text-[12.5px] leading-[1.6]" style={{ color: C.body }}>
+                  Eine kurze Freigabe per E-Mail genügt — mit der Angabe, welche Pakete beauftragt
+                  werden. Danach erhalten Sie die Auftragsbestätigung und den Terminvorschlag für
+                  den Projektstart.
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <div
+                  className="text-[10px] font-semibold uppercase tracking-[0.12em]"
+                  style={{ color: C.muted }}
+                >
+                  Angebot gültig bis
+                </div>
+                <div
+                  className="mt-1.5 text-[19px] font-bold leading-none tabular-nums"
+                  style={{ color: C.brand }}
+                >
+                  {dateDE(doc.validUntil)}
+                </div>
+                <div className="mt-2.5 text-[12px] leading-[1.5]" style={{ color: C.body }}>
+                  {settings.email}
+                  <br />
+                  {settings.phone}
+                </div>
+              </div>
+            </div>
+            <div className="mt-[4mm] h-[2px] w-[32%]" style={{ background: GRAD }} />
+          </div>
+
+          <p className="mt-auto pb-[4mm] pt-[6mm] text-[14px] font-semibold" style={{ color: C.ink }}>
             Wir freuen uns auf die Zusammenarbeit und die gemeinsame Umsetzung Ihres Projekts.
           </p>
         </div>
 
-        <div className="mt-auto shrink-0 pt-[4mm]" style={{ borderTop: `1px solid ${C.line}` }}>
+        {/* Der Abbinder steht auf der letzten Seite unmittelbar über der
+            Fußzeile — die Abstände hier sind knapp bemessen, damit die
+            Impressumszeile nicht in die Fußzeilen-Linie läuft. */}
+        <div className="mt-auto shrink-0 pt-[3mm]" style={{ borderTop: `1px solid ${C.line}` }}>
+          {/* Telefon und E-Mail stehen bereits im Beauftragungs-Block darüber —
+              hier nur noch Absender und Web, unten die Pflichtangaben. */}
           <div className="flex items-end justify-between gap-8">
             <div>
               <div className="text-[13.5px] font-bold" style={{ color: C.ink }}>
@@ -759,16 +918,13 @@ export function ProposalDoc({
               </div>
             </div>
             <div className="text-right text-[12px] leading-[1.55]" style={{ color: C.body }}>
-              <div>{settings.phone}</div>
-              <div>{settings.email}</div>
-              <div>{settings.website}</div>
+              {settings.website}
             </div>
           </div>
           <div
-            className="mt-2.5 flex flex-wrap gap-x-6 gap-y-1 text-[10px]"
+            className="mt-1 flex flex-wrap gap-x-6 gap-y-1 pb-[1mm] text-[10px]"
             style={{ color: C.muted }}
           >
-            <span>{settings.legalName}</span>
             <span>USt-ID {settings.vatId}</span>
             <span style={{ whiteSpace: "nowrap" }}>IBAN {settings.iban}</span>
           </div>
@@ -1066,7 +1222,7 @@ function PriceFoot({
 }) {
   return (
     <div
-      className="mt-[6mm] flex shrink-0 items-end justify-between gap-6 px-[8mm] py-[6mm]"
+      className="mt-[4mm] flex shrink-0 items-end justify-between gap-6 px-[8mm] py-[4mm]"
       style={{ background: C.soft, borderRadius: R }}
     >
       <div>

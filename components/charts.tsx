@@ -287,6 +287,22 @@ export function DonutChart({
   data: { name: string; value: number; fill: string }[]
 }) {
   const total = data.reduce((s, d) => s + d.value, 0)
+
+  // Ohne Buchungen zeichnet Recharts gar nichts und hinterlässt 200 px Loch.
+  // Stattdessen der Ring als ruhige Andeutung dessen, was hier entsteht.
+  if (total <= 0) {
+    return (
+      <div className="grid h-[200px] place-items-center">
+        <div className="relative grid size-[168px] place-items-center">
+          <div className="absolute inset-0 rounded-full border-[26px] border-white/[0.045]" />
+          <p className="relative max-w-[13ch] text-center text-xs leading-relaxed text-muted-foreground/70">
+            Noch keine Ausgaben erfasst
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <ResponsiveContainer width="100%" height={200}>
       <PieChart>
