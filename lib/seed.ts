@@ -48,7 +48,7 @@ const settings: CompanySettings = {
   defaultTaxRate: 0.19,
   invoicePrefix: "2026",
   quotePrefix: "AN-2026",
-  nextInvoiceNo: 432,
+  nextInvoiceNo: 433,
   nextQuoteNo: 513,
   paymentTermsDays: 14,
   invoiceFooter:
@@ -260,6 +260,25 @@ const invoices: Invoice[] = [
       { id: "p-rab", description: "Paket- & Verhandlungsrabatt (Komplettpaket)", unit: "Rabatt", qty: 1, unitPrice: -2900, taxRate: 0.19 },
     ],
     notes: "Komplettpaket Website + Wartungskalender — regulär 9.200 € netto, verhandelter Paketpreis 6.300 € netto (Ersparnis 2.900 € / 32 %). Eigentums- und Rechtevorbehalt: Alle Nutzungs- und Verwertungsrechte an Website und Software gehen erst mit vollständiger Bezahlung auf den Auftraggeber über.\n\nSTORNIERT: Der Preis wurde erst nach Fertigstellung genannt und vom Auftraggeber abgelehnt; eine Preisvereinbarung kam nie zustande. Die Leistung wurde daraufhin nicht übergeben, es erfolgte kein Zahlungseingang. Forderung nicht weiterverfolgt.",
+  },
+  {
+    id: "inv-2026-432-nfc",
+    number: "2026-432",
+    customerId: "c2",
+    // Warenverkauf, kein Dienstleistungsauftrag — deshalb Eigentumsvorbehalt an
+    // der Ware statt Rechtevorbehalt an Software. PDF liegt erzeugt vor, der
+    // Versand steht noch aus; Status wechselt beim Verschicken auf „versendet".
+    status: "draft",
+    issueDate: "2026-08-18T10:00:00.000Z",
+    dueDate: "2026-08-25T10:00:00.000Z",
+    serviceDate: "2026-08-18T10:00:00.000Z",
+    createdAt: "2026-08-18T10:00:00.000Z",
+    pdfPath: "/rechnungen/Rechnung-2026-432-Bewertungs-Aufsteller.pdf",
+    items: [
+      { id: "n-auf", description: "Bewertungs-Aufsteller mit NFC-Chip & QR-Code — Tischaufsteller, eingerichtet auf das Google-Unternehmensprofil des Auftraggebers. NFC-Chip programmiert und QR-Code aufgebracht; Smartphone auflegen oder Code scannen öffnet unmittelbar das Bewertungsformular", unit: "Stück", qty: 2, unitPrice: 40, taxRate: 0.19 },
+      { id: "n-rab", description: "Mengenrabatt (2 Stück)", unit: "Rabatt", qty: 1, unitPrice: -5, taxRate: 0.19 },
+    ],
+    notes: "Zwei Bewertungs-Aufsteller à 40,00 € netto, abzüglich 5,00 € Mengenrabatt = 75,00 € netto. Eigentumsvorbehalt: Die gelieferte Ware bleibt bis zur vollständigen Bezahlung Eigentum des Verkäufers. Die hinterlegte Ziel-Adresse der NFC-Chips und QR-Codes lässt sich auf Wunsch ändern.",
   },
 ]
 

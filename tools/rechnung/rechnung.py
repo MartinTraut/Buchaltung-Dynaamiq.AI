@@ -18,37 +18,36 @@ CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 # RECHNUNGSDATEN — einzige Stelle, die je Rechnung angepasst wird
 # ============================================================
 INVOICE = {
-    "number": "2026-431",
-    "issue_date": datetime.date(2026, 7, 7),
+    "number": "2026-432",
+    "issue_date": datetime.date(2026, 8, 18),
     "service_note": "Leistungsdatum entspricht Rechnungsdatum",  # UStAE 14.5 Abs. 16
-    "customer_no": "K-1004",
-    "payment_days": 3,
+    "customer_no": "K-1005",
+    "payment_days": 7,
     "recipient": {
-        "company": "Hospital Equipment",
-        "contact": "Enes Türedi",
-        "street": "Lindenweg 30",
-        "city": "97999 Igersheim",
+        "company": "SKOPE E-Scooter Fachwerkstatt",
+        "contact": "Thomas Zielke",
+        "street": "Im Kampfrad 3",
+        "city": "74196 Neuenstadt am Kocher",
     },
-    "title": "Website & Wartungskalender",
-    "title_accent": "Komplettpaket",
-    "lead": ("Website-Relaunch hospital-equipment.de und individuelle "
-             "Wartungskalender-Software zum verhandelten Paketpreis."),
+    "title": "Bewertungs-Aufsteller",
+    "title_accent": "NFC & QR",
+    "lead": ("Zwei Tischaufsteller, die Kunden ohne Umweg zur Google-Bewertung "
+             "führen — Smartphone auflegen oder Code scannen genügt."),
     "items": [
-        {"title": "Website-Relaunch · hospital-equipment.de",
-         "sub": ("Zweisprachige Katalog-Plattform mit 539 Seiten — Geräte-, Sonden-, "
-                 "Ersatzteil- & Fehlermeldungs-Kataloge, Leistungsseiten, Suchmaschinen­"
-                 "optimierung & strukturierte Daten, 736 aufbereitete Bilder, Kontakt & DSGVO. "
-                 "Voller Leistungsnachweis auf Anfrage."),
-         "net": 7700.00},
-        {"title": "Individualsoftware · Wartungs- & Terminkalender (PWA)",
-         "sub": ("Eigenes, sicheres Backend mit geschütztem Login — Termine mit Prüfzyklen & "
-                 "Überfälligkeit, Kundenübersicht je Einrichtung, Echtzeit-Synchronisation "
-                 "(2 Nutzer), Foto-/Datei-Doku, installierbar wie eine native App."),
-         "net": 1500.00},
+        {"title": "Bewertungs-Aufsteller mit NFC-Chip & QR-Code · 2 Stück",
+         "sub": ("Tischaufsteller, eingerichtet auf das Google-Unternehmensprofil des "
+                 "Auftraggebers. NFC-Chip programmiert und QR-Code aufgebracht — "
+                 "Smartphone auflegen oder Code scannen öffnet unmittelbar das "
+                 "Bewertungsformular, ohne Suche, ohne App, ohne Zwischenseite. "
+                 "Einzelpreis 40,00 € netto."),
+         "net": 80.00},
     ],
-    "discount": {"label": "Paket- & Verhandlungsrabatt", "amount": 2900.00},  # oder None
+    "discount": {"label": "Mengenrabatt (2 Stück)", "amount": 5.00},  # oder None
     "tax_rate": 0.19,
-    "short_name": "Website-Kalender",
+    "legal": ("<b>Eigentumsvorbehalt:</b> Die gelieferte Ware bleibt bis zur "
+              "vollständigen Bezahlung Eigentum des Verkäufers. Die hinterlegte "
+              "Ziel-Adresse der NFC-Chips und QR-Codes lässt sich auf Wunsch ändern."),
+    "short_name": "Bewertungs-Aufsteller",
 }
 
 SELLER = {
@@ -81,6 +80,16 @@ assert round(net + tax, 2) == gross
 due_date = INVOICE["issue_date"] + datetime.timedelta(days=INVOICE["payment_days"])
 NUM, ISSUE, DUE = INVOICE["number"], d_de(INVOICE["issue_date"]), d_de(due_date)
 tax_pct = f"{INVOICE['tax_rate']*100:.0f}"
+
+# Rechtszeile unter dem GiroCode. Software und Ware brauchen unterschiedliche
+# Vorbehalte — deshalb je Rechnung setzbar, mit dem Software-Wortlaut als Vorgabe.
+LEGAL = INVOICE.get("legal") or (
+    "<b>Eigentums- und Rechtevorbehalt:</b> Gemäß Vereinbarung gehen alle Nutzungs- und "
+    "Verwertungsrechte an Website und Software erst mit vollständiger Bezahlung auf den "
+    "Auftraggeber über.")
+LEGAL = (f"{INVOICE['service_note']}. Zahlbar ohne Abzug bis {DUE}. {LEGAL} "
+         "Übermittlung als elektronische Rechnung (PDF) mit Zustimmung des Empfängers "
+         "gemäß §27 Abs. 38 UStG.")
 
 # ---- GiroCode (EPC-QR, SCT v002): Betrag + IBAN + Verwendungszweck als ein Scan
 import segno
@@ -345,11 +354,7 @@ html = f"""<!doctype html>
     <div class="thanks">Vielen Dank für die gute Zusammenarbeit.</div>
     <div class="legalrow">
       <div class="qrbox">{QR_SVG}<div class="ql">GiroCode — mit<br>Banking-App scannen</div></div>
-      <div class="legal">{INVOICE["service_note"]}. Zahlbar ohne Abzug bis {DUE}.
-      <b>Eigentums- und Rechtevorbehalt:</b> Gemäß Vereinbarung gehen alle Nutzungs- und
-      Verwertungsrechte an Website und Software erst mit vollständiger Bezahlung auf den
-      Auftraggeber über. Übermittlung als elektronische Rechnung (PDF) mit Zustimmung des
-      Empfängers gemäß §27 Abs. 38 UStG.</div>
+      <div class="legal">{LEGAL}</div>
     </div>
 
     <div class="foot">
