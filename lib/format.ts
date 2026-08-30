@@ -2,12 +2,15 @@ import type { CompanySettings, LineItem } from "./types"
 
 export function eur(n: number, opts: { compact?: boolean } = {}): string {
   if (opts.compact && Math.abs(n) >= 1000) {
-    return new Intl.NumberFormat("de-DE", {
-      style: "currency",
-      currency: "EUR",
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(n)
+    // Intls Kurznotation lässt im Deutschen unterhalb von 10.000 die Tausender-
+    // gruppierung weg — „5000 €" stünde dann neben „11.000 €" in derselben Zeile.
+    // Deshalb selbst kürzen: ganze Euro mit Gruppierung, abgekürzt erst ab einer
+    // Million, wo die volle Ziffernfolge tatsächlich zu lang wird.
+    const short =
+      Math.abs(n) >= 1_000_000
+        ? `${(n / 1_000_000).toLocaleString("de-DE", { maximumFractionDigits: 1 })} Mio. €`
+        : `${Math.round(n).toLocaleString("de-DE")} €`
+    return short.replace("-", "−")
   }
   // Echtes Minuszeichen statt Bindestrich: nur U+2212 hat Ziffernbreite und
   // -höhe, sonst fällt jede Abzugszeile aus dem Zahlenraster.
@@ -36,6 +39,16 @@ export function dateDE(iso?: string): string {
   return new Date(iso).toLocaleDateString("de-DE", {
     day: "2-digit",
     month: "short",
+    year: "numeric",
+  })
+}
+
+/** Numerisch „18.08.2026" — für Belege, wo die Datumsspalte ins Raster muss. */
+export function dateNum(iso?: string): string {
+  if (!iso) return "—"
+  return new Date(iso).toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
     year: "numeric",
   })
 }
@@ -96,6 +109,14 @@ export function timeRange(time?: string, endTime?: string): string {
   return end !== null && end > start
     ? `${timeOfMinutes(start)}–${timeOfMinutes(end)}`
     : timeOfMinutes(start)
+}
+
+/** Fällig­keitsprüfung für Aufgaben: alles vor dem heutigen Tagesende ist
+ *  überfällig. Steht hier statt in der Komponente, weil eine Uhrzeit im
+ *  Renderpfad die Ausgabe von Render zu Render wandern lässt. */
+export function isOverdue(due?: string): boolean {
+  if (!due) return false
+  return new Date(due).setHours(23, 59, 59, 999) < Date.now()
 }
 
 export function relativeTime(iso: string): string {

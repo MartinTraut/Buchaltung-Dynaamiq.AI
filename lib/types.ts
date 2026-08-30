@@ -14,6 +14,13 @@ export type DealStage =
 
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "canceled"
 export type QuoteStatus = "draft" | "sent" | "accepted" | "declined" | "expired"
+export type ContractStatus =
+  | "draft"
+  | "sent"
+  | "signed"
+  | "active"
+  | "terminated"
+  | "expired"
 export type ProjectStatus = "planning" | "active" | "on_hold" | "done" | "canceled"
 export type TaskStatus = "todo" | "doing" | "done"
 export type TxType = "income" | "expense"
@@ -85,7 +92,14 @@ export interface Task {
  * Eine Teilleistung innerhalb einer Position. Als reiner String, wenn kein
  * Aufwand hinterlegt ist — als Objekt, sobald Stunden ausgewiesen werden sollen.
  */
-export type LineItemTask = string | { text: string; hours?: number }
+/**
+ * Teilleistung einer Position. `title` fasst sie im Angebot zu einem Modul
+ * zusammen — welche Module ein Angebot hat, gehört zum Angebot, nicht ins
+ * Layout; sonst zeigt ein neues Angebot die Gliederung des alten.
+ * Beginnt `text` mit „NEU: ", markiert das Layout die Teilleistung als neu
+ * gegenüber dem Vorgängerangebot.
+ */
+export type LineItemTask = string | { text: string; hours?: number; title?: string }
 
 export interface LineItem {
   id: ID
@@ -135,6 +149,18 @@ export interface Invoice {
   servicePeriodEnd?: string // optionales Ende bei Leistungszeitraum
   cancelsInvoiceId?: string // gesetzt bei Stornorechnung → ID der Originalrechnung
   items: LineItem[]
+  /** Überschrift des Belegs. Ohne Angabe: „Rechnung <Nr.>". */
+  title?: string
+  /** Zweiter, farbig gesetzter Teil der Überschrift — z. B. das Zielsystem. */
+  titleAccent?: string
+  /** Ein Satz unter der Überschrift: worum es in dieser Rechnung geht. */
+  lead?: string
+  /**
+   * Rechtszeile neben dem GiroCode. Software und Ware brauchen verschiedene
+   * Vorbehalte, deshalb je Rechnung setzbar; ohne Angabe greift der
+   * Rechtevorbehalt für Software.
+   */
+  legalNote?: string
   notes?: string
   projectId?: ID
   reminderLevel?: number // 0/undef = keine, 1 = Erinnerung, 2 = 1. Mahnung, 3 = 2. Mahnung
@@ -160,9 +186,80 @@ export interface Quote {
   issueDate: string
   validUntil: string
   items: LineItem[]
+  /** Überschrift des Belegs. Ohne Angabe: „Rechnung <Nr.>". */
+  title?: string
+  /** Zweiter, farbig gesetzter Teil der Überschrift — z. B. das Zielsystem. */
+  titleAccent?: string
+  /** Ein Satz unter der Überschrift: worum es in dieser Rechnung geht. */
+  lead?: string
+  /**
+   * Rechtszeile neben dem GiroCode. Software und Ware brauchen verschiedene
+   * Vorbehalte, deshalb je Rechnung setzbar; ohne Angabe greift der
+   * Rechtevorbehalt für Software.
+   */
+  legalNote?: string
   notes?: string
   projectId?: ID
   valuation?: DocValuation // optionale Preis-Einordnung
+  /** Einzeiliger Hinweis auf der Titelseite — z. B. welches Angebot ersetzt wird. */
+  notice?: string
+  /**
+   * Schrittfolge für die Systemübersicht des Angebots. Ohne Angabe zeigt das
+   * Layout den Standardablauf.
+   */
+  process?: { title: string; detail: string }[]
+  /**
+   * Bauform des Angebotsdokuments. „both" trägt beide Pakete (Altbestand
+   * AN-2026-512/513), „web" nur die Website, „system" nur die Warenwirtschaft.
+   * Das Feld steuert, welche Seiten gesetzt werden — ohne Angabe: „both".
+   */
+  pack?: "both" | "web" | "system"
+  createdAt: string
+}
+
+/**
+ * Ein Abschnitt des Vertrags. Die §-Nummer erzeugt das Dokument aus der
+ * Reihenfolge — so verschiebt ein eingefügter Abschnitt nicht die Verweise
+ * im Datensatz, sondern nur die Darstellung.
+ */
+export interface ContractClause {
+  title: string
+  /** Absätze. Ein führendes „- " setzt den Absatz als Aufzählungspunkt. */
+  body: string[]
+}
+
+/**
+ * Vertrag zum Angebot. Das Angebot beschreibt Leistung, Preis und Zeit; der
+ * Vertrag regelt Abnahme, Rechte, Haftung, Datenschutz und Laufzeit. Beide
+ * bleiben getrennt und sind über `quoteId` verbunden — geändert wird immer
+ * nur das Dokument, in das die Änderung gehört.
+ */
+export interface Contract {
+  id: ID
+  number: string
+  customerId: ID
+  status: ContractStatus
+  /** Vertragsdatum. */
+  issueDate: string
+  /** Projektstart bzw. Livegang — Beginn der Betreuungslaufzeit. */
+  startDate?: string
+  /** Ende der Mindestlaufzeit der erfolgsabhängigen Betreuung. */
+  termEndDate?: string
+  title: string
+  titleAccent?: string
+  lead?: string
+  /** Zugehöriges Angebot — Leistungsumfang, Preise und Termine stammen dort her. */
+  quoteId?: ID
+  /** Rechnungen, die auf diesem Vertrag beruhen. */
+  invoiceIds?: ID[]
+  projectId?: ID
+  /** Auftragswert netto; ohne Angabe rechnet die Ansicht ihn aus dem Angebot. */
+  netValue?: number
+  clauses: ContractClause[]
+  /** Anlagen, die Vertragsbestandteil sind (Angebot, AVV …). */
+  attachments?: string[]
+  notes?: string
+  signedAt?: string
   createdAt: string
 }
 
@@ -242,10 +339,22 @@ export interface CompanySettings {
   defaultTaxRate: number
   invoicePrefix: string
   quotePrefix: string
+  contractPrefix: string
   nextInvoiceNo: number
   nextQuoteNo: number
+  nextContractNo: number
   paymentTermsDays: number
   invoiceFooter: string
+  /** Abgeschaltete Prüfungen der offenen Punkte (Regel-ID → false). Fehlt ein
+   *  Schlüssel, ist die Prüfung aktiv — eine neue Regel greift dadurch sofort. */
+  checks?: Record<string, boolean>
+  /** Fristen der Prüfungen in Tagen (Regel-ID → Tage). Ohne Eintrag gilt der
+   *  Standardwert der Regel. */
+  checkDays?: Record<string, number>
+  /** Dauerhaft ausgeblendete Einzelpunkte (Regel-ID + Datensatz-ID). Damit
+   *  lässt sich ein bewusst hingenommener Fall stummschalten, ohne die ganze
+   *  Prüfung abzuschalten. */
+  checksHidden?: string[]
 }
 
 export interface Database {
@@ -255,6 +364,7 @@ export interface Database {
   tasks: Task[]
   invoices: Invoice[]
   quotes: Quote[]
+  contracts: Contract[]
   templates: Template[]
   emails: EmailDraft[]
   transactions: Transaction[]
@@ -287,6 +397,15 @@ export const QUOTE_STATUS_LABEL: Record<QuoteStatus, string> = {
   accepted: "Angenommen",
   declined: "Abgelehnt",
   expired: "Abgelaufen",
+}
+
+export const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
+  draft: "Entwurf",
+  sent: "Versendet",
+  signed: "Unterzeichnet",
+  active: "Laufend",
+  terminated: "Gekündigt",
+  expired: "Beendet",
 }
 
 export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {

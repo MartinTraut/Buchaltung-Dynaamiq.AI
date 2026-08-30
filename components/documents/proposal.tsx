@@ -26,22 +26,31 @@ const C = {
   muted: "#6b6b74",
   line: "#e6e6ea",
   soft: "#f6f7fa",
-  brand: "#1f7bf2",
+  /** Indigo-Ende des Markenverlaufs. Ein Standard-Blau lässt acht sauber
+   *  gesetzte Seiten nach Vorlage aussehen; Cyan bleibt den dunklen Flächen
+   *  vorbehalten, auf Weiß trägt es keinen Kontrast. */
+  brand: "#3416E8",
   /** Neutraler Balken-/Punktton für inaktive Vergleichswerte. */
   neutral: "#c4c8d2",
 } as const
 
-const GRAD = "linear-gradient(90deg,#00ffe6,#1f7bf2 45%,#5b2eff)"
+const GRAD = "linear-gradient(90deg,#00ffe6,#3416e8 55%,#5b2eff)"
 const HERO_BG = "linear-gradient(118deg,#08080d 0%,#101018 52%,#1a1a2e 100%)"
 
 /** Ein Radius für alle Karten und Preisboxen. */
 const R = 12
 
-const PAGES = 8
-
-/** Teilleistung vereinheitlichen — Strings haben keine Stunden. */
-function task(t: LineItemTask): { text: string; hours: number } {
-  return typeof t === "string" ? { text: t, hours: 0 } : { text: t.text, hours: t.hours ?? 0 }
+/** Teilleistung vereinheitlichen — Strings haben weder Stunden noch Titel.
+ *  „NEU: " am Anfang wird zur Markierung, nicht zum Fließtext. */
+function task(t: LineItemTask): { text: string; hours: number; title?: string; isNew: boolean } {
+  const raw = typeof t === "string" ? { text: t } : t
+  const isNew = raw.text.startsWith("NEU: ")
+  return {
+    text: isNew ? raw.text.slice(5) : raw.text,
+    hours: typeof t === "string" ? 0 : (t.hours ?? 0),
+    title: typeof t === "string" ? undefined : t.title,
+    isNew,
+  }
 }
 
 /** Sichtbare Stundenangaben: ganze Stunden mit „ca.". Der Kunde kauft einen
@@ -61,6 +70,7 @@ const PAKET_1_GRUPPEN: { title: string; idx: number[] }[] = [
   { title: "Sichtbarkeit", idx: [3, 4, 5] },
 ]
 
+/** Fallback-Gliederung für Angebote ohne Modultitel im Datensatz (AN-2026-512). */
 const PAKET_2_MODULE: { no: string; title: string; idx: number[] }[] = [
   { no: "01", title: "Warenwirtschaft & Datenmodell", idx: [0] },
   { no: "02", title: "Bedienoberfläche", idx: [1] },
@@ -72,8 +82,21 @@ const PAKET_2_MODULE: { no: string; title: string; idx: number[] }[] = [
   { no: "08", title: "Einführung, Sicherung & Schulung", idx: [7, 8] },
 ]
 
-/** Werkstattablauf als Schrittfolge — die Beisätze benennen nur, was im
- *  jeweiligen Schritt im System entsteht. */
+/**
+ * Gliederung der zwölf Module für die Titelseite des Systemangebots. Alle zwölf
+ * einzeln aufzuführen macht aus der Übersicht ein Inhaltsverzeichnis — die
+ * Modulseite leistet das ohnehin. Hier stehen die vier Themen, aus denen das
+ * System besteht; die Zuordnung folgt der Reihenfolge im Datensatz.
+ */
+const PAKET_2_THEMEN: { title: string; idx: number[] }[] = [
+  { title: "Warenwirtschaft, Lager & Inventur", idx: [0, 1] },
+  { title: "Werkstatt, Kategorien & Prüfkataloge", idx: [2, 3] },
+  { title: "Bedienung & Verkaufskanäle", idx: [4, 5, 8] },
+  { title: "Bilder, KI, Auswertung & Einführung", idx: [6, 7, 9, 10, 11] },
+]
+
+/** Standard-Werkstattablauf für Angebote ohne eigene Schrittfolge — die
+ *  Beisätze benennen nur, was im jeweiligen Schritt im System entsteht. */
 const PROZESS: { t: string; d: string }[] = [
   { t: "Ankauf", d: "Gerät angelegt, Rahmennummer und Ankaufspreis erfasst" },
   { t: "Prüfung", d: "Zustand, Akku, Zulassung, Prüfprotokoll" },
@@ -106,7 +129,9 @@ function weeks(text?: string): [number, number][] {
   for (const m of (text ?? "").matchAll(/(\d+)\s*bis\s*(\d+)\s*(?:weitere\s*)?Wochen/g)) {
     out.push([Number(m[1]), Number(m[2])])
   }
-  return out
+  // Nur die beiden Paketspannen gehören auf die Schiene — nennt der Satz
+  // zusätzlich die Gesamtdauer, ist das dieselbe Zeit ein drittes Mal.
+  return out.slice(0, 2)
 }
 
 /** Beispielrechnung aus dem Provisions-Absatz lösen — Satz und Zahlen. */
@@ -129,8 +154,13 @@ export function ProposalDoc({
   const totals = computeTotals(doc.items)
   const positive = doc.items.filter((it) => lineNet(it) > 0)
   const discount = doc.items.reduce((s, it) => s + Math.min(0, lineNet(it)), 0)
-  const p1 = positive[0]
-  const p2 = positive[1]
+  // Ein Angebot trägt entweder beide Pakete (Altbestand AN-2026-512/513) oder
+  // genau eines. Welche Seiten gesetzt werden, entscheidet allein dieses Feld;
+  // die Positionen im Datensatz bleiben davon unberührt.
+  const pack = doc.pack ?? "both"
+  const p1 = pack === "system" ? undefined : positive[0]
+  const p2 = pack === "system" ? positive[0] : pack === "web" ? undefined : positive[1]
+  const packs = [p1, p2].filter(Boolean) as LineItem[]
   /** Festpreis eines Pakets = Position plus der darauf folgende Nachlass. */
   const fixed = (it?: LineItem) => {
     if (!it) return 0
@@ -138,8 +168,92 @@ export function ProposalDoc({
     const next = doc.items[i + 1]
     return lineNet(it) + (next && lineNet(next) < 0 ? lineNet(next) : 0)
   }
+  /** Kalkulationswert einer Position — fehlt sie, ist er 0. */
+  const reg = (it?: LineItem) => (it ? lineNet(it) : 0)
   const sec = sections(doc.notes)
+  // Die Abschnitte der Anmerkungen liegen auf drei Seiten. Zugeordnet wird
+  // über den Titel, nicht über den Index: ein neuer Abschnitt im Datensatz
+  // verschöbe sonst alle folgenden auf die falsche Seite.
+  const iPflege = sec.findIndex((x) => /Pflege und Betreuung/i.test(x.title))
+  // Das Systemangebot kennt keinen Betreuungsabschnitt — dort trennt die
+  // Beauftragung den Rahmen von den Konditionen. Ohne diesen zweiten Anker
+  // liefen alle Abschnitte auf eine Seite.
+  const iBeauftragung = sec.findIndex((x) => /Beauftragung und Preisbindung/i.test(x.title))
+  const pflegeIdx = iPflege >= 0 ? iPflege : iBeauftragung >= 0 ? iBeauftragung : 5
+  const secIntro = sec.slice(0, pflegeIdx)
+  // Seit die rechtlichen Abschnitte im Projektvertrag stehen, trägt das
+  // Angebot hinter der Betreuung nur noch wenig Text. Nennt es einen Abschnitt
+  // „Vertragsgrundlage", ist es diese schlanke Fassung: dann stehen alle
+  // Abschnitte auf der Konditionenseite und die Schlussseite gehört allein der
+  // Beauftragung. Ältere Angebote behalten die frühere Aufteilung — sonst
+  // liefe ihr Rechtsteil über den Satzspiegel.
+  const schlank = sec.some((x) => /Vertragsgrundlage/i.test(x.title))
+  const secEnd = schlank
+    ? sec.slice(iPflege >= 0 ? pflegeIdx + 1 : pflegeIdx)
+    : sec.slice(pflegeIdx + 1, -1)
+  const secFinal =
+    !schlank && sec.length > pflegeIdx + 1 ? sec[sec.length - 1] : undefined
   const val = doc.valuation
+  // Die Seitenfolge steht einmal an einer Stelle: Auswahl, Nummerierung und
+  // Fußzeile können dadurch nicht auseinanderlaufen.
+  const order = [
+    "cover",
+    pack !== "system" && "paket1",
+    pack !== "web" && "system",
+    pack !== "web" && "module",
+    "invest",
+    "rahmen",
+    pack !== "system" && "pflege",
+    "zahlung",
+    "abschluss",
+  ].filter((k): k is string => typeof k === "string")
+  const pageNo = (k: string) => order.indexOf(k) + 1
+  /** Beschriftung der Zeitschiene — ein Paket trägt seinen Namen, nicht „Paket 1". */
+  const planLabels =
+    pack === "web" ? ["Website"] : pack === "system" ? ["Warenwirtschaft"] : ["Paket 1", "Paket 2"]
+
+  // Module und Ablauf stehen im Angebot, nicht im Layout: trägt eine
+  // Teilleistung einen Titel, ist sie ein eigenes Modul. Sonst greift die
+  // Gliederung des Vorgängerangebots.
+  const p2Tasks = (p2?.details ?? []).map(task)
+  const module2 = p2Tasks.some((t) => t.title)
+    ? p2Tasks.map((t, i) => ({
+        no: String(i + 1).padStart(2, "0"),
+        title: t.title ?? "",
+        idx: [i],
+      }))
+    : PAKET_2_MODULE
+  // `??` würde ein leeres Array durchlassen — daraus wird ein Raster mit null
+  // Spalten und die Schiene verschwindet lautlos.
+  const prozess = doc.process?.length
+    ? doc.process.map((p) => ({ t: p.title, d: p.detail }))
+    : PROZESS
+  // Der Kanalblock hängt am Veröffentlichungsschritt — Nummer und Titel
+  // kommen aus dem Ablauf, damit sie beim nächsten Angebot mitwandern.
+  const freigabeSchritt = Math.max(
+    0,
+    prozess.findIndex((p) => /veröffentlich/i.test(p.t)),
+  )
+  // Zwei gleich lange Reihen — bei ungerader Zahl trägt die erste den Rest.
+  const prozessReihen = [
+    prozess.slice(0, Math.ceil(prozess.length / 2)),
+    prozess.slice(Math.ceil(prozess.length / 2)),
+  ]
+
+  // Titelseite eines Einzelpakets: statt zweier Paketkarten die Gliederung des
+  // Leistungsteils mit ihren Stunden — dieselbe Quelle wie die Detailseite,
+  // damit Übersicht und Aufstellung nicht auseinanderlaufen können.
+  const coverRows = (
+    pack === "system"
+      ? PAKET_2_THEMEN.map((g) => ({
+          title: g.title,
+          hours: g.idx.reduce((sum, i) => sum + task((p2?.details ?? [])[i] ?? "").hours, 0),
+        }))
+      : PAKET_1_GRUPPEN.map((g) => ({
+          title: g.title,
+          hours: g.idx.reduce((sum, i) => sum + task((p1?.details ?? [])[i] ?? "").hours, 0),
+        }))
+  ).filter((r) => r.hours > 0)
 
   const senderLine = [
     settings.ownerName ? `${settings.ownerName} · ${settings.name}` : settings.name,
@@ -152,7 +266,7 @@ export function ProposalDoc({
   return (
     <div className="prop-doc">
       {/* ── 1 · Cover ─────────────────────────────────────────────────── */}
-      <Page no={1} number={doc.number} settings={settings}>
+      <Page no={pageNo("cover")} total={order.length} number={doc.number} settings={settings}>
         <Brandbar number={doc.number} settings={settings} />
 
         {/* Anschrift bleibt im Fensterausschnitt (45–72 mm ab Blattoberkante) —
@@ -209,40 +323,65 @@ export function ProposalDoc({
         <div className="mt-[15mm] shrink-0">
           <Eyebrow>Projekt {customer?.company?.split(" ")[0]}</Eyebrow>
           <h1
-            className="mt-2.5 text-[36px] font-bold leading-[1.08] tracking-tight"
+            className="mt-2.5 text-[44px] font-bold leading-[1.05] tracking-tight"
             style={{ color: C.ink }}
           >
-            Digitalisierung der
+            {doc.title ?? "Digitalisierung"}
             <br />
-            {customer?.company}
+            {doc.titleAccent ?? customer?.company}
           </h1>
           <p className="mt-3.5 max-w-[150mm] text-[14px] leading-[1.55]" style={{ color: C.body }}>
-            Website, Verkaufskanäle und automatisierte Warenwirtschaft — in zwei Paketen,
-            einzeln beauftragbar.
+            {doc.lead ??
+              "Website, Verkaufskanäle und automatisierte Warenwirtschaft — in zwei Paketen, einzeln beauftragbar."}
           </p>
+          {/* Ersetzt dieses Angebot ein früheres, muss das auf der Titelseite
+              stehen — sonst liegen beim Kunden zwei gültige Angebote. */}
+          {doc.notice && (
+            <p
+              className="mt-3 max-w-[150mm] border-l-[2px] pl-3 text-[11.5px] leading-[1.5]"
+              style={{ color: C.muted, borderColor: C.brand }}
+            >
+              {doc.notice}
+            </p>
+          )}
         </div>
 
         {/* Die Kartenreihe nimmt den verbleibenden Raum auf: beide Karten sind
             dadurch exakt gleich hoch, und unter dem Fließtext bleibt keine
-            zufällige Lücke stehen. */}
-        <div className="mt-[11mm] grid flex-1 grid-cols-2 items-stretch gap-6">
-          <CoverCard
-            no="01"
-            title="Website & Marke"
-            text="Neues Erscheinungsbild, vollständiger Webauftritt mit eigener Seite je Gerät, Shopify-Anbindung und Auffindbarkeit bei Google, in der Umkreissuche und in KI-Assistenten."
-            regular={lineNet(p1)}
-            price={fixed(p1)}
-            hours={sumHours(p1)}
+            zufällige Lücke stehen. Trägt das Angebot nur ein Paket, stünde eine
+            einzelne Karte in halber Blattbreite — dann übernimmt die
+            Übersichtskarte die volle Breite. */}
+        {packs.length > 1 ? (
+          <div className="mt-[11mm] grid flex-1 grid-cols-2 items-stretch gap-6">
+            <CoverCard
+              no="01"
+              title="Website & Marke"
+              text="Neues Erscheinungsbild, vollständiger Webauftritt mit eigener Seite je Gerät, Shopify-Anbindung und Auffindbarkeit bei Google, in der Umkreissuche und in KI-Assistenten."
+              regular={reg(p1)}
+              price={fixed(p1)}
+              hours={sumHours(p1)}
+            />
+            <CoverCard
+              no="02"
+              title="System & Automatisierung"
+              text="Eigene Warenwirtschaft für Geräte, Vorgänge und Anfragen, zentraler Abgleich der angebundenen Verkaufskanäle, KI-gestützte Texte und Anfragebearbeitung, Auswertung."
+              regular={reg(p2)}
+              price={fixed(p2)}
+              hours={sumHours(p2)}
+            />
+          </div>
+        ) : (
+          <CoverOverview
+            title={
+              pack === "system"
+                ? "System & Automatisierung"
+                : "Website, Marke & Verkaufskanal"
+            }
+            text={packs[0]?.note ?? ""}
+            rows={coverRows}
+            hours={sumHours(packs[0])}
           />
-          <CoverCard
-            no="02"
-            title="System & Automatisierung"
-            text="Eigene Warenwirtschaft für Geräte, Vorgänge und Anfragen, zentraler Abgleich der angebundenen Verkaufskanäle, KI-gestützte Texte und Anfragebearbeitung, Auswertung."
-            regular={lineNet(p2)}
-            price={fixed(p2)}
-            hours={sumHours(p2)}
-          />
-        </div>
+        )}
 
         <div className="mt-[9mm] shrink-0">
           <div
@@ -270,7 +409,7 @@ export function ProposalDoc({
                     netto
                   </div>
                 )}
-                <div className="mt-2 text-[40px] font-bold leading-none text-white">
+                <div className="mt-2 text-[36px] font-bold leading-none text-white">
                   {eur(totals.net)}
                   <span className="pl-2 text-[15px] font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
                     netto
@@ -295,7 +434,8 @@ export function ProposalDoc({
                     {eur(discount)}
                   </div>
                   <div className="mt-2 text-[12.5px]" style={{ color: "rgba(255,255,255,0.62)" }}>
-                    {Math.round((-discount / (totals.net - discount)) * 100)} % unter der Kalkulation
+                    {Math.round((-discount / Math.max(1, totals.net - discount)) * 100)} % unter der
+                    Kalkulation
                   </div>
                 </div>
               )}
@@ -305,168 +445,217 @@ export function ProposalDoc({
       </Page>
 
       {/* ── 2 · Paket 1 ───────────────────────────────────────────────── */}
-      <Page no={2} number={doc.number} settings={settings}>
-        <PackHead no="01" title="Website, Marke & digitaler Verkaufskanal" intro={p1?.note} />
-        {/* Vier Leistungsgruppen über die freie Höhe verteilt — gleicher
-            Rhythmus statt Inhalt oben und Leere unten. */}
-        <div className="mt-[5mm] flex flex-1 flex-col justify-between">
-          {PAKET_1_GRUPPEN.map((g, gi) => {
-            const rows = g.idx.map((i) => task((p1?.details ?? [])[i] ?? "")).filter((r) => r.text)
-            if (!rows.length) return null
-            return (
-              <div
-                key={g.title}
-                className={gi ? "pt-[6mm]" : ""}
-                style={gi ? { borderTop: `1px solid ${C.line}` } : undefined}
-              >
-                <GroupHead
-                  no={String(gi + 1).padStart(2, "0")}
-                  title={g.title}
-                  hours={rows.reduce((s, r) => s + r.hours, 0)}
-                />
-                <div className="mt-3 space-y-[9px] pl-[30px]">
-                  {rows.map((r) => (
-                    <Row key={r.text} text={r.text} hours={r.hours} />
-                  ))}
+      {order.includes("paket1") && (
+        <Page no={pageNo("paket1")} total={order.length} number={doc.number} settings={settings}>
+          <PackHead no="01" title="Website, Marke & digitaler Verkaufskanal" intro={p1?.note} />
+          {/* Vier Leistungsgruppen über die freie Höhe verteilt — gleicher
+              Rhythmus statt Inhalt oben und Leere unten. */}
+          <div className="mt-[5mm] flex flex-1 flex-col justify-between">
+            {PAKET_1_GRUPPEN.map((g, gi) => {
+              const rows = g.idx.map((i) => task((p1?.details ?? [])[i] ?? "")).filter((r) => r.text)
+              if (!rows.length) return null
+              return (
+                <div
+                  key={g.title}
+                  className={gi ? "pt-[6mm]" : ""}
+                  style={gi ? { borderTop: `1px solid ${C.line}` } : undefined}
+                >
+                  <GroupHead
+                    no={String(gi + 1).padStart(2, "0")}
+                    title={g.title}
+                    hours={rows.reduce((s, r) => s + r.hours, 0)}
+                  />
+                  <div className="mt-3 space-y-[9px] pl-[30px]">
+                    {rows.map((r, ri) => (
+                      /* Trägt die Gruppe nur eine Teilleistung, ist ihre
+                         Stundenzahl die Gruppensumme — sonst steht derselbe
+                         Wert zweimal untereinander. */
+                      <Row key={`${gi}-${ri}`} text={r.text} hours={rows.length > 1 ? r.hours : 0} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
-        <PriceFoot regular={lineNet(p1)} price={fixed(p1)} label="Paket 1 — Festpreis" />
-      </Page>
+              )
+            })}
+          </div>
+          <PriceFoot
+            regular={reg(p1)}
+            price={fixed(p1)}
+            label={pack === "web" ? "Festpreis" : "Paket 1 — Festpreis"}
+          />
+        </Page>
+      )}
 
       {/* ── 3 · Paket 2, Systemübersicht ──────────────────────────────── */}
-      <Page no={3} number={doc.number} settings={settings}>
-        <PackHead no="02" title="Business Cockpit & Automatisierung" intro={p2?.note} />
+      {order.includes("system") && (
+        <Page no={pageNo("system")} total={order.length} number={doc.number} settings={settings}>
+          <PackHead
+            no={pack === "system" ? "01" : "02"}
+            title="Business Cockpit & Automatisierung"
+            intro={p2?.note}
+          />
 
-        <div className="mt-[10mm] flex flex-1 flex-col">
-          <Eyebrow>Ein Gerät, ein Vorgang</Eyebrow>
-          {/* Zwei Reihen à vier Schritten auf einer durchgehenden Schiene —
-              die Linie macht aus acht Kästchen einen Ablauf. */}
-          <div className="mt-6 shrink-0 space-y-[16mm]">
-            {[PROZESS.slice(0, 4), PROZESS.slice(4)].map((reihe, r) => (
-              <div key={r} className="relative">
-                <div
-                  className="absolute left-0 right-0 top-[8px] h-[2.5px]"
-                  style={{ background: GRAD, opacity: r === 0 ? 1 : 0.75 }}
-                />
-                <div className="relative grid grid-cols-4 gap-x-5">
-                  {reihe.map((s, i) => (
-                    <div key={s.t}>
-                      <div className="flex items-center gap-2">
+          <div className="mt-[10mm] flex flex-1 flex-col">
+            <Eyebrow>Ein Gerät, ein Vorgang</Eyebrow>
+            {/* Zwei Reihen auf einer durchgehenden Schiene — die Linie macht aus
+                den Kästchen einen Ablauf. Die Spaltenzahl folgt der Schrittzahl:
+                acht Schritte stehen zu viert, zehn zu fünft. */}
+            <div className="mt-6 shrink-0 space-y-[16mm]">
+              {prozessReihen.map((reihe, r) => (
+                <div key={r} className="relative">
+                  <div
+                    className="absolute left-0 right-0 top-[8px] h-[2.5px]"
+                    style={{ background: GRAD, opacity: r === 0 ? 1 : 0.75 }}
+                  />
+                  <div
+                    className="relative grid gap-x-5"
+                    style={{
+                      gridTemplateColumns: `repeat(${prozessReihen[0].length}, minmax(0,1fr))`,
+                    }}
+                  >
+                    {reihe.map((s, i) => (
+                      <div key={s.t}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-[18px] w-[18px] shrink-0 rounded-full bg-white"
+                            style={{ border: `3px solid ${C.brand}` }}
+                          />
+                          <span
+                            className="bg-white pr-1 text-[11px] font-bold tabular-nums"
+                            style={{ color: C.brand }}
+                          >
+                            {String(r * prozessReihen[0].length + i + 1).padStart(2, "0")}
+                          </span>
+                        </div>
                         <div
-                          className="h-[18px] w-[18px] shrink-0 rounded-full bg-white"
-                          style={{ border: `3px solid ${C.brand}` }}
-                        />
-                        <span
-                          className="bg-white pr-1 text-[11px] font-bold tabular-nums"
-                          style={{ color: C.brand }}
+                          className="mt-3 font-bold leading-tight"
+                          style={{
+                            color: C.ink,
+                            fontSize: prozessReihen[0].length > 4 ? 13 : 14.5,
+                          }}
                         >
-                          {String(r * 4 + i + 1).padStart(2, "0")}
-                        </span>
+                          {s.t}
+                        </div>
+                        <div
+                          className="mt-1.5 leading-[1.5]"
+                          style={{
+                            color: C.muted,
+                            paddingRight: prozessReihen[0].length > 4 ? 8 : 16,
+                            fontSize: prozessReihen[0].length > 4 ? 11.5 : 12.5,
+                          }}
+                        >
+                          {s.d}
+                        </div>
                       </div>
-                      <div
-                        className="mt-3 text-[14.5px] font-bold leading-tight"
-                        style={{ color: C.ink }}
-                      >
-                        {s.t}
-                      </div>
-                      <div
-                        className="mt-1.5 pr-4 text-[12.5px] leading-[1.5]"
-                        style={{ color: C.muted }}
-                      >
-                        {s.d}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Leitung aus der Veröffentlichungs-Spalte in den Kanalblock. Sie
+                sitzt auf 8 mm — derselben Achse wie der Punkt im Block darunter,
+                sodass Schritt 05, Verzweigung und Karten eine Linie bilden. */}
+            {/* Hier lief zuvor eine senkrechte Leitung in den Kanalblock. Sie saß
+                auf 8 mm, also über Spalte 1, während ihre Beschriftung Schritt 05
+                nannte — sie verband nichts und las sich als Strich im Weißraum.
+                Den Bezug stellt jetzt allein der Kopf des Blocks her. */}
+            <div className="h-[8mm] shrink-0" />
+
+            <div
+              className="flex flex-1 flex-col px-[8mm] py-[9mm]"
+              style={{ background: C.soft, borderRadius: R }}
+            >
+              {/* Verzweigung: eine Quelle, drei Kanäle — die Stichleitungen
+                  sitzen im selben Raster wie die Karten und treffen sie mittig. */}
+              <div className="flex items-center gap-3">
+                <span className="h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: C.brand }} />
+                <span className="shrink-0 text-[12.5px] font-bold" style={{ color: C.ink }}>
+                  Schritt {String(freigabeSchritt + 1).padStart(2, "0")} · {prozess[freigabeSchritt]?.t}
+                </span>
+                <span className="h-[2px] flex-1" style={{ background: GRAD }} />
               </div>
-            ))}
-          </div>
-
-          {/* Leitung aus der Veröffentlichungs-Spalte in den Kanalblock. Sie
-              sitzt auf 8 mm — derselben Achse wie der Punkt im Block darunter,
-              sodass Schritt 05, Verzweigung und Karten eine Linie bilden. */}
-          <div className="flex min-h-[6mm] flex-1">
-            <div className="ml-[8mm] w-[2.5px]" style={{ background: C.brand }} />
-          </div>
-
-          <div
-            className="shrink-0 px-[8mm] py-[7mm]"
-            style={{ background: C.soft, borderRadius: R }}
-          >
-            {/* Verzweigung: eine Quelle, drei Kanäle — die Stichleitungen
-                sitzen im selben Raster wie die Karten und treffen sie mittig. */}
-            <div className="flex items-center gap-3">
-              <span className="h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: C.brand }} />
-              <span className="shrink-0 text-[12.5px] font-bold" style={{ color: C.ink }}>
-                Schritt 05 · Veröffentlichung
-              </span>
-              <span className="h-[2px] flex-1" style={{ background: GRAD }} />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="flex h-[7mm] justify-center">
-                  {/* Kleinanzeigen ist der halbautomatische Kanal — die
-                      Stichleitung trägt dieselbe Farbe wie sein Punkt. */}
-                  <div className="w-[2.5px]" style={{ background: i === 2 ? C.neutral : C.brand }} />
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                { k: "Website", v: "vollständig verbunden", auto: true },
-                { k: "Shopify", v: "automatischer Schnittstellenabgleich", auto: true },
-                { k: "Kleinanzeigen", v: "halbautomatisch — Freigabe von Hand", auto: false },
-              ].map((c) => (
-                <div
-                  key={c.k}
-                  className="bg-white px-4 py-6"
-                  style={{ border: `1px solid ${C.line}`, borderRadius: R }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-[8px] w-[8px] rounded-full"
-                      style={{ background: c.auto ? C.brand : C.neutral }}
-                    />
-                    <span className="text-[13.5px] font-bold" style={{ color: C.ink }}>
-                      {c.k}
-                    </span>
+              <div className="grid grid-cols-3 gap-4">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex h-[7mm] justify-center">
+                    {/* Kleinanzeigen ist der halbautomatische Kanal — die
+                        Stichleitung trägt dieselbe Farbe wie sein Punkt. */}
+                    <div className="w-[2.5px]" style={{ background: i === 2 ? C.neutral : C.brand }} />
                   </div>
-                  <div className="mt-1.5 text-[12px] leading-[1.5]" style={{ color: C.body }}>
-                    {c.v}
+                ))}
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                {[
+                  { k: "Website", v: "vollständig verbunden", auto: true },
+                  { k: "Shopify", v: "automatischer Schnittstellenabgleich", auto: true },
+                  { k: "Kleinanzeigen", v: "halbautomatisch — Freigabe von Hand", auto: false },
+                ].map((c) => (
+                  <div
+                    key={c.k}
+                    className="bg-white px-4 py-9"
+                    style={{ border: `1px solid ${C.line}`, borderRadius: R }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="h-[8px] w-[8px] rounded-full"
+                        style={{ background: c.auto ? C.brand : C.neutral }}
+                      />
+                      <span className="text-[13.5px] font-bold" style={{ color: C.ink }}>
+                        {c.k}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 text-[12px] leading-[1.5]" style={{ color: C.body }}>
+                      {c.v}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+              <p className="mt-auto pt-7 text-[14px] font-medium leading-[1.6]" style={{ color: C.ink }}>
+                Ein Gerät wird einmal zentral erfasst — Rahmennummer, Zustand, Prüfprotokoll, Bilder
+                und Preis. Website und Shop greifen anschließend auf denselben Datenstand zu und
+                werden automatisch aktualisiert; bei Kleinanzeigen zeigt das System den erforderlichen
+                manuellen Schritt eindeutig an.
+              </p>
             </div>
-            <p className="mt-7 text-[14px] font-medium leading-[1.6]" style={{ color: C.ink }}>
-              Ein Gerät wird einmal zentral erfasst — Rahmennummer, Zustand, Prüfprotokoll, Bilder
-              und Preis. Website und Shop greifen anschließend auf denselben Datenstand zu und
-              werden automatisch aktualisiert; bei Kleinanzeigen zeigt das System den erforderlichen
-              manuellen Schritt eindeutig an.
-            </p>
           </div>
-        </div>
-      </Page>
+        </Page>
+      )}
 
       {/* ── 4 · Paket 2, Module ───────────────────────────────────────── */}
-      <Page no={4} number={doc.number} settings={settings}>
-        <SectionHead eyebrow="Paket 02 · Leistungsumfang" title="Module und Aufwand" />
-        <div className="mt-[4mm] flex flex-1 flex-col">
-          <div className="grid flex-1 grid-cols-2 content-between gap-x-7 gap-y-[4mm]">
-            {PAKET_2_MODULE.map((m) => {
+      {order.includes("module") && (
+        <Page no={pageNo("module")} total={order.length} number={doc.number} settings={settings}>
+          <SectionHead
+            eyebrow={pack === "system" ? "Leistungsumfang" : "Paket 02 · Leistungsumfang"}
+            title="Module und Aufwand"
+          />
+          {/* Mehrspalter statt Raster: im Grid bestimmt das höhere Modul die
+              Zeilenhöhe, bei zwölf ungleich langen Modulen gehen dadurch rund
+              35 mm an Luft zwischen den Zeilen verloren — genug, dass der
+              Preisfuß aus der Seite fällt. Der Spaltenfluss packt sie dicht
+              untereinander, gelesen wird weiter 01–06 links, 07–12 rechts. */}
+          <div className="mt-[4mm] flex-1 columns-2 gap-x-7">
+            {module2.map((m) => {
               const rows = m.idx.map((i) => task((p2?.details ?? [])[i] ?? "")).filter((r) => r.text)
               if (!rows.length) return null
               return (
-                <div key={m.no}>
+                <div key={m.no} className="mb-[3mm] break-inside-avoid">
                   <div className="flex items-baseline gap-2.5">
                     <span className="text-[11.5px] font-bold tabular-nums" style={{ color: C.brand }}>
                       {m.no}
                     </span>
-                    <span className="text-[13.5px] font-bold leading-snug" style={{ color: C.ink }}>
+                    <span className="text-[13px] font-bold leading-snug" style={{ color: C.ink }}>
                       {m.title}
                     </span>
+                      {/* „Neu" nur dort, wo das Modul gegenüber dem ersetzten
+                          Angebot hinzugekommen ist — der Kunde vergleicht sonst
+                          zwei Dokumente Zeile für Zeile. */}
+                    {rows.some((r) => r.isNew) && (
+                      <span
+                        className="shrink-0 rounded-full px-1.5 py-[1px] text-[8.5px] font-bold uppercase tracking-[0.1em]"
+                        style={{ background: C.brand, color: "#fff" }}
+                      >
+                        Neu
+                      </span>
+                    )}
                     <span
                       className="ml-auto shrink-0 text-[11px] tabular-nums"
                       style={{ color: C.muted }}
@@ -474,9 +663,13 @@ export function ProposalDoc({
                       {std(rows.reduce((s, r) => s + r.hours, 0))}
                     </span>
                   </div>
-                  <div className="mt-2 h-[1px] w-full" style={{ background: C.line }} />
-                  {rows.map((r) => (
-                    <p key={r.text} className="mt-2.5 text-[12.5px] leading-[1.5]" style={{ color: C.body }}>
+                  <div className="mt-1.5 h-[1px] w-full" style={{ background: C.line }} />
+                  {rows.map((r, ri) => (
+                    <p
+                      key={`${m.no}-${ri}`}
+                      className="mt-2 text-[12px] leading-[1.45]"
+                      style={{ color: C.body }}
+                    >
                       {r.text}
                     </p>
                   ))}
@@ -484,12 +677,16 @@ export function ProposalDoc({
               )
             })}
           </div>
-        </div>
-        <PriceFoot regular={lineNet(p2)} price={fixed(p2)} label="Paket 2 — Festpreis" />
-      </Page>
+          <PriceFoot
+            regular={reg(p2)}
+            price={fixed(p2)}
+            label={pack === "system" ? "Festpreis" : "Paket 2 — Festpreis"}
+          />
+        </Page>
+      )}
 
       {/* ── 5 · Investition & Preis-Einordnung ────────────────────────── */}
-      <Page no={5} number={doc.number} settings={settings}>
+      <Page no={pageNo("invest")} total={order.length} number={doc.number} settings={settings}>
         <SectionHead eyebrow="Investition" title="Was das Projekt kostet" />
 
         <div className="mt-[6mm] grid shrink-0 grid-cols-2 items-stretch gap-6">
@@ -499,8 +696,11 @@ export function ProposalDoc({
           >
             <Eyebrow>Zusammensetzung</Eyebrow>
             <div className="mt-3.5">
-              <SumRow k="Paket 1 — Website & Marke" v={eur(fixed(p1))} />
-              <SumRow k="Paket 2 — System & Automatisierung" v={eur(fixed(p2))} />
+              {/* Jede berechnete Position steht hier — sonst behauptete die
+                  Zusammensetzung eine Rechnung, die nicht aufgeht. */}
+              {positive.map((it) => (
+                <SumRow key={it.id} k={it.description.split(":")[0]} v={eur(fixed(it))} />
+              ))}
               <div className="my-2.5 h-[1px]" style={{ background: C.line }} />
               <SumRow k="Nettobetrag" v={eur(totals.net)} strong />
               {totals.taxBreakdown.map((t) => (
@@ -565,7 +765,9 @@ export function ProposalDoc({
           </div>
         </div>
 
-        {val && (
+        {/* Ohne Stunden gäbe es „Infinity €/Std.", ohne Vergleichswerte einen
+            Balken der Breite NaN — beides landete ungefiltert im Kundendokument. */}
+        {val && val.hours > 0 && val.benchmarks.length > 0 && (
           <div className="mt-[5mm] flex flex-1 flex-col">
             <Eyebrow>Preis-Einordnung</Eyebrow>
             <p className="mt-2 max-w-[150mm] text-[12.5px] leading-[1.6]" style={{ color: C.body }}>
@@ -592,7 +794,7 @@ export function ProposalDoc({
                     label={m.label}
                     sub={`${Math.round(m.rate)} €/h`}
                     amount={m.amount}
-                    max={Math.max(...val.benchmarks.map((b) => b.rate * val.hours))}
+                    max={Math.max(val.netAmount, ...val.benchmarks.map((b) => b.rate * val.hours))}
                     own={m.own}
                   />
                 ))}
@@ -673,10 +875,10 @@ export function ProposalDoc({
       </Page>
 
       {/* ── 6 · Projektablauf & Rahmen ────────────────────────────────── */}
-      <Page no={6} number={doc.number} settings={settings}>
+      <Page no={pageNo("rahmen")} total={order.length} number={doc.number} settings={settings}>
         <SectionHead eyebrow="Rahmen" title="Wie das Projekt läuft" />
         <div className="mt-[8mm] flex flex-1 flex-col justify-between">
-          {sec.slice(0, 5).map((s, i) => {
+          {secIntro.map((s, i) => {
             const plan = weeks(s.body[0])
             return (
               <div
@@ -691,10 +893,10 @@ export function ProposalDoc({
                   <span className="text-[14.5px] font-bold" style={{ color: C.ink }}>
                     {s.title}
                   </span>
-                  {(i === 1 || i === 2) && <Chip>Abnahmekriterien</Chip>}
+                  {/^Wann /i.test(s.title) && <Chip>Abnahmekriterien</Chip>}
                 </div>
                 <div className="mt-2 pl-[28px]">
-                  {plan.length === 2 && <Timeline plan={plan} />}
+                  {plan.length > 0 && <Timeline plan={plan} labels={planLabels} />}
                   {s.body.map((b, j) => (
                     <p
                       key={j}
@@ -712,80 +914,85 @@ export function ProposalDoc({
       </Page>
 
       {/* ── 7 · Betreuung, Zahlung, Abschluss ─────────────────────────── */}
-      <Page no={7} number={doc.number} settings={settings}>
-        <SectionHead eyebrow="Nach dem Livegang" title="Betreuung ohne Monatspauschale" />
+      {order.includes("pflege") && (
+        <Page no={pageNo("pflege")} total={order.length} number={doc.number} settings={settings}>
+          <SectionHead eyebrow="Nach dem Livegang" title="Betreuung ohne Monatspauschale" />
 
-        <div
-          className="mt-[6mm] shrink-0 overflow-hidden px-[8mm] py-[5mm]"
-          style={{ background: HERO_BG, borderRadius: R }}
-        >
-          <div className="flex items-start justify-between gap-8">
-            <div className="max-w-[108mm]">
-              <div className="text-[19px] font-bold leading-tight text-white">
-                Keine feste monatliche Pflegegebühr.
-              </div>
-              <p className="mt-2 text-[12.5px] leading-[1.5]" style={{ color: "rgba(255,255,255,0.72)" }}>
-                Stattdessen 15 % des provisionsrelevanten Deckungsbeitrags aus Geschäften, die durch
-                die Website entstehen. Kein Websitegeschäft, keine Vergütung.
-              </p>
-            </div>
-            <div
-              className="shrink-0 pl-8 text-right"
-              style={{ borderLeft: "1px solid rgba(255,255,255,0.14)" }}
-            >
-              <div className="text-[48px] font-bold leading-none" style={{ color: "#00ffe6" }}>
-                15 %
-              </div>
-              <div
-                className="mt-1.5 text-[10px] uppercase tracking-[0.16em]"
-                style={{ color: "rgba(255,255,255,0.55)" }}
-              >
-                erfolgsabhängig
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 h-[2px] w-[38%]" style={{ background: GRAD }} />
-        </div>
-
-        {/* Nur die Betreuung — Provision, Beispielrechnung, Zurechnung,
-            Leistungsumfang, Abrechnung und Laufzeit. Zahlung und Abschluss
-            stehen auf der Folgeseite; zusammen war das eine Bleiwüste. */}
-        {/* Die vier Absätze beantworten vier verschiedene Fragen — als Block
-            gesetzt liest sich das wie Kleingedrucktes. Mit Marginalie je Absatz
-            ist erkennbar, wo Berechnung, Zurechnung, Umfang und Laufzeit
-            stehen; zugleich füllt die Gliederung die Seite. */}
-        <div className="mt-[7mm] flex flex-1 flex-col gap-[6mm]">
-          {(sec[5]?.body ?? []).slice(1).map((b, i) => {
-            const ex = example(b)
-            return (
-              <div
-                key={i}
-                className={i ? "pt-[6mm]" : ""}
-                style={i ? { borderTop: `1px solid ${C.line}` } : undefined}
-              >
-                <div className="flex gap-6">
-                  <div
-                    className="w-[26mm] shrink-0 pt-[2px] text-[10px] font-semibold uppercase leading-[1.35] tracking-[0.1em]"
-                    style={{ color: C.muted }}
-                  >
-                    {["Berechnung", "Zurechnung", "Enthalten", "Abrechnung & Laufzeit"][i] ?? ""}
-                  </div>
-                  <p className="min-w-0 flex-1 text-[12.5px] leading-[1.6]" style={{ color: C.body }}>
-                    {ex ? ex.intro : b}
-                  </p>
+          <div
+            className="mt-[6mm] shrink-0 overflow-hidden px-[8mm] py-[5mm]"
+            style={{ background: HERO_BG, borderRadius: R }}
+          >
+            <div className="flex items-start justify-between gap-8">
+              <div className="max-w-[108mm]">
+                <div className="text-[19px] font-bold leading-tight text-white">
+                  Keine feste monatliche Pflegegebühr.
                 </div>
-                {/* Die Zahlenkette braucht die volle Satzbreite — in der
-                    schmalen Textspalte brechen Beträge und Chip-Titel um. */}
-                {ex && <Calc values={ex.values} />}
+                <p className="mt-2 text-[12.5px] leading-[1.5]" style={{ color: "rgba(255,255,255,0.72)" }}>
+                  Stattdessen 15 % des provisionsrelevanten Deckungsbeitrags aus Geschäften, die durch
+                  die Website entstehen. Kein Websitegeschäft, keine Vergütung.
+                </p>
               </div>
-            )
-          })}
-        </div>
-      </Page>
+              <div
+                className="shrink-0 pl-8 text-right"
+                style={{ borderLeft: "1px solid rgba(255,255,255,0.14)" }}
+              >
+                <div className="text-[48px] font-bold leading-none" style={{ color: "#00ffe6" }}>
+                  15 %
+                </div>
+                <div
+                  className="mt-1.5 text-[10px] uppercase tracking-[0.16em]"
+                  style={{ color: "rgba(255,255,255,0.55)" }}
+                >
+                  erfolgsabhängig
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 h-[2px] w-[38%]" style={{ background: GRAD }} />
+          </div>
+
+          {/* Nur die Betreuung — Provision, Beispielrechnung, Zurechnung,
+              Leistungsumfang, Abrechnung und Laufzeit. Zahlung und Abschluss
+              stehen auf der Folgeseite; zusammen war das eine Bleiwüste. */}
+          {/* Die vier Absätze beantworten vier verschiedene Fragen — als Block
+              gesetzt liest sich das wie Kleingedrucktes. Mit Marginalie je Absatz
+              ist erkennbar, wo Berechnung, Zurechnung, Umfang und Laufzeit
+              stehen; zugleich füllt die Gliederung die Seite. */}
+          {/* justify-between statt fester Fugen: die Seite trägt vier Absätze und
+              endete zuvor gut 60 mm über dem Satzspiegelfuß. Der Rest verteilt
+              sich jetzt auf die Trennlinien, statt als Block unten zu stehen. */}
+          <div className="mt-[7mm] flex flex-1 flex-col justify-between gap-[6mm]">
+            {(sec[pflegeIdx]?.body ?? []).slice(1).map((b, i) => {
+              const ex = example(b)
+              return (
+                <div
+                  key={i}
+                  className={i ? "pt-[6mm]" : ""}
+                  style={i ? { borderTop: `1px solid ${C.line}` } : undefined}
+                >
+                  <div className="flex gap-6">
+                    <div
+                      className="w-[26mm] shrink-0 pt-[2px] text-[10px] font-semibold uppercase leading-[1.35] tracking-[0.1em]"
+                      style={{ color: C.muted }}
+                    >
+                      {["Berechnung", "Zurechnung", "Enthalten", "Abrechnung & Laufzeit"][i] ?? ""}
+                    </div>
+                    <p className="min-w-0 flex-1 text-[13.5px] leading-[1.7]" style={{ color: C.body }}>
+                      {ex ? ex.intro : b}
+                    </p>
+                  </div>
+                  {/* Die Zahlenkette braucht die volle Satzbreite — in der
+                      schmalen Textspalte brechen Beträge und Chip-Titel um. */}
+                  {ex && <Calc values={ex.values} />}
+                </div>
+              )
+            })}
+          </div>
+        </Page>
+      )}
 
       {/* ── 8 · Beauftragung und Abschluss ────────────────────────────── */}
-      <Page no={8} number={doc.number} settings={settings} last>
-        <SectionHead eyebrow="Beauftragung" title="Konditionen und Abschluss" />
+      <Page no={pageNo("zahlung")} total={order.length} number={doc.number} settings={settings}>
+        <SectionHead eyebrow="Beauftragung" title="Zahlung und Konditionen" />
 
         {/* Der Zahlungsplan ist die Information, die der Kunde auf dieser Seite
             wirklich sucht — als Raten-Grafik beantwortet sie „wann zahle ich
@@ -795,14 +1002,17 @@ export function ProposalDoc({
             Zahlungsplan
           </div>
           <p className="mt-2 text-[12.5px] leading-[1.6]" style={{ color: C.body }}>
-            Je Paket in drei Raten, jeweils 14 Tage netto ohne Abzug. Nicht beauftragte Pakete
-            werden nicht berechnet.
+            {pack === "web"
+              ? "In drei Raten, jeweils 14 Tage netto ohne Abzug. Zwischenstand heißt hier die freigegebene Gestaltung der Website."
+              : pack === "system"
+                ? "In drei Raten, jeweils 14 Tage netto ohne Abzug. Zwischenstand heißt hier der lauffähige Kernprozess im Testsystem."
+                : "Je Paket in drei Raten, jeweils 14 Tage netto ohne Abzug. Zwischenstand heißt bei Paket 1 die freigegebene Gestaltung, bei Paket 2 der lauffähige Kernprozess im Testsystem. Nicht beauftragte Pakete werden nicht berechnet."}
           </p>
           <div className="mt-[4mm] flex gap-3">
             {[
               { pct: 0.4, when: "bei Auftrag" },
+              { pct: 0.3, when: "bei Zwischenstand" },
               { pct: 0.3, when: "bei Abnahme" },
-              { pct: 0.3, when: "bei Livegang" },
             ].map((r) => (
               <div
                 key={r.when}
@@ -817,45 +1027,144 @@ export function ProposalDoc({
                     {r.when}
                   </span>
                 </div>
-                <div className="mt-3 space-y-1.5">
-                  {[
-                    { l: "Paket 1", v: fixed(p1) },
-                    { l: "Paket 2", v: fixed(p2) },
-                  ].map((k) => (
-                    <div key={k.l} className="flex items-baseline justify-between gap-3">
-                      <span className="text-[11px]" style={{ color: C.muted }}>
-                        {k.l}
-                      </span>
-                      <span
-                        className="text-[12.5px] font-semibold tabular-nums"
-                        style={{ color: C.ink }}
-                      >
-                        {eur(k.v * r.pct)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                {/* Zwei Pakete brauchen die Aufschlüsselung je Paket; bei einem
+                    steht dieselbe Zahl sonst neben ihrer eigenen Überschrift. */}
+                {packs.length > 1 ? (
+                  <div className="mt-3 space-y-1.5">
+                    {packs.map((it, i) => (
+                      <div key={it.id} className="flex items-baseline justify-between gap-3">
+                        <span className="text-[11px]" style={{ color: C.muted }}>
+                          Paket {i + 1}
+                        </span>
+                        <span
+                          className="text-[12.5px] font-semibold tabular-nums"
+                          style={{ color: C.ink }}
+                        >
+                          {eur(fixed(it) * r.pct)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    className="mt-3 text-[15px] font-bold tabular-nums"
+                    style={{ color: C.ink }}
+                  >
+                    {eur(fixed(packs[0]) * r.pct)}
+                    <span className="pl-1.5 text-[10.5px] font-medium" style={{ color: C.muted }}>
+                      netto
+                    </span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
           <p className="mt-2.5 text-[11px]" style={{ color: C.muted }}>
-            Alle Beträge netto zuzüglich der gesetzlichen Umsatzsteuer.
+            Alle Beträge netto zuzüglich der gesetzlichen Umsatzsteuer. Trifft der Projektvertrag
+            eine abweichende Zahlungsvereinbarung, geht sie diesem Plan vor.
           </p>
         </div>
 
+        {/* Seit die rechtlichen Abschnitte im Vertrag stehen, trägt die Seite
+            weniger Text. `justify-between` riss sie dadurch in der Mitte auf
+            und schob den letzten Absatz in die Fußzeile. Jetzt steht der Text
+            oben und der Verweis auf den Vertrag als Kasten am Fuß — die Luft
+            dazwischen liest sich als Satz, nicht als Lücke. */}
         <div className="mt-[7mm] flex flex-1 flex-col">
-          {sec.slice(6).map((s, i) => (
-            <div
-              key={s.title}
-              className={i ? "mt-[5mm] pt-[5mm]" : ""}
-              style={i ? { borderTop: `1px solid ${C.line}` } : undefined}
-            >
-              <div className="text-[14.5px] font-bold" style={{ color: C.ink }}>
-                {s.title}
+          {secEnd
+            .filter((s) => !/Vertragsgrundlage/i.test(s.title))
+            .map((s, i) => (
+              <div
+                key={s.title}
+                className={i ? "mt-[5mm] pt-[5mm]" : ""}
+                style={i ? { borderTop: `1px solid ${C.line}` } : undefined}
+              >
+                <div className="text-[14.5px] font-bold" style={{ color: C.ink }}>
+                  {s.title}
+                </div>
+                <Paragraphs body={s.body} />
               </div>
-              <Paragraphs body={s.body} />
+            ))}
+
+          {(() => {
+            const v = secEnd.find((s) => /Vertragsgrundlage/i.test(s.title))
+            if (!v) return null
+            return (
+              <div
+                className="mt-auto px-[7mm] py-[5mm]"
+                style={{ background: C.soft, borderRadius: R, border: `1px solid ${C.line}` }}
+              >
+                <div className="text-[14.5px] font-bold" style={{ color: C.ink }}>
+                  {v.title}
+                </div>
+                {v.body.map((b, i) => (
+                  <p
+                    key={i}
+                    className={`text-[12.5px] leading-[1.7]${i ? " mt-2" : " mt-2"}`}
+                    style={{ color: C.body }}
+                  >
+                    {b}
+                  </p>
+                ))}
+                <div className="mt-[4mm] h-[2px] w-[32%]" style={{ background: GRAD }} />
+              </div>
+            )
+          })()}
+        </div>
+      </Page>
+
+      {/* ── 9 · Vertragsrahmen und Beauftragung ───────────────────────────
+          Verzug, Abbruch und Haftung passen zusammen mit dem Beauftragungs-
+          block nicht auf Seite 8 — gemessen liefen sie 43 pt unter den
+          Satzspiegel. Sie tragen deshalb die Schlussseite. */}
+      <Page no={pageNo("abschluss")} total={order.length} number={doc.number} settings={settings} last>
+        <SectionHead eyebrow="Abschluss" title="Beauftragung und Freigabe" />
+
+        {/* Vier Blöcke — Aufstellung, Beauftragung, die drei Schritte und der
+            Abschlusssatz. `justify-between` verteilt den Rest auf die Fugen
+            dazwischen, statt ihn als eine Lücke vor dem Abbinder zu sammeln. */}
+        <div className="mt-[7mm] flex flex-1 flex-col justify-between">
+          {secFinal && (
+            <div>
+              <div className="text-[14.5px] font-bold" style={{ color: C.ink }}>
+                {secFinal.title}
+              </div>
+              <Paragraphs body={secFinal.body} />
             </div>
-          ))}
+          )}
+
+          {/* Was mit der Freigabe beauftragt wird, steht sonst nur auf Seite 5
+              — direkt über dem Beauftragungsblock erspart es das Zurückblättern
+              im Moment der Entscheidung. */}
+          <div
+            className="px-[7mm] py-[5mm]"
+            style={{ background: C.soft, borderRadius: R, border: `1px solid ${C.line}` }}
+          >
+            <div className="text-[14.5px] font-bold" style={{ color: C.ink }}>
+              Was Sie beauftragen
+            </div>
+            <div className="mt-2.5">
+              {packs.map((it) => (
+                <SumRow
+                  key={it.id}
+                  k={it.description.split(":")[0]}
+                  v={`${eur(fixed(it))} netto`}
+                />
+              ))}
+              <div className="my-1.5 h-[1px]" style={{ background: C.line }} />
+              <SumRow
+                k={packs.length > 1 ? "Beide Pakete zusammen" : "Festpreis gesamt"}
+                v={`${eur(totals.net)} netto`}
+                strong
+              />
+              <SumRow k="zzgl. Umsatzsteuer" v={eur(totals.gross - totals.net)} muted />
+              {/* Die erfolgsabhängige Betreuung hängt an der Website — im
+                  Systemangebot wäre sie eine Zusage ohne Grundlage. */}
+              {pack !== "system" && (
+                <SumRow k="Betreuung nach dem Livegang" v="15 % erfolgsabhängig" muted />
+              )}
+            </div>
+          </div>
 
           {/* Ein Angebot muss sagen, wie man es annimmt — ohne diesen Schritt
               endet das Dokument im Nichts. */}
@@ -869,9 +1178,9 @@ export function ProposalDoc({
                   So beauftragen Sie
                 </div>
                 <p className="mt-2 max-w-[105mm] text-[12.5px] leading-[1.6]" style={{ color: C.body }}>
-                  Eine kurze Freigabe per E-Mail genügt — mit der Angabe, welche Pakete beauftragt
-                  werden. Danach erhalten Sie die Auftragsbestätigung und den Terminvorschlag für
-                  den Projektstart.
+                  {packs.length > 1
+                    ? "Eine kurze Freigabe per E-Mail genügt — mit der Angabe, welche Pakete beauftragt werden. Danach erhalten Sie die Auftragsbestätigung und den Terminvorschlag für den Projektstart."
+                    : "Eine kurze Freigabe per E-Mail genügt. Danach erhalten Sie den unterschriftsreifen Projektvertrag und den Terminvorschlag für den Projektstart."}
                 </p>
               </div>
               <div className="shrink-0 text-right">
@@ -897,7 +1206,54 @@ export function ProposalDoc({
             <div className="mt-[4mm] h-[2px] w-[32%]" style={{ background: GRAD }} />
           </div>
 
-          <p className="mt-auto pb-[4mm] pt-[6mm] text-[14px] font-semibold" style={{ color: C.ink }}>
+          {/* Die Freigabe ist kein Endpunkt, sondern der erste von drei
+              Schritten. Ausgeschrieben nimmt sie dem Kunden die Frage, was
+              nach seiner Mail passiert — und trägt zugleich die Seite, seit
+              der Rechtsteil im Vertrag steht. */}
+          {!secFinal && (
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                {
+                  t: "Freigabe",
+                  d:
+                    packs.length > 1
+                      ? "Kurze Bestätigung per E-Mail mit Angabe der beauftragten Pakete."
+                      : "Kurze Bestätigung per E-Mail, dass dieses Angebot beauftragt wird.",
+                },
+                {
+                  t: "Vertrag und Bestätigung",
+                  d: "Sie erhalten Auftragsbestätigung und Projektvertrag zur Unterzeichnung.",
+                },
+                {
+                  t: "Projektstart",
+                  d: "Terminvorschlag, Zugänge und Datenübergabe — danach beginnt die Umsetzung.",
+                },
+              ].map((s, i) => (
+                <div
+                  key={s.t}
+                  className="px-4 py-3.5"
+                  style={{ background: C.soft, borderRadius: R, border: `1px solid ${C.line}` }}
+                >
+                  <div
+                    className="text-[11.5px] font-bold tabular-nums"
+                    style={{ color: C.brand }}
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </div>
+                  <div className="mt-1.5 text-[13px] font-bold" style={{ color: C.ink }}>
+                    {s.t}
+                  </div>
+                  <p className="mt-1.5 text-[11.5px] leading-[1.55]" style={{ color: C.body }}>
+                    {s.d}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* mt-auto drückte den Satz an den Fuß und riss die Blattmitte auf —
+              den Rest verteilt jetzt justify-between des Containers. */}
+          <p className="pb-[4mm] pt-[6mm] text-[14px] font-semibold" style={{ color: C.ink }}>
             Wir freuen uns auf die Zusammenarbeit und die gemeinsame Umsetzung Ihres Projekts.
           </p>
         </div>
@@ -942,12 +1298,14 @@ function sumHours(it?: LineItem) {
 
 function Page({
   no,
+  total,
   number,
   settings,
   last,
   children,
 }: {
   no: number
+  total: number
   number: string
   settings: CompanySettings
   last?: boolean
@@ -964,7 +1322,7 @@ function Page({
           {settings.name} · Angebot {number}
         </span>
         <span className="tabular-nums">
-          Seite {String(no).padStart(2, "0")} / {String(PAGES).padStart(2, "0")}
+          Seite {String(no).padStart(2, "0")} / {String(total).padStart(2, "0")}
         </span>
       </div>
     </section>
@@ -991,7 +1349,7 @@ function Brandbar({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo-wordmark-light.svg"
-            alt={settings.name}
+            alt=""
             style={{ height: 11, width: "auto" }}
           />
           <div
@@ -1182,9 +1540,8 @@ function Calc({ values }: { values: string[] }) {
 }
 
 /** Zeitschiene für den Rahmen-Abschnitt: zwei Pakete hintereinander. */
-function Timeline({ plan }: { plan: [number, number][] }) {
+function Timeline({ plan, labels }: { plan: [number, number][]; labels: string[] }) {
   const total = plan.reduce((s, [, b]) => s + b, 0)
-  const labels = ["Paket 1", "Paket 2"]
   return (
     <div className="mb-3">
       <div className="flex items-center gap-1.5">
@@ -1203,9 +1560,12 @@ function Timeline({ plan }: { plan: [number, number][] }) {
             </div>
           </div>
         ))}
-        <div className="shrink-0 pl-1 text-[12px] font-semibold" style={{ color: C.muted }}>
-          bis {plan.reduce((s, [, b]) => s + b, 0)} Wochen gesamt
-        </div>
+        {/* Bei einer einzigen Spanne stünde hier dieselbe Zahl ein zweites Mal. */}
+        {plan.length > 1 && (
+          <div className="shrink-0 pl-1 text-[12px] font-semibold" style={{ color: C.muted }}>
+            bis {total} Wochen gesamt
+          </div>
+        )}
       </div>
     </div>
   )
@@ -1304,6 +1664,72 @@ function CoverCard({
           </span>
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Titelseite eines Einzelpakets. Zwei Paketkarten nebeneinander erzählen den
+ * Umfang; eine allein stünde in halber Blattbreite und ließe die Seite kippen.
+ * Diese Karte nimmt die volle Breite und ersetzt die zweite Karte durch die
+ * Gliederung des Leistungsteils — der Kunde sieht auf der ersten Seite, was
+ * enthalten ist, nicht nur, dass es ein Paket gibt. Der Preis steht bewusst
+ * nicht in der Karte: er trägt darunter den Investitionsblock, und zweimal
+ * dieselbe Zahl auf einem Blatt schwächt beide Stellen.
+ */
+function CoverOverview({
+  title,
+  text,
+  rows,
+  hours,
+}: {
+  title: string
+  text: string
+  rows: { title: string; hours: number }[]
+  hours: number
+}) {
+  // Vier Gruppen stehen zu zweit, zwölf Module zu dritt — sonst wird die
+  // Spalte entweder zur Liste oder zum Schnipsel.
+  const cols = rows.length > 6 ? 3 : 2
+  return (
+    <div
+      className="mt-[8mm] flex flex-1 flex-col px-8 py-6"
+      style={{ border: `1px solid ${C.line}`, borderRadius: R }}
+    >
+      <div className="flex items-baseline justify-between gap-6">
+        <div className="text-[21px] font-bold leading-tight" style={{ color: C.ink }}>
+          {title}
+        </div>
+        <span className="shrink-0 text-[11px] tabular-nums" style={{ color: C.muted }}>
+          {std(hours)} kalkuliert
+        </span>
+      </div>
+      {text && (
+        <p className="mt-3 max-w-[150mm] text-[12.5px] leading-[1.6]" style={{ color: C.body }}>
+          {text}
+        </p>
+      )}
+
+      <div
+        className="mt-auto grid gap-x-8 pt-[5mm]"
+        style={{ gridTemplateColumns: `repeat(${cols},minmax(0,1fr))` }}
+      >
+        {rows.map((r) => (
+          <div
+            key={r.title}
+            className="flex items-baseline justify-between gap-3 py-[5px]"
+            style={{ borderTop: `1px solid ${C.line}` }}
+          >
+            <span className="min-w-0 text-[12.5px] font-semibold" style={{ color: C.ink }}>
+              {r.title}
+            </span>
+            <span className="shrink-0 text-[11px] tabular-nums" style={{ color: C.muted }}>
+              {std(r.hours)}
+            </span>
+          </div>
+        ))}
+      </div>
+
     </div>
   )
 }

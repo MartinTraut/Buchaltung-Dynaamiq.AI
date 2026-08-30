@@ -24,9 +24,11 @@ import { DynaamiqMark } from "@/components/brand/logo"
 
 const TITLES: Record<string, { title: string; sub: string }> = {
   "/": { title: "Dashboard", sub: "Dein Business auf einen Blick" },
+  "/tasks": { title: "Offene Punkte", sub: "Was noch zu erledigen ist" },
   "/crm": { title: "CRM & Kontakte", sub: "Kunden, Leads & Beziehungen" },
   "/pipeline": { title: "Pipeline", sub: "Deals von Lead bis Abschluss" },
   "/quotes": { title: "Angebote", sub: "Erstellen, versenden, gewinnen" },
+  "/contracts": { title: "Verträge", sub: "Rechtlicher Rahmen zu Angebot & Rechnung" },
   "/projects": { title: "Projekte", sub: "Lieferung, Budget & Tasks" },
   "/calendar": { title: "Kalender", sub: "Aufgaben & Termine im Blick" },
   "/invoices": { title: "Rechnungen", sub: "Fakturierung & Mahnwesen" },

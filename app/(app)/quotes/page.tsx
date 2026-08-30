@@ -11,6 +11,7 @@ import {
   Trash2,
   Pencil,
   FileText,
+  FileSignature,
   Sparkles,
   CheckCircle2,
   ChevronRight,
@@ -42,6 +43,7 @@ export default function QuotesPage() {
     customerById,
     upsertQuote,
     convertQuoteToInvoice,
+    createContractFromQuote,
     remove,
     add,
     upsertEmail,
@@ -119,6 +121,32 @@ export default function QuotesPage() {
         >
           <Mail /> Per E-Mail senden
         </DropdownItem>
+        <DropdownSeparator />
+        {(() => {
+          // Der Vertrag hängt am Angebot: gibt es schon einen, führt der
+          // Eintrag dorthin — sonst legt er ihn an. Zwei Verträge zu einem
+          // Angebot wären ein Widerspruch, kein zweiter Vorgang.
+          const con = db.contracts.find((x) => x.quoteId === q.id)
+          return con ? (
+            <DropdownItem asChild>
+              <Link href={`/contracts?doc=${con.id}`}>
+                <FileSignature /> Vertrag {con.number} öffnen
+              </Link>
+            </DropdownItem>
+          ) : (
+            <DropdownItem
+              onSelect={() => {
+                const created = createContractFromQuote(q.id)
+                if (created)
+                  toast.success(`Vertrag ${created.number} angelegt`, {
+                    description: "Im Bereich Verträge verfügbar.",
+                  })
+              }}
+            >
+              <FileSignature /> Vertrag erstellen
+            </DropdownItem>
+          )
+        })()}
         <DropdownSeparator />
         {q.status !== "accepted" && (
           <DropdownItem onSelect={() => { upsertQuote({ ...q, status: "accepted" }); toast.success("Angebot angenommen") }}>

@@ -4,7 +4,9 @@ import {
   KanbanSquare,
   FolderKanban,
   CalendarDays,
+  ListChecks,
   FileText,
+  FileSignature,
   ReceiptEuro,
   ReceiptText,
   Wallet,
@@ -29,7 +31,10 @@ export interface NavGroup {
 export const NAV: NavGroup[] = [
   {
     label: "Übersicht",
-    items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }],
+    items: [
+      { href: "/", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/tasks", label: "Offene Punkte", icon: ListChecks },
+    ],
   },
   {
     label: "Vertrieb",
@@ -37,6 +42,7 @@ export const NAV: NavGroup[] = [
       { href: "/crm", label: "CRM & Kontakte", icon: Users },
       { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
       { href: "/quotes", label: "Angebote", icon: FileText },
+      { href: "/contracts", label: "Verträge", icon: FileSignature },
     ],
   },
   {
@@ -70,7 +76,9 @@ export const NAV_BOTTOM: NavItem[] = [
 
 /** Module, die auf dem Phone im „Mehr"-Sheet statt in der Tab-Bar liegen */
 export const NAV_MORE: NavItem[] = [
+  { href: "/tasks", label: "Offene Punkte", icon: ListChecks },
   { href: "/quotes", label: "Angebote", icon: FileText },
+  { href: "/contracts", label: "Verträge", icon: FileSignature },
   { href: "/projects", label: "Projekte", icon: FolderKanban },
   { href: "/calendar", label: "Kalender", icon: CalendarDays },
   { href: "/expenses", label: "Ausgaben", icon: ReceiptText },

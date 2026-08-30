@@ -14,6 +14,7 @@ import type {
   Task,
   Invoice,
   Quote,
+  Contract,
   Template,
   EmailDraft,
   Transaction,
@@ -22,7 +23,7 @@ import type {
   LineItem,
 } from "./types"
 
-const STORAGE_KEY = "dynaamiq-os-db-v12"
+const STORAGE_KEY = "dynaamiq-os-db-v13"
 /** Merkt sich, welche Seed-Datensätze schon einmal eingespielt wurden. */
 const SEEDED_KEY = "dynaamiq-os-seeded-ids"
 const SEED_REV_KEY = "dynaamiq-os-seed-revision"
@@ -31,7 +32,7 @@ const SEED_REV_KEY = "dynaamiq-os-seed-revision"
  * Beträge, Preis-Einordnung). Beim nächsten Laden werden genau diese Datensätze
  * auf den Seed-Stand gebracht — eigene Datensätze bleiben unberührt.
  */
-const SEED_REVISION = 31
+const SEED_REVISION = 41
 
 /**
  * Seed-Datensätze, die es nicht mehr geben soll. Der Merge legt nur an und
@@ -89,6 +90,8 @@ interface StoreContextValue {
   duplicateRecurring: (id: string) => Invoice | null
   upsertQuote: (q: Partial<Quote> & { id?: string }) => Quote
   convertQuoteToInvoice: (quoteId: string) => Invoice | null
+  upsertContract: (c: Partial<Contract> & { id?: string }) => Contract
+  createContractFromQuote: (quoteId: string) => Contract | null
   upsertTemplate: (t: Partial<Template> & { id?: string }) => Template
   upsertEmail: (e: Partial<EmailDraft> & { id?: string }) => EmailDraft
   addTransaction: (t: Partial<Transaction>) => Transaction
@@ -115,6 +118,7 @@ const SEED_COLLECTIONS: CollectionKey[] = [
   "tasks",
   "invoices",
   "quotes",
+  "contracts",
   "templates",
   "activities",
 ]
@@ -199,6 +203,9 @@ function load(): Database {
     const parsed = JSON.parse(raw) as Database
     // basic shape guard
     if (!parsed.customers || !parsed.settings) return seed
+    // Neu hinzugekommene Sammlungen fehlen in älteren Ständen. Ohne diese
+    // Zeile liefe der Seed-Merge über `undefined` und verlöre alles Weitere.
+    if (!parsed.contracts) parsed.contracts = []
     // Neue Settings-Felder (z. B. Amtsgericht, HR-Nr.) aus den Defaults ergänzen,
     // ohne eigene Änderungen zu überschreiben.
     const merged = mergeNewSeedRecords(parsed, seed)
@@ -216,6 +223,10 @@ function load(): Database {
         // Tool eine Nummer erneut, die bereits auf einem Dokument steht.
         nextInvoiceNo: Math.max(seed.settings.nextInvoiceNo, parsed.settings.nextInvoiceNo ?? 0),
         nextQuoteNo: Math.max(seed.settings.nextQuoteNo, parsed.settings.nextQuoteNo ?? 0),
+        nextContractNo: Math.max(
+          seed.settings.nextContractNo,
+          parsed.settings.nextContractNo ?? 0,
+        ),
       },
     }
   } catch {
@@ -885,6 +896,87 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return created
   }, [])
 
+  const upsertContract: StoreContextValue["upsertContract"] = React.useCallback((c) => {
+    const full: Contract = {
+      id: c.id ?? nanoid(8),
+      number: c.number ?? "",
+      customerId: c.customerId ?? "",
+      status: c.status ?? "draft",
+      issueDate: c.issueDate ?? new Date().toISOString(),
+      title: c.title ?? "Projektvertrag",
+      clauses: c.clauses ?? [],
+      createdAt: c.createdAt ?? new Date().toISOString(),
+    }
+    setDb((d) => {
+      const existing = d.contracts.find((x) => x.id === full.id)
+      if (existing) {
+        Object.assign(full, { ...existing, ...definedProps<Contract>(c) })
+      }
+      let settings = d.settings
+      if (!full.number) {
+        full.number = formatDocNumber(d.settings.contractPrefix, d.settings.nextContractNo)
+        settings = { ...d.settings, nextContractNo: d.settings.nextContractNo + 1 }
+      }
+      return {
+        ...d,
+        settings,
+        contracts: existing
+          ? d.contracts.map((x) => (x.id === full.id ? { ...full } : x))
+          : [full, ...d.contracts],
+      }
+    })
+    return full
+  }, [])
+
+  /**
+   * Vertrag aus einem Angebot anlegen. Die Klauseln kommen aus dem zuletzt
+   * angelegten Vertrag — der ist die gepflegte Fassung. Gibt es noch keinen,
+   * bleibt der Vertrag leer und wird von Hand gefüllt; ein leerer Rahmen ist
+   * ehrlicher als geerbte Klauseln aus einem fremden Projekt.
+   */
+  const createContractFromQuote = React.useCallback((quoteId: string) => {
+    let created: Contract | null = null
+    setDb((d) => {
+      const q = d.quotes.find((x) => x.id === quoteId)
+      if (!q) return d
+      if (d.contracts.some((x) => x.quoteId === quoteId)) return d
+      const number = formatDocNumber(d.settings.contractPrefix, d.settings.nextContractNo)
+      const vorlage = d.contracts[0]
+      const c: Contract = {
+        id: nanoid(8),
+        number,
+        customerId: q.customerId,
+        quoteId: q.id,
+        projectId: q.projectId,
+        status: "draft",
+        issueDate: new Date().toISOString(),
+        title: "Projektvertrag",
+        lead: `Rechtlicher Rahmen zum Angebot ${q.number}.`,
+        netValue: computeTotals(q.items).net,
+        attachments: [`Anlage 1 — Angebot ${q.number} nebst Leistungsbeschreibung`],
+        clauses: vorlage ? vorlage.clauses.map((cl) => ({ ...cl, body: [...cl.body] })) : [],
+        createdAt: new Date().toISOString(),
+      }
+      created = c
+      return {
+        ...d,
+        settings: { ...d.settings, nextContractNo: d.settings.nextContractNo + 1 },
+        contracts: [c, ...d.contracts],
+        activities: [
+          {
+            id: nanoid(8),
+            type: "quote" as const,
+            title: `Vertrag ${number} zum Angebot ${q.number} angelegt`,
+            customerId: q.customerId,
+            at: new Date().toISOString(),
+          },
+          ...d.activities,
+        ],
+      }
+    })
+    return created
+  }, [])
+
   const upsertTemplate: StoreContextValue["upsertTemplate"] = React.useCallback(
     (t) => {
       const full: Template = {
@@ -990,6 +1082,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       duplicateRecurring,
       upsertQuote,
       convertQuoteToInvoice,
+      upsertContract,
+      createContractFromQuote,
       upsertTemplate,
       upsertEmail,
       addTransaction,
@@ -1018,6 +1112,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       duplicateRecurring,
       upsertQuote,
       convertQuoteToInvoice,
+      upsertContract,
+      createContractFromQuote,
       upsertTemplate,
       upsertEmail,
       addTransaction,

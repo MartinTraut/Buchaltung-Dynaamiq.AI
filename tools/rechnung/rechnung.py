@@ -24,30 +24,32 @@ INVOICE = {
     "customer_no": "K-1005",
     "payment_days": 7,
     "recipient": {
-        "company": "SKOPE E-Scooter Fachwerkstatt",
+        "company": "Skope Gebrauchtwarenhandel",
         "contact": "Thomas Zielke",
         "street": "Im Kampfrad 3",
         "city": "74196 Neuenstadt am Kocher",
     },
-    "title": "Bewertungs-Aufsteller",
-    "title_accent": "NFC & QR",
-    "lead": ("Zwei Tischaufsteller, die Kunden ohne Umweg zur Google-Bewertung "
-             "führen — Smartphone auflegen oder Code scannen genügt."),
+    "title": "Bewertungsstrecke",
+    "title_accent": "Google-Unternehmensprofil",
+    "lead": ("Eingerichtet und übergeben: zwei NFC-Aufsteller, die Kunden ohne "
+             "Umweg zur Google-Bewertung führen — Smartphone auflegen genügt."),
     "items": [
-        {"title": "Bewertungs-Aufsteller mit NFC-Chip & QR-Code · 2 Stück",
-         "sub": ("Tischaufsteller, eingerichtet auf das Google-Unternehmensprofil des "
-                 "Auftraggebers. NFC-Chip programmiert und QR-Code aufgebracht — "
-                 "Smartphone auflegen oder Code scannen öffnet unmittelbar das "
-                 "Bewertungsformular, ohne Suche, ohne App, ohne Zwischenseite. "
-                 "Einzelpreis 40,00 € netto."),
+        # Ohne "qty": Menge und Stückpreis stehen in Titel und Text, die Tabelle
+        # bleibt zweispaltig und ruhig. Mit "qty"/"unit" blendet das Template
+        # eigene Spalten für Menge und Einzelpreis ein — für Rechnungen, bei
+        # denen die Stückzahl die Hauptaussage ist.
+        {"title": "Bewertungsstrecke eingerichtet · 2 Aufsteller",
+         "sub": ("NFC-Chips programmiert und mit dem Google-Unternehmensprofil des "
+                 "Auftraggebers verknüpft, Bewertungsweg eingerichtet und vor Ort "
+                 "übergeben. Tischaufsteller inklusive. 40,00 € netto je Aufsteller."),
          "net": 80.00},
     ],
     "discount": {"label": "Mengenrabatt (2 Stück)", "amount": 5.00},  # oder None
     "tax_rate": 0.19,
-    "legal": ("<b>Eigentumsvorbehalt:</b> Die gelieferte Ware bleibt bis zur "
-              "vollständigen Bezahlung Eigentum des Verkäufers. Die hinterlegte "
-              "Ziel-Adresse der NFC-Chips und QR-Codes lässt sich auf Wunsch ändern."),
-    "short_name": "Bewertungs-Aufsteller",
+    "legal": ("<b>Leistungsumfang:</b> Einrichtung und persönliche Übergabe vor Ort; "
+              "die verwendeten Aufsteller sind Teil der Leistung. Die hinterlegte "
+              "Ziel-Adresse der NFC-Chips lässt sich jederzeit auf Wunsch ändern."),
+    "short_name": "Bewertungsstrecke",
 }
 
 SELLER = {
@@ -97,7 +99,15 @@ epc = "\n".join(["BCD", "002", "1", "SCT", "", SELLER["name"],
                  SELLER["iban"].replace(" ", ""), f"EUR{gross:.2f}",
                  "", "", f"Rechnung {NUM}", ""])
 qr = segno.make(epc, error="m")
-QR_SVG = qr.svg_inline(scale=3, dark="#141d2b", border=0)
+# border=4: die Ruhezone gehört in den Code, nicht ans Layout. Ohne sie steht
+# die Bildunterschrift zu dicht am Muster und stört das Einlesen.
+_svg = qr.svg_inline(scale=3, dark="#141d2b", border=4)
+# viewBox nachrüsten: segno setzt nur width/height. Ein SVG ohne viewBox
+# skaliert per CSS bloß sein Fenster, nicht seinen Inhalt — bei 66px Druckbreite
+# blieben von 37 Modulen die linken 22 übrig. Der Code war beschnitten und
+# damit für jede Banking-App unlesbar, sah aber wie ein gültiger QR aus.
+_dim = re.search(r'<svg width="(\d+)" height="(\d+)"', _svg)
+QR_SVG = _svg.replace("<svg ", f'<svg viewBox="0 0 {_dim.group(1)} {_dim.group(2)}" ', 1)
 
 # ---- Assets
 def read(p): return open(os.path.join(BASE, p)).read()
@@ -135,7 +145,11 @@ td.amt,.tv,.grand-val,.spec .sv,.kv .v{font-variant-numeric:tabular-nums;}
 .toolbar button{border:0;border-radius:9px;padding:9px 18px;font-size:13px;font-weight:600;cursor:pointer;
   color:#fff;background:var(--gradtext);}
 .sheet{max-width:820px;margin:14px auto 60px;background:#fff;border-radius:14px;overflow:hidden;
-  box-shadow:0 24px 60px rgba(7,12,28,.18);}
+  box-shadow:0 24px 60px rgba(7,12,28,.18);
+  /* Volle Blatthöhe (820px Breite : A4-Verhältnis) und Spaltenfluss — nur so
+     kann die Fußzeile unten am Blatt stehen statt im Weiß zu schweben. */
+  min-height:1160px;display:flex;flex-direction:column;}
+.body{flex:1;display:flex;flex-direction:column;}
 
 /* ---------- Kopf ---------- */
 .head{position:relative;background:linear-gradient(120deg,var(--navy1) 30%,var(--navy2));
@@ -150,9 +164,13 @@ td.amt,.tv,.grand-val,.spec .sv,.kv .v{font-variant-numeric:tabular-nums;}
     repeating-linear-gradient(0deg, rgba(255,255,255,.022) 0 1px, transparent 1px 46px);}
 .head-in{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;padding-bottom:26px;}
 .brand{display:flex;align-items:center;gap:16px;}
-.mark{width:58px;height:58px;filter:brightness(1.65) saturate(1.1) drop-shadow(0 4px 16px rgba(0,255,230,.5));}
+.mark{width:58px;height:58px;filter:saturate(1.15) drop-shadow(0 4px 18px rgba(0,255,230,.45));}
 .wordmark{height:26px;display:block;}
-.wordmark *{fill:#f3f7ff !important;}
+/* Schriftzug weiss auf dem dunklen Kopf. Der Markenverlauf sitzt bereits in
+   der Bildmarke daneben und in der Linie darunter — im Namen selbst kostet er
+   nur Kontrast, im Schwarz-Weiss-Druck sogar Lesbarkeit. */
+.wordmark stop{stop-color:#ffffff;}
+.wordmark *{fill:#ffffff;}
 .brand-sub{margin-top:6px;font-size:10.5px;letter-spacing:.26em;text-transform:uppercase;color:#dde5f8;}
 .doc{text-align:right;}
 .doc .eyebrow{font-size:10.5px;letter-spacing:.3em;text-transform:uppercase;color:#7ee7db;font-weight:700;}
@@ -198,6 +216,10 @@ td.pos i{font-style:normal;font-size:12.5px;font-weight:700;color:#1f7bf2;}
 .d-title{display:block;font-size:14px;font-weight:700;}
 .d-sub{display:block;margin-top:4px;font-size:12.5px;line-height:1.55;color:var(--muted);max-width:640px;}
 td.amt{font-size:14px;font-weight:700;}
+/* Menge und Einzelpreis: rechtsbündig wie der Betrag, aber leiser — der
+   Gesamtbetrag bleibt die einzige fette Zahl in der Zeile. */
+th.qty,td.qty{text-align:right;white-space:nowrap;}
+td.qty{font-size:12.5px;font-weight:600;color:var(--ink2);font-variant-numeric:tabular-nums;}
 
 /* ---------- Zahlung + Summe ---------- */
 .bottom{display:flex;gap:28px;margin-top:24px;align-items:stretch;}
@@ -230,13 +252,23 @@ td.amt{font-size:14px;font-weight:700;}
 .legalrow{display:flex;gap:18px;align-items:center;margin-top:10px;
   border-top:1px solid var(--line);padding-top:12px;}
 .qrbox{display:flex;flex-direction:column;align-items:center;gap:5px;flex:none;}
-.qrbox svg{width:84px;height:84px;}
+.qrbox svg{width:112px;height:112px;}
 .qrbox .ql{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
   font-weight:700;text-align:center;line-height:1.4;}
 .legal{flex:1;font-size:11px;line-height:1.6;color:var(--muted);}
 .legal b{color:var(--ink2);}
-.foot{margin-top:10px;font-size:10.5px;color:#8b95aa;line-height:1.7;}
-.foot b{color:var(--ink2);font-weight:700;}
+/* Fußzeile: drei Spalten statt einer gedrängten Zeile. Anbieter, Kontakt und
+   Steuer-/Bankdaten stehen getrennt, damit jede Angabe einzeln auffindbar ist —
+   die Bankverbindung bekommt so eine zweite Fundstelle neben dem Zahlungsblock. */
+.foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line);
+  display:flex;gap:34px;align-items:flex-start;}
+.foot-col{flex:1;min-width:0;}
+.foot-col .caps{margin-bottom:6px;font-size:8.5px;}
+.foot-col .fl{font-size:11.5px;line-height:1.65;color:var(--ink2);}
+.foot-col .fl b{font-weight:700;color:var(--ink);}
+.foot-col .fl .dim{color:var(--muted);}
+.foot-brand{flex:0 0 auto;display:flex;align-items:center;gap:10px;}
+.foot-brand .fmark{width:30px;height:30px;opacity:.9;}
 
 @page{size:A4;margin:10mm;}
 @media print{
@@ -264,9 +296,13 @@ td.amt{font-size:14px;font-weight:700;}
   .grand-val{font-size:26px;}
   .thanks{margin-top:9px;}
   .legalrow{margin-top:6px;padding-top:8px;}
-  .qrbox svg{width:66px;height:66px;}
+  .qrbox svg{width:100px;height:100px;}
   .qrbox .ql{font-size:8px;}
-  .foot{margin-top:6px;line-height:1.45;}
+  .foot{padding-top:10px;}
+  /* Satzspiegel = A4 minus @page-Rand (2 × 10 mm). Reicht der Inhalt nicht bis
+     unten, schiebt margin-top:auto die Fußzeile an die Kante; ist er länger,
+     gewinnt der Inhalt und min-height bleibt wirkungslos — kein Umbruchrisiko. */
+  .sheet{min-height:277mm;}
   .grand,.legalrow,.foot,.bottom,.thanks{break-inside:avoid;page-break-inside:avoid;}
 }
 """
@@ -275,11 +311,25 @@ td.amt{font-size:14px;font-weight:700;}
 # HTML
 # ============================================================
 R = INVOICE["recipient"]
+# Menge und Einzelpreis nur, wenn mindestens eine Position sie führt — bei
+# reinen Pauschalen wären zwei leere Spalten nur Rauschen.
+has_qty = any(it.get("qty") for it in INVOICE["items"])
+head_qty = '<th class="qty">Menge</th><th class="qty">Einzelpreis</th>' if has_qty else ""
+
 items_html = ""
 for n, it in enumerate(INVOICE["items"], 1):
+    qty_cells = ""
+    if has_qty:
+        if it.get("qty"):
+            menge = f'{it["qty"]:g} {it.get("unit", "")}'.strip()
+            einzel = eur(it["net"] / it["qty"])
+        else:
+            menge, einzel = "—", ""
+        qty_cells = f'<td class="qty">{menge}</td><td class="qty">{einzel}</td>'
     items_html += (f'<tr><td class="pos"><i class="disp">{n:02d}</i></td><td>'
                    f'<span class="d-title">{it["title"]}</span>'
                    f'<span class="d-sub">{it["sub"]}</span></td>'
+                   f'{qty_cells}'
                    f'<td class="amt">{eur(it["net"])}</td></tr>')
 
 tot_html = ""
@@ -330,7 +380,7 @@ html = f"""<!doctype html>
     <p class="lead">{INVOICE["lead"]}</p></div>
 
     <table class="items"><thead><tr>
-      <th>Pos.</th><th>Leistung</th><th class="amt">Betrag (netto)</th>
+      <th>Pos.</th><th>Leistung</th>{head_qty}<th class="amt">Betrag (netto)</th>
     </tr></thead><tbody>{items_html}</tbody></table>
 
     <div class="bottom">
@@ -358,8 +408,20 @@ html = f"""<!doctype html>
     </div>
 
     <div class="foot">
-      <div><b>{SELLER["brand"]}</b> · {SELLER["name"]} · {SELLER["street"]}, {SELLER["city"]}</div>
-      <div>{SELLER["email"]} · {SELLER["web"]} · USt-IdNr. {SELLER["vat_id"]}</div>
+      <div class="foot-col">
+        <div class="caps">Anbieter</div>
+        <div class="fl"><b>{SELLER["brand"]}</b><br>{SELLER["name"]}<br>
+          <span class="dim">{SELLER["street"]}<br>{SELLER["city"]}</span></div>
+      </div>
+      <div class="foot-col">
+        <div class="caps">Kontakt</div>
+        <div class="fl">{SELLER["email"]}<br>{SELLER["web"]}</div>
+      </div>
+      <div class="foot-col">
+        <div class="caps">Steuer &amp; Bankverbindung</div>
+        <div class="fl">USt-IdNr. {SELLER["vat_id"]}<br>
+          <span class="dim">{SELLER["iban"]}<br>{SELLER["bank"]}</span></div>
+      </div>
     </div>
   </div>
 </div></body></html>
@@ -374,6 +436,7 @@ desktop = os.path.expanduser("~/Desktop")
 html_path = os.path.join(desktop, fname + ".html")
 pdf_path = os.path.join(desktop, fname + ".pdf")
 archive_dir = os.path.join(PROJECT, "Ausgangsrechnungen", str(year))
+public_dir = os.path.join(PROJECT, "public", "rechnungen")
 
 open(html_path, "w").write(html)
 
@@ -386,6 +449,12 @@ if len(INVOICE["items"]) > 4:
     print("WARNUNG: >4 Positionen — PDF auf Seitenumbruch prüfen!")
 
 if os.path.exists(CHROME):
+    # Alte Ausgabe zuerst weg: die Warteschleife unten prüft nur, ob eine Datei
+    # mit brauchbarer Größe existiert. Bleibt die PDF des letzten Laufs liegen,
+    # ist die Bedingung sofort erfüllt und der alte Stand wird archiviert und
+    # veröffentlicht — die Änderung am Template landet nirgends.
+    if os.path.exists(pdf_path):
+        os.remove(pdf_path)
     profile = f"/tmp/chrome-rechnung-{int(time.time())}"
     p = subprocess.Popen([CHROME, "--headless=new", "--disable-gpu", "--no-pdf-header-footer",
                           "--no-margins", f"--user-data-dir={profile}",
@@ -405,5 +474,12 @@ if os.path.exists(CHROME):
         os.makedirs(archive_dir, exist_ok=True)
         shutil.copy2(pdf_path, os.path.join(archive_dir, fname + ".pdf"))
         print(f"Archiviert: Ausgangsrechnungen/{year}/{fname}.pdf")
+        # Zweite Ablage: aus public/ liefert die App die Original-PDF hinter
+        # „Original-PDF öffnen" aus. Ohne diese Kopie zeigt das Dashboard nach
+        # jeder Template-Änderung weiter den alten Stand — genau so ist einmal
+        # eine überholte Fußzeile im Browser stehen geblieben.
+        os.makedirs(public_dir, exist_ok=True)
+        shutil.copy2(pdf_path, os.path.join(public_dir, fname + ".pdf"))
+        print(f"Veröffentlicht: public/rechnungen/{fname}.pdf")
 else:
     print("Chrome nicht gefunden — HTML im Browser öffnen und mit ⌘P als PDF speichern.")

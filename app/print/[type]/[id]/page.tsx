@@ -6,25 +6,25 @@ import { Printer, ArrowLeft, Mail } from "lucide-react"
 import { readDatabase } from "@/lib/store"
 import { PrintableDoc } from "@/components/documents/printable"
 import { ProposalDoc } from "@/components/documents/proposal"
+import { ContractDoc } from "@/components/documents/contract"
 import { eur, dateDE, computeTotals } from "@/lib/format"
-import type { Invoice, Quote } from "@/lib/types"
+import type { Invoice, Quote, Contract } from "@/lib/types"
 
 // A4-Breite 210mm ≈ 794px bei 96dpi — Referenz für die Mobile-Skalierung
 const SHEET_WIDTH_PX = 794
 
 export default function PrintPage() {
   const params = useParams<{ type: string; id: string }>()
-  const kind = params.type === "quote" ? "quote" : "invoice"
+  const kind =
+    params.type === "quote" ? "quote" : params.type === "contract" ? "contract" : "invoice"
   const [ready, setReady] = React.useState(false)
   const [scale, setScale] = React.useState(1)
-  const [sheetHeight, setSheetHeight] = React.useState(0)
-  const sheetRef = React.useRef<HTMLDivElement>(null)
   const [db] = React.useState(() => readDatabase())
 
   React.useEffect(() => setReady(true), [])
 
-  // Mobile: Blatt proportional auf Viewport-Breite skalieren (CSS kann mm
-  // nicht durch px teilen, daher JS). Im Druck wird der Scale zurückgesetzt.
+  // Mobile: Blatt proportional auf Viewport-Breite verkleinern (CSS kann mm
+  // nicht durch px teilen, daher JS). Im Druck wird der Faktor zurückgesetzt.
   React.useEffect(() => {
     const compute = () =>
       setScale(Math.min(1, (window.innerWidth - 32) / SHEET_WIDTH_PX))
@@ -33,22 +33,20 @@ export default function PrintPage() {
     return () => window.removeEventListener("resize", compute)
   }, [])
 
-  // Das Blatt ist bei mehrseitigen Belegen höher als eine A4-Seite. Ohne die
-  // gemessene Höhe endete der helle Vorschau-Hintergrund nach 297mm und
-  // darunter schien der dunkle App-Hintergrund durch.
-  React.useEffect(() => {
-    const el = sheetRef.current
-    if (!el) return
-    const obs = new ResizeObserver(() => setSheetHeight(el.offsetHeight))
-    obs.observe(el)
-    setSheetHeight(el.offsetHeight)
-    return () => obs.disconnect()
-  }, [ready])
-
-  const doc = (kind === "invoice" ? db.invoices : db.quotes).find(
-    (d) => d.id === params.id,
-  ) as Invoice | Quote | undefined
+  const collection =
+    kind === "invoice" ? db.invoices : kind === "quote" ? db.quotes : db.contracts
+  const doc = collection.find((d) => d.id === params.id) as
+    | Invoice
+    | Quote
+    | Contract
+    | undefined
   const customer = db.customers.find((c) => c.id === doc?.customerId)
+  // Der Vertrag nennt sein Angebot im Kopf — ohne die Nummer steht die
+  // Anlagenkette im Dokument, aber nicht in den Eckdaten.
+  const linkedQuote =
+    kind === "contract"
+      ? db.quotes.find((q) => q.id === (doc as Contract | undefined)?.quoteId)
+      : undefined
   const original =
     kind === "invoice" && (doc as Invoice)?.cancelsInvoiceId
       ? db.invoices.find((x) => x.id === (doc as Invoice).cancelsInvoiceId)
@@ -69,13 +67,19 @@ export default function PrintPage() {
       ? (doc as Invoice).cancelsInvoiceId
         ? "Stornorechnung"
         : "Rechnung"
-      : "Angebot"
-  const gross = eur(computeTotals(doc.items).gross)
+      : kind === "contract"
+        ? "Vertrag"
+        : "Angebot"
+  // Der Vertrag führt keine Positionen — sein Betrag steht als Auftragswert.
+  const gross =
+    kind === "contract"
+      ? eur((doc as Contract).netValue ?? 0)
+      : eur(computeTotals((doc as Invoice | Quote).items).gross)
   const mailto = `mailto:${customer?.email ?? ""}?subject=${encodeURIComponent(
     `${docLabel} ${doc.number} — ${db.settings.name}`,
   )}&body=${encodeURIComponent(
     `Hallo ${customer?.contactName ?? ""},\n\nanbei erhalten Sie ${
-      kind === "invoice" ? "die" : "das"
+      kind === "quote" ? "das" : "die"
     } ${docLabel} ${doc.number} über ${gross}${
       kind === "invoice" && !(doc as Invoice).cancelsInvoiceId
         ? `.\nZahlbar bis ${dateDE((doc as Invoice).dueDate)}`
@@ -97,15 +101,43 @@ export default function PrintPage() {
           html, body { background: #fff !important; }
           .no-print { display: none !important; }
           .print-root { background: #fff !important; padding: 0 !important; }
-          .doc-scale-wrap { height: auto !important; }
-          .doc-scale { transform: none !important; }
+          .doc-scale { zoom: 1 !important; }
           .doc-sheet { box-shadow: none !important; margin: 0 !important; width: auto !important; min-height: 0 !important; padding: 0 !important; }
-          ${kind === "quote"
+          ${kind === "contract"
+            ? `@page { margin: 16mm 16mm 18mm; size: A4; }
+          .contract-sheet { box-shadow: none !important; margin: 0 !important; width: auto !important; padding: 0 !important; }
+          /* Überschrift nie als letzte Zeile einer Seite, Absatz nicht mit
+             einer Waisenzeile beginnen — bei einem Vertrag entscheidet das
+             über die Lesbarkeit der Paragrafen. */
+          h2 { break-after: avoid; }
+          section, p, li { orphans: 3; widows: 3; }`
+            : kind === "quote"
             ? `/* Das Angebot bringt seine Ränder selbst mit. */
           @page { margin: 0; size: A4; }
           .prop-page { box-shadow: none !important; margin: 0 !important; break-after: page; }
           .prop-page.prop-last { break-after: auto; }`
-            : `@page { margin: 16mm; size: A4; }`}
+            : `/* Wie im PDF-Template: 10 mm Blattrand, den Rest setzt der Beleg
+             selbst — nur so reicht das Kopfband bis an den Satzspiegelrand. */
+          @page { margin: 10mm; size: A4; }
+          /* Satzspiegel = A4 minus @page-Rand. Reicht der Inhalt nicht bis
+             unten, schiebt mt-auto den Blattfuß an die Kante; ist er länger,
+             gewinnt der Inhalt — min-height bleibt dann wirkungslos. */
+          .doc-sheet { min-height: 277mm !important; }
+          /* Am Bildschirm darf der Beleg atmen, auf dem Blatt muss er auf eine
+             Seite. Dieselbe Verdichtung nimmt das PDF-Template vor. */
+          .doc-head { padding-top: 4mm !important; }
+          .doc-head-in { padding-bottom: 3mm !important; }
+          .doc-specs > div { padding-top: 7px !important; padding-bottom: 6px !important; }
+          .doc-body { padding-top: 4mm !important; padding-bottom: 0 !important; }
+          .doc-top { margin-top: 6px !important; padding-bottom: 9px !important; }
+          .doc-title { margin-top: 8px !important; }
+          .doc-items { margin-top: 8px !important; }
+          .doc-items thead { display: table-header-group; }
+          .doc-items td { padding-top: 8px !important; padding-bottom: 8px !important; }
+          .doc-bottom { margin-top: 9px !important; }
+          .doc-thanks { margin-top: 6px !important; }
+          .doc-legalrow { margin-top: 4px !important; padding-top: 6px !important; }
+          .doc-foot { padding-top: 6px !important; }`}
           /* Einzelne Aufgaben und Karten bleiben zusammen. Ganze Positionen
              nicht: mit langer Aufgabenliste passen sie sonst auf keine Seite
              mehr und schieben eine halbleere Seite davor. */
@@ -122,7 +154,11 @@ export default function PrintPage() {
           margin: 0 auto 8mm;
           background: #fff;
           color: #16161a;
-          overflow: hidden;
+          /* Im Druck muss der Beschnitt bleiben, sonst schiebt ein Überlauf
+             eine Geisterseite nach. Am Bildschirm bliebe ein abgeschnittener
+             Preisblock dagegen unbemerkt — dort läuft der Inhalt sichtbar über
+             und der Rahmen schlägt Alarm. */
+          overflow: visible;
           box-shadow: 0 24px 70px rgba(0,0,0,0.45);
           font-family: var(--font-sans), system-ui, sans-serif;
           -webkit-print-color-adjust: exact;
@@ -131,6 +167,7 @@ export default function PrintPage() {
         /* Die Fußzeile sitzt unterhalb des Satzspiegels: der Inhaltskasten
            endet 13 mm über der Blattkante, die Trennlinie 12,4 mm — eine volle
            Seite stößt damit an die Linie, läuft aber nicht durch sie hindurch. */
+        @media print { .prop-page { overflow: hidden; } }
         .prop-foot {
           position: absolute;
           left: 16mm;
@@ -139,13 +176,27 @@ export default function PrintPage() {
           padding-top: 2mm;
           border-top: 0.5pt solid #e6e6ea;
         }
+        /* Der Vertrag ist ein fließendes Dokument: er bringt keine festen
+           Seiten mit, sondern läuft über so viele, wie er braucht. Am
+           Bildschirm liegt er trotzdem auf einem A4-breiten Bogen. */
+        .contract-sheet {
+          width: 210mm;
+          margin: 0 auto;
+          background: #fff;
+          color: #16161a;
+          padding: 16mm 16mm 14mm;
+          box-shadow: 0 24px 70px rgba(0,0,0,0.45);
+          font-family: var(--font-sans), system-ui, sans-serif;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
         .doc-sheet {
           width: 210mm;
           min-height: 297mm;
           margin: 0 auto;
           background: #fff;
-          color: #16161a;
-          padding: 16mm;
+          color: #141d2b;
+          padding: 10mm;
           display: flex;
           flex-direction: column;
           box-shadow: 0 24px 70px rgba(0,0,0,0.45);
@@ -180,31 +231,33 @@ export default function PrintPage() {
         </div>
       </div>
 
-      {/* Wrapper reserviert die skalierte Höhe, damit unter dem transformierten
-          Blatt kein Leerraum entsteht. */}
-      <div
-        className="doc-scale-wrap"
-        style={{ height: sheetHeight ? sheetHeight * scale : `calc(297mm * ${scale})` }}
-      >
-        <div
-          ref={sheetRef}
-          className="doc-scale"
-          style={{ transform: `scale(${scale})`, transformOrigin: "top center" }}
-        >
-          {kind === "quote" ? (
-            /* Das Angebot bringt eigene, feste A4-Seiten mit — Cover, Pakete,
-               Prozess, Investition. Die Rechnung bleibt beim Belegraster. */
-            <ProposalDoc doc={doc as Quote} customer={customer} settings={db.settings} />
-          ) : (
-            <PrintableDoc
-              kind={kind}
-              doc={doc}
+      {/* `zoom` statt `transform: scale()`: der Zoom wird vor dem Layout
+          angewendet, das Blatt rechnet also weiter mit 210 mm und bringt seine
+          Abschnitte im richtigen Verhältnis. Ein Transform verkleinert nur das
+          fertige Bild — Höhe und Zentrierung müssten von Hand nachgeführt
+          werden, und auf dem Telefon lief der Beleg dabei aus dem Viewport. */}
+      <div className="doc-scale" style={{ zoom: scale }}>
+        {kind === "contract" ? (
+          <div className="contract-sheet">
+            <ContractDoc
+              doc={doc as Contract}
               customer={customer}
               settings={db.settings}
-              originalNumber={original?.number}
+              quote={linkedQuote}
             />
-          )}
-        </div>
+          </div>
+        ) : kind === "quote" ? (
+          /* Das Angebot bringt eigene, feste A4-Seiten mit — Cover, Pakete,
+             Prozess, Investition. Die Rechnung bleibt beim Belegraster. */
+          <ProposalDoc doc={doc as Quote} customer={customer} settings={db.settings} />
+        ) : (
+          <PrintableDoc
+            doc={doc as Invoice}
+            customer={customer}
+            settings={db.settings}
+            originalNumber={original?.number}
+          />
+        )}
       </div>
     </div>
   )
