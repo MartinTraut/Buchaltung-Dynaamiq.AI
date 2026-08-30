@@ -3,7 +3,13 @@
 import * as React from "react"
 import { nanoid } from "nanoid"
 import { seedDatabase } from "./seed"
-import { computeTotals, emailSignature, ownerFirstName, formatDocNumber } from "./format"
+import {
+  computeTotals,
+  contractNumberFor,
+  emailSignature,
+  formatDocNumber,
+  ownerFirstName,
+} from "./format"
 import { REMINDER_LABEL } from "./types"
 import type {
   Database,
@@ -32,7 +38,7 @@ const SEED_REV_KEY = "dynaamiq-os-seed-revision"
  * Beträge, Preis-Einordnung). Beim nächsten Laden werden genau diese Datensätze
  * auf den Seed-Stand gebracht — eigene Datensätze bleiben unberührt.
  */
-const SEED_REVISION = 41
+const SEED_REVISION = 96
 
 /**
  * Seed-Datensätze, die es nicht mehr geben soll. Der Merge legt nur an und
@@ -50,6 +56,14 @@ const RETIRED_SEED_IDS = new Set([
   // selbst auf storniert. Ohne diesen Eintrag bliebe der Minus-Beleg in
   // bestehenden Installationen als Entwurf stehen.
   "inv-2026-432-storno",
+  // Angebote AN-2026-512 und AN-2026-513 (Gesamtangebote SKOPE) — seit der
+  // Trennung in AN-2026-514/515 nur noch Verwirrung in der Liste. Nie
+  // beauftragt, samt ihrer Aktivitäten entfernt; die Nummern bleiben
+  // vergeben und werden nicht neu verwendet.
+  "quo-2026-043",
+  "quo-2026-044",
+  "a-skope-quo",
+  "a-skope-quo-513",
 ])
 
 /**
@@ -209,7 +223,7 @@ function load(): Database {
     // Neue Settings-Felder (z. B. Amtsgericht, HR-Nr.) aus den Defaults ergänzen,
     // ohne eigene Änderungen zu überschreiben.
     const merged = mergeNewSeedRecords(parsed, seed)
-    return {
+    const result = {
       ...merged,
       settings: {
         ...seed.settings,
@@ -229,6 +243,18 @@ function load(): Database {
         ),
       },
     }
+    // Sofort zurückschreiben: der Seed-Merge markiert seine Revision als
+    // erledigt. Läuft er auf einer Route ohne persistierenden Provider
+    // (z. B. der Druckansicht), ginge das Ergebnis sonst verloren und die
+    // Installation bliebe dauerhaft auf dem alten Stand hängen.
+    if (merged !== parsed) {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(result))
+      } catch {
+        /* quota / private mode — ignore */
+      }
+    }
+    return result
   } catch {
     return seedDatabase()
   }
@@ -914,7 +940,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
       let settings = d.settings
       if (!full.number) {
-        full.number = formatDocNumber(d.settings.contractPrefix, d.settings.nextContractNo)
+        full.number = contractNumberFor(
+          d.settings.contractPrefix,
+          d.customers.find((x) => x.id === full.customerId)?.customerNumber,
+          d.contracts.map((x) => x.number),
+        )
         settings = { ...d.settings, nextContractNo: d.settings.nextContractNo + 1 }
       }
       return {
@@ -940,7 +970,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const q = d.quotes.find((x) => x.id === quoteId)
       if (!q) return d
       if (d.contracts.some((x) => x.quoteId === quoteId)) return d
-      const number = formatDocNumber(d.settings.contractPrefix, d.settings.nextContractNo)
+      const number = contractNumberFor(
+        d.settings.contractPrefix,
+        d.customers.find((x) => x.id === q.customerId)?.customerNumber,
+        d.contracts.map((x) => x.number),
+      )
       const vorlage = d.contracts[0]
       const c: Contract = {
         id: nanoid(8),

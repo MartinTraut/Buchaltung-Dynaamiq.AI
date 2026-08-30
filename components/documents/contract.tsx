@@ -203,10 +203,14 @@ export function ContractDoc({
 
       {/* ── Unterschriften ─────────────────────────────────────────── */}
       <div className="mt-[10mm] break-inside-avoid">
+        {/* Kein „einzeln ausgehandelt": sobald dieselben Klauseln ein
+            zweites Mal verwendet werden, sind sie AGB. Die Behauptung des
+            Gegenteils ist unbeachtlich und beschädigt im Streit nur die
+            Glaubwürdigkeit der übrigen Klauseln. */}
         <p className="text-[12px] leading-[1.65]" style={{ color: C.body }}>
-          Die Parteien haben diesen Vertrag gelesen, seine Regelungen einzeln erörtert und
-          erklären sich mit ihnen einverstanden. Der Vertrag wird in zwei gleichlautenden
-          Ausfertigungen geschlossen; jede Partei erhält eine.
+          Die Parteien haben diesen Vertrag gelesen und erklären sich mit seinen Regelungen
+          einverstanden. Der Vertrag wird in zwei gleichlautenden Ausfertigungen geschlossen;
+          jede Partei erhält eine.
         </p>
         <div className="mt-[12mm] grid grid-cols-2 gap-[12mm]">
           <SignatureField

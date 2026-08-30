@@ -70,6 +70,26 @@ const PAKET_1_GRUPPEN: { title: string; idx: number[] }[] = [
   { title: "Sichtbarkeit", idx: [3, 4, 5] },
 ]
 
+/**
+ * Leistungsgruppen aus den Teilleistungen selbst: eine Teilleistung mit Titel
+ * eröffnet eine Gruppe, die folgenden titellosen gehören dazu. Trägt keine
+ * einen Titel, greift die Gliederung oben — so bleiben ältere Angebote, deren
+ * Reihenfolge fest verdrahtet war, unverändert.
+ */
+function groupsOf(
+  details: LineItemTask[] | undefined,
+  fallback: { title: string; idx: number[] }[],
+): { title: string; idx: number[] }[] {
+  const rows = (details ?? []).map(task)
+  if (!rows.some((r) => r.title)) return fallback
+  const out: { title: string; idx: number[] }[] = []
+  rows.forEach((r, i) => {
+    if (r.title || !out.length) out.push({ title: r.title ?? "", idx: [i] })
+    else out[out.length - 1].idx.push(i)
+  })
+  return out
+}
+
 /** Fallback-Gliederung für Angebote ohne Modultitel im Datensatz (AN-2026-512). */
 const PAKET_2_MODULE: { no: string; title: string; idx: number[] }[] = [
   { no: "01", title: "Warenwirtschaft & Datenmodell", idx: [0] },
@@ -151,6 +171,11 @@ export function ProposalDoc({
   customer?: Customer
   settings: CompanySettings
 }) {
+  // Kleine Vorhaben tragen die ausgeschriebene Fassung nicht — dort setzt
+  // dasselbe Angebot auf drei Seiten.
+  if (doc.layout === "compact")
+    return <ProposalCompact doc={doc} customer={customer} settings={settings} />
+
   const totals = computeTotals(doc.items)
   const positive = doc.items.filter((it) => lineNet(it) > 0)
   const discount = doc.items.reduce((s, it) => s + Math.min(0, lineNet(it)), 0)
@@ -174,7 +199,7 @@ export function ProposalDoc({
   // Die Abschnitte der Anmerkungen liegen auf drei Seiten. Zugeordnet wird
   // über den Titel, nicht über den Index: ein neuer Abschnitt im Datensatz
   // verschöbe sonst alle folgenden auf die falsche Seite.
-  const iPflege = sec.findIndex((x) => /Pflege und Betreuung/i.test(x.title))
+  const iPflege = sec.findIndex((x) => /Pflege/i.test(x.title))
   // Das Systemangebot kennt keinen Betreuungsabschnitt — dort trennt die
   // Beauftragung den Rahmen von den Konditionen. Ohne diesen zweiten Anker
   // liefen alle Abschnitte auf eine Seite.
@@ -194,6 +219,10 @@ export function ProposalDoc({
   const secFinal =
     !schlank && sec.length > pflegeIdx + 1 ? sec[sec.length - 1] : undefined
   const val = doc.valuation
+  // Betreuung und Zahlungsplan stehen im Angebot, nicht im Layout: ohne die
+  // Felder bleibt es bei der erfolgsabhängigen Betreuung und 40/30/30.
+  const care = doc.care
+  const pay = doc.payment
   // Die Seitenfolge steht einmal an einer Stelle: Auswahl, Nummerierung und
   // Fußzeile können dadurch nicht auseinanderlaufen.
   const order = [
@@ -243,25 +272,25 @@ export function ProposalDoc({
   // Titelseite eines Einzelpakets: statt zweier Paketkarten die Gliederung des
   // Leistungsteils mit ihren Stunden — dieselbe Quelle wie die Detailseite,
   // damit Übersicht und Aufstellung nicht auseinanderlaufen können.
+  const gruppen1 = groupsOf(p1?.details, PAKET_1_GRUPPEN)
   const coverRows = (
     pack === "system"
       ? PAKET_2_THEMEN.map((g) => ({
           title: g.title,
           hours: g.idx.reduce((sum, i) => sum + task((p2?.details ?? [])[i] ?? "").hours, 0),
         }))
-      : PAKET_1_GRUPPEN.map((g) => ({
+      : gruppen1.map((g) => ({
           title: g.title,
           hours: g.idx.reduce((sum, i) => sum + task((p1?.details ?? [])[i] ?? "").hours, 0),
         }))
   ).filter((r) => r.hours > 0)
 
-  const senderLine = [
+  // Zwei Zeilen statt einer: bei lesbarer Größe (9,5 px) passt die volle
+  // Absenderangabe nicht mehr einzeilig in die 85-mm-Fensterspalte.
+  const senderLines = [
     settings.ownerName ? `${settings.ownerName} · ${settings.name}` : settings.name,
-    settings.address,
-    `${settings.zip} ${settings.city}`,
-  ]
-    .filter(Boolean)
-    .join("  ·  ")
+    [settings.address, `${settings.zip} ${settings.city}`].filter(Boolean).join(" · "),
+  ].filter(Boolean)
 
   return (
     <div className="prop-doc">
@@ -274,10 +303,14 @@ export function ProposalDoc({
         <div className="mt-[4mm] flex shrink-0 items-start justify-between gap-10">
           <div style={{ width: "85mm" }}>
             <div
-              className="mb-2 truncate pb-[3px] text-[7.5px] tracking-[0.02em]"
+              className="mb-2 pb-[4px] text-[9.5px] leading-[1.5] tracking-[0.02em]"
               style={{ color: C.muted, borderBottom: `0.5pt solid ${C.line}` }}
             >
-              {senderLine}
+              {senderLines.map((l) => (
+                <div key={l} className="truncate">
+                  {l}
+                </div>
+              ))}
             </div>
             <div className="text-[13px] leading-[1.5]" style={{ color: C.body }}>
               <div className="font-semibold" style={{ color: C.ink }}>
@@ -373,9 +406,8 @@ export function ProposalDoc({
         ) : (
           <CoverOverview
             title={
-              pack === "system"
-                ? "System & Automatisierung"
-                : "Website, Marke & Verkaufskanal"
+              packs[0]?.description.split(":")[0] ??
+              (pack === "system" ? "System & Automatisierung" : "Website, Marke & Verkaufskanal")
             }
             text={packs[0]?.note ?? ""}
             rows={coverRows}
@@ -447,11 +479,16 @@ export function ProposalDoc({
       {/* ── 2 · Paket 1 ───────────────────────────────────────────────── */}
       {order.includes("paket1") && (
         <Page no={pageNo("paket1")} total={order.length} number={doc.number} settings={settings}>
-          <PackHead no="01" title="Website, Marke & digitaler Verkaufskanal" intro={p1?.note} />
+          <PackHead
+            no="01"
+            title={p1?.description.split(":")[0] ?? "Website, Marke & digitaler Verkaufskanal"}
+            intro={p1?.note}
+            eyebrow={packs.length > 1 ? undefined : "Leistungsumfang"}
+          />
           {/* Vier Leistungsgruppen über die freie Höhe verteilt — gleicher
               Rhythmus statt Inhalt oben und Leere unten. */}
           <div className="mt-[5mm] flex flex-1 flex-col justify-between">
-            {PAKET_1_GRUPPEN.map((g, gi) => {
+            {gruppen1.map((g, gi) => {
               const rows = g.idx.map((i) => task((p1?.details ?? [])[i] ?? "")).filter((r) => r.text)
               if (!rows.length) return null
               return (
@@ -492,6 +529,7 @@ export function ProposalDoc({
             no={pack === "system" ? "01" : "02"}
             title="Business Cockpit & Automatisierung"
             intro={p2?.note}
+            eyebrow={packs.length > 1 ? undefined : "Leistungsumfang"}
           />
 
           <div className="mt-[10mm] flex flex-1 flex-col">
@@ -792,7 +830,7 @@ export function ProposalDoc({
                   <Bar
                     key={m.label}
                     label={m.label}
-                    sub={`${Math.round(m.rate)} €/h`}
+                    sub={`${Math.round(m.rate)} €/Std.`}
                     amount={m.amount}
                     max={Math.max(val.netAmount, ...val.benchmarks.map((b) => b.rate * val.hours))}
                     own={m.own}
@@ -916,7 +954,10 @@ export function ProposalDoc({
       {/* ── 7 · Betreuung, Zahlung, Abschluss ─────────────────────────── */}
       {order.includes("pflege") && (
         <Page no={pageNo("pflege")} total={order.length} number={doc.number} settings={settings}>
-          <SectionHead eyebrow="Nach dem Livegang" title="Betreuung ohne Monatspauschale" />
+          <SectionHead
+            eyebrow={care?.eyebrow ?? "Nach dem Livegang"}
+            title={care?.title ?? "Betreuung ohne Monatspauschale"}
+          />
 
           <div
             className="mt-[6mm] shrink-0 overflow-hidden px-[8mm] py-[5mm]"
@@ -925,11 +966,11 @@ export function ProposalDoc({
             <div className="flex items-start justify-between gap-8">
               <div className="max-w-[108mm]">
                 <div className="text-[19px] font-bold leading-tight text-white">
-                  Keine feste monatliche Pflegegebühr.
+                  {care?.headline ?? "Keine feste monatliche Pflegegebühr."}
                 </div>
                 <p className="mt-2 text-[12.5px] leading-[1.5]" style={{ color: "rgba(255,255,255,0.72)" }}>
-                  Stattdessen 15 % des provisionsrelevanten Deckungsbeitrags aus Geschäften, die durch
-                  die Website entstehen. Kein Websitegeschäft, keine Vergütung.
+                  {care?.text ??
+                    "Stattdessen 15 % des provisionsrelevanten Deckungsbeitrags aus Geschäften, die durch die Website entstehen. Kein Websitegeschäft, keine Vergütung."}
                 </p>
               </div>
               <div
@@ -937,13 +978,13 @@ export function ProposalDoc({
                 style={{ borderLeft: "1px solid rgba(255,255,255,0.14)" }}
               >
                 <div className="text-[48px] font-bold leading-none" style={{ color: "#00ffe6" }}>
-                  15 %
+                  {care?.stat ?? "15 %"}
                 </div>
                 <div
                   className="mt-1.5 text-[10px] uppercase tracking-[0.16em]"
                   style={{ color: "rgba(255,255,255,0.55)" }}
                 >
-                  erfolgsabhängig
+                  {care?.statLabel ?? "erfolgsabhängig"}
                 </div>
               </div>
             </div>
@@ -974,7 +1015,12 @@ export function ProposalDoc({
                       className="w-[26mm] shrink-0 pt-[2px] text-[10px] font-semibold uppercase leading-[1.35] tracking-[0.1em]"
                       style={{ color: C.muted }}
                     >
-                      {["Berechnung", "Zurechnung", "Enthalten", "Abrechnung & Laufzeit"][i] ?? ""}
+                      {(care?.labels ?? [
+                        "Berechnung",
+                        "Zurechnung",
+                        "Enthalten",
+                        "Abrechnung & Laufzeit",
+                      ])[i] ?? ""}
                     </div>
                     <p className="min-w-0 flex-1 text-[13.5px] leading-[1.7]" style={{ color: C.body }}>
                       {ex ? ex.intro : b}
@@ -1002,12 +1048,37 @@ export function ProposalDoc({
             Zahlungsplan
           </div>
           <p className="mt-2 text-[12.5px] leading-[1.6]" style={{ color: C.body }}>
-            {pack === "web"
-              ? "In drei Raten, jeweils 14 Tage netto ohne Abzug. Zwischenstand heißt hier die freigegebene Gestaltung der Website."
-              : pack === "system"
-                ? "In drei Raten, jeweils 14 Tage netto ohne Abzug. Zwischenstand heißt hier der lauffähige Kernprozess im Testsystem."
-                : "Je Paket in drei Raten, jeweils 14 Tage netto ohne Abzug. Zwischenstand heißt bei Paket 1 die freigegebene Gestaltung, bei Paket 2 der lauffähige Kernprozess im Testsystem. Nicht beauftragte Pakete werden nicht berechnet."}
+            {pay
+              ? pay.intro
+              : pack === "web"
+                ? "In drei Raten, jeweils 14 Tage netto ohne Abzug. Zwischenstand heißt hier die freigegebene Gestaltung der Website."
+                : pack === "system"
+                  ? "In drei Raten, jeweils 14 Tage netto ohne Abzug. Zwischenstand heißt hier der lauffähige Kernprozess im Testsystem."
+                  : "Je Paket in drei Raten, jeweils 14 Tage netto ohne Abzug. Zwischenstand heißt bei Paket 1 die freigegebene Gestaltung, bei Paket 2 der lauffähige Kernprozess im Testsystem. Nicht beauftragte Pakete werden nicht berechnet."}
           </p>
+          {pay ? (
+            <div className="mt-[4mm] flex gap-3">
+              {pay.cards.map((c) => (
+                <div
+                  key={c.head + c.when}
+                  className="flex-1 px-5 py-4"
+                  style={{ background: C.soft, borderRadius: R, border: `1px solid ${C.line}` }}
+                >
+                  <div className="text-[24px] font-bold leading-none tabular-nums" style={{ color: C.brand }}>
+                    {c.head}
+                  </div>
+                  <div className="mt-2 text-[12.5px] font-semibold" style={{ color: C.ink }}>
+                    {c.when}
+                  </div>
+                  {c.value && (
+                    <div className="mt-1.5 text-[11.5px] leading-[1.5]" style={{ color: C.muted }}>
+                      {c.value}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="mt-[4mm] flex gap-3">
             {[
               { pct: 0.4, when: "bei Auftrag" },
@@ -1059,9 +1130,40 @@ export function ProposalDoc({
               </div>
             ))}
           </div>
+          )}
+
+          {/* Gegenüberstellung der Varianten: die Frage „was kostet mich die
+              Ratenzahlung" beantwortet keine Kartenreihe, sondern eine Zeile
+              mit der Differenz. */}
+          {pay?.compare && (
+            <div
+              className="mt-[5mm] px-[7mm] py-[5mm]"
+              style={{ background: C.soft, borderRadius: R, border: `1px solid ${C.line}` }}
+            >
+              <div className="text-[14.5px] font-bold" style={{ color: C.ink }}>
+                {pay.compare.title}
+              </div>
+              {pay.compare.text && (
+                <p className="mt-2 text-[12.5px] leading-[1.6]" style={{ color: C.body }}>
+                  {pay.compare.text}
+                </p>
+              )}
+              <div className="mt-2.5">
+                {pay.compare.rows.map((r) => (
+                  <SumRow key={r.k} k={r.k} v={r.v} strong={r.strong} />
+                ))}
+              </div>
+              {pay.compare.foot && (
+                <p className="mt-2.5 text-[11.5px] leading-[1.55]" style={{ color: C.muted }}>
+                  {pay.compare.foot}
+                </p>
+              )}
+            </div>
+          )}
+
           <p className="mt-2.5 text-[11px]" style={{ color: C.muted }}>
-            Alle Beträge netto zuzüglich der gesetzlichen Umsatzsteuer. Trifft der Projektvertrag
-            eine abweichende Zahlungsvereinbarung, geht sie diesem Plan vor.
+            {pay?.note ??
+              "Alle Beträge netto zuzüglich der gesetzlichen Umsatzsteuer. Trifft der Projektvertrag eine abweichende Zahlungsvereinbarung, geht sie diesem Plan vor."}
           </p>
         </div>
 
@@ -1161,7 +1263,11 @@ export function ProposalDoc({
               {/* Die erfolgsabhängige Betreuung hängt an der Website — im
                   Systemangebot wäre sie eine Zusage ohne Grundlage. */}
               {pack !== "system" && (
-                <SumRow k="Betreuung nach dem Livegang" v="15 % erfolgsabhängig" muted />
+                <SumRow
+                  k={care?.summaryLabel ?? "Betreuung nach dem Livegang"}
+                  v={care?.summaryValue ?? "15 % erfolgsabhängig"}
+                  muted
+                />
               )}
             </div>
           </div>
@@ -1178,9 +1284,10 @@ export function ProposalDoc({
                   So beauftragen Sie
                 </div>
                 <p className="mt-2 max-w-[105mm] text-[12.5px] leading-[1.6]" style={{ color: C.body }}>
-                  {packs.length > 1
-                    ? "Eine kurze Freigabe per E-Mail genügt — mit der Angabe, welche Pakete beauftragt werden. Danach erhalten Sie die Auftragsbestätigung und den Terminvorschlag für den Projektstart."
-                    : "Eine kurze Freigabe per E-Mail genügt. Danach erhalten Sie den unterschriftsreifen Projektvertrag und den Terminvorschlag für den Projektstart."}
+                  {doc.orderNote ??
+                    (packs.length > 1
+                      ? "Eine kurze Freigabe per E-Mail genügt — mit der Angabe, welche Pakete beauftragt werden. Danach erhalten Sie die Auftragsbestätigung und den Terminvorschlag für den Projektstart."
+                      : "Eine kurze Freigabe per E-Mail genügt. Danach erhalten Sie den unterschriftsreifen Projektvertrag und den Terminvorschlag für den Projektstart.")}
                 </p>
               </div>
               <div className="shrink-0 text-right">
@@ -1342,19 +1449,19 @@ function Brandbar({
       style={{ background: HERO_BG, borderRadius: R }}
     >
       <div className="absolute bottom-0 left-0 h-[2px] w-[62%]" style={{ background: GRAD }} />
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-mark-light.svg" alt={settings.name} width={34} height={34} />
+        <img src="/logo-mark-light.svg" alt={settings.name} width={52} height={52} />
         <div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo-wordmark-light.svg"
             alt=""
-            style={{ height: 11, width: "auto" }}
+            style={{ height: 16, width: "auto" }}
           />
           <div
-            className="mt-[4px] text-[9.5px] font-medium uppercase tracking-[0.16em]"
-            style={{ color: "rgba(255,255,255,0.72)" }}
+            className="mt-[5px] text-[10.5px] font-medium uppercase tracking-[0.18em]"
+            style={{ color: "rgba(255,255,255,0.78)" }}
           >
             Webdesign &amp; KI-Automatisierung
           </div>
@@ -1408,7 +1515,17 @@ function SectionHead({ eyebrow, title }: { eyebrow: string; title: string }) {
   )
 }
 
-function PackHead({ no, title, intro }: { no: string; title: string; intro?: string }) {
+function PackHead({
+  no,
+  title,
+  intro,
+  eyebrow,
+}: {
+  no: string
+  title: string
+  intro?: string
+  eyebrow?: string
+}) {
   return (
     <div className="shrink-0">
       <div className="flex items-start gap-5">
@@ -1419,7 +1536,7 @@ function PackHead({ no, title, intro }: { no: string; title: string; intro?: str
           {no}
         </div>
         <div className="flex-1">
-          <Eyebrow>Paket {no}</Eyebrow>
+          <Eyebrow>{eyebrow ?? `Paket ${no}`}</Eyebrow>
           <h2
             className="mt-2 text-[27px] font-bold leading-tight tracking-tight"
             style={{ color: C.ink }}
@@ -1787,6 +1904,522 @@ function Bar({
       >
         {eur(amount)}
       </div>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Kompakte Fassung — drei Seiten.
+
+   Die ausgeschriebene Fassung oben ist für Vorhaben gebaut, bei denen der
+   Kunde eine Investitionsentscheidung trifft: dort trägt jede Seite ihren
+   eigenen Gedanken. Bei einem Auftrag um 1.900 € kippt dieselbe Dramaturgie
+   ins Gegenteil — sieben Seiten für einen Website-Relaunch lesen sich nicht
+   gründlich, sondern aufgeblasen, und der Preis geht zwischen den Seiten
+   verloren. Deshalb dieselben Inhalte, aber verdichtet:
+
+     1 · Anschreiben, grobe Leistungsübersicht, Preis
+     2 · Zahlungswege, beide durchgerechnet
+     3 · Marktvergleich, Kurzklauseln, Zusage
+
+   Nichts Rechtliches fällt weg. Verkürzt wird die Erzählung, nicht die
+   Zusicherung — die Kurzklauseln stehen als `terms` im Datensatz.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Teilt die Zeilen einer Zahlungstabelle in Rechenblöcke: netto, Umsatzsteuer
+ * und die zugehörige Summe bleiben zusammen, ein neuer Block beginnt nach
+ * jeder hervorgehobenen Summenzeile. Nur so lässt sich der freie Platz einer
+ * Karte zwischen den Blöcken verteilen, ohne Zusammengehöriges zu trennen.
+ */
+function groupRows<T extends { strong?: boolean }>(rows: T[]): T[][] {
+  const groups: T[][] = []
+  let current: T[] = []
+  for (const row of rows) {
+    current.push(row)
+    if (row.strong) {
+      groups.push(current)
+      current = []
+    }
+  }
+  if (current.length) groups.push(current)
+  return groups
+}
+
+function ProposalCompact({
+  doc,
+  customer,
+  settings,
+}: {
+  doc: Quote
+  customer?: Customer
+  settings: CompanySettings
+}) {
+  const totals = computeTotals(doc.items)
+  const positive = doc.items.filter((it) => lineNet(it) > 0)
+  const discount = doc.items.reduce((s, it) => s + Math.min(0, lineNet(it)), 0)
+  const main = positive[0]
+  const regular = main ? lineNet(main) : totals.net
+  const sec = sections(doc.notes)
+  const terms =
+    doc.terms?.length
+      ? doc.terms
+      : // Ohne Kurzklauseln bleiben die Langtexte die Quelle: lieber ein
+        // dichteres Blatt als ein Angebot ohne Konditionen.
+        sec.map((x) => ({ title: x.title, text: x.body.join(" ") }))
+  const pay = doc.payment
+  const val = doc.valuation
+  const total = 3
+
+  // Zwei Zeilen statt einer: bei lesbarer Größe (10 px) passt die volle
+  // Absenderangabe nicht mehr einzeilig in die 85-mm-Fensterspalte.
+  const senderLines = [
+    settings.ownerName ? `${settings.ownerName} · ${settings.name}` : settings.name,
+    [settings.address, `${settings.zip} ${settings.city}`].filter(Boolean).join(" · "),
+  ].filter(Boolean)
+
+  return (
+    <div className="prop-doc">
+      {/* ── 1 · Was es ist und was es kostet ─────────────────────────── */}
+      <Page no={1} total={total} number={doc.number} settings={settings}>
+        <Brandbar number={doc.number} settings={settings} />
+
+        <div className="mt-[5mm] flex shrink-0 items-start justify-between gap-10">
+          <div style={{ width: "85mm" }}>
+            <div
+              className="mb-2.5 pb-[5px] text-[10px] leading-[1.5] tracking-[0.02em]"
+              style={{ color: C.muted, borderBottom: `0.5pt solid ${C.line}` }}
+            >
+              {senderLines.map((l) => (
+                <div key={l} className="truncate">
+                  {l}
+                </div>
+              ))}
+            </div>
+            <div className="text-[13.5px] leading-[1.55]" style={{ color: C.body }}>
+              <div className="font-semibold" style={{ color: C.ink }}>
+                {customer?.company}
+              </div>
+              {customer?.contactName && <div>{customer.contactName}</div>}
+              {customer?.address && <div>{customer.address}</div>}
+              <div>{[customer?.zip, customer?.city].filter(Boolean).join(" ")}</div>
+            </div>
+          </div>
+          <div
+            className="shrink-0 pl-6"
+            style={{ borderLeft: `1px solid ${C.line}`, width: "62mm" }}
+          >
+            {(
+              [
+                ["Datum", dateDE(doc.issueDate)],
+                ["Gültig bis", dateDE(doc.validUntil)],
+                ["Kundennummer", customer?.customerNumber],
+                ["Ansprechpartner", settings.ownerName],
+              ] as [string, string | undefined][]
+            ).map(([k, v]) =>
+              v ? (
+                <div key={k} className="flex items-baseline justify-between gap-4 py-[3px]">
+                  <span className="text-[11.5px]" style={{ color: C.muted }}>
+                    {k}
+                  </span>
+                  <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: C.ink }}>
+                    {v}
+                  </span>
+                </div>
+              ) : null,
+            )}
+          </div>
+        </div>
+
+        <div className="mt-[6mm] shrink-0">
+          <Eyebrow>Festpreis · gültig bis {dateDE(doc.validUntil)}</Eyebrow>
+          <h1
+            className="mt-2.5 text-[36px] font-bold leading-[1.1] tracking-tight"
+            style={{ color: C.ink }}
+          >
+            {doc.title ?? "Angebot"}
+            {doc.titleAccent && (
+              <>
+                {" "}
+                <span style={{ color: C.brand }}>{doc.titleAccent}</span>
+              </>
+            )}
+          </h1>
+          {/* Markenverlauf als Akzent statt als Verlaufstext: Chrome druckt
+              `background-clip: text` nicht zuverlässig, eine Linie schon. */}
+          <div className="mt-3 h-[3px] w-[24mm] rounded-full" style={{ background: GRAD }} />
+          {doc.lead && (
+            <p className="mt-3.5 max-w-[160mm] text-[15px] leading-[1.55]" style={{ color: C.body }}>
+              {doc.lead}
+            </p>
+          )}
+        </div>
+
+        {/* Festpreis-Satz VOR der Leistungsübersicht: sonst liest sich die
+            Seite drei Sekunden lang wie eine Abrechnung, bevor der
+            Hinweiskasten das einfängt. */}
+        {doc.notice && (
+          <p
+            className="mt-[5mm] shrink-0 px-6 py-3.5 text-[12.5px] leading-[1.55]"
+            style={{ background: C.soft, borderRadius: R, color: C.body }}
+          >
+            {doc.notice}
+          </p>
+        )}
+
+        {/* Grobe Übersicht statt Leistungsverzeichnis: Schlagwort plus eine
+            Zeile. Alles Detaillierte steht im Vertrag — hier soll der
+            Auftraggeber in zehn Sekunden wissen, was er bekommt. */}
+        {doc.summary?.length ? (
+          <div className="mt-[5mm] shrink-0">
+            <Eyebrow>Enthalten</Eyebrow>
+            <div className="mt-2.5 grid grid-cols-2 gap-x-8">
+              {doc.summary.map((it, i) => (
+                <div
+                  key={it.k}
+                  className="flex items-start gap-3.5 py-[11px]"
+                  style={{ borderTop: `1px solid ${C.line}` }}
+                >
+                  <span
+                    className="shrink-0 text-[12px] font-bold tabular-nums"
+                    style={{ color: C.brand }}
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[14.5px] font-bold leading-[1.25]" style={{ color: C.ink }}>
+                      {it.k}
+                    </span>
+                    <span className="mt-[3px] block text-[12.5px] leading-[1.45]" style={{ color: C.muted }}>
+                      {it.v}
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Preisblock am Fuß: eine Zahl, und daneben der Weg dorthin. Die
+            Verlaufskante oben markiert ihn als das Wichtigste der Seite.
+            Beide Spalten laufen über die volle Höhe — die Aufstellung stand
+            sonst unten in der Ecke, während oben Leerraum blieb. */}
+        <div
+          className="relative mb-[3mm] mt-auto flex shrink-0 items-stretch justify-between gap-9 overflow-hidden px-[8mm] py-[7mm]"
+          style={{ background: C.soft, borderRadius: R }}
+        >
+          <div className="absolute left-0 top-0 h-[3px] w-full" style={{ background: GRAD }} />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div
+              className="text-[11px] font-semibold uppercase tracking-[0.16em]"
+              style={{ color: C.muted }}
+            >
+              Festpreis bis zur Fertigstellung
+            </div>
+            {/* Die Zeilen verteilen sich über die Resthöhe, statt als Block
+                am Fuß zu kleben. */}
+            <div className="mt-4 flex flex-1 flex-col justify-between">
+              {[
+                { k: "Kalkulation", v: eur(regular), muted: true },
+                ...(discount < 0 ? [{ k: "Projektnachlass", v: eur(discount) }] : []),
+                { k: "Nettobetrag", v: eur(totals.net), strong: true },
+                ...totals.taxBreakdown.map((t) => ({
+                  k: `zzgl. Umsatzsteuer ${Math.round(t.rate * 100)} %`,
+                  v: eur(t.tax),
+                  muted: true,
+                })),
+              ].map((row) => (
+                <div key={row.k} className="flex items-baseline justify-between gap-4">
+                  <span
+                    className={`text-[13.5px] leading-snug${row.strong ? " font-semibold" : ""}`}
+                    style={{ color: row.muted ? C.muted : C.body }}
+                  >
+                    {row.k}
+                  </span>
+                  <span
+                    className={`shrink-0 text-[15px] tabular-nums${row.strong ? " font-bold" : ""}`}
+                    style={{ color: row.muted ? C.muted : C.ink }}
+                  >
+                    {row.v}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Brutto führt — das ist der Betrag, der vom Konto geht. Netto
+              steht gleich lesbar darunter, nicht als Kleingedrucktes: für
+              einen vorsteuerabzugsberechtigten Auftraggeber ist es die
+              eigentliche Kostengröße. */}
+          <div
+            className="flex shrink-0 flex-col gap-5 pl-9 text-right"
+            style={{ borderLeft: `1px solid ${C.line}` }}
+          >
+            <div>
+              <div className="text-[54px] font-bold leading-none" style={{ color: C.ink }}>
+                {eur(totals.gross)}
+              </div>
+              <div
+                className="mt-1.5 text-[11.5px] font-semibold uppercase tracking-[0.16em]"
+                style={{ color: C.brand }}
+              >
+                brutto inkl. USt.
+              </div>
+            </div>
+            {pay?.cards?.[1] && (
+              <div className="text-[12.5px] font-semibold" style={{ color: C.body }}>
+                oder {pay.cards[1].head} {pay.cards[1].when}
+              </div>
+            )}
+            <div>
+              <div className="text-[32px] font-bold leading-none" style={{ color: C.ink }}>
+                {eur(totals.net)}
+              </div>
+              <div
+                className="mt-1.5 text-[11.5px] font-semibold uppercase tracking-[0.16em]"
+                style={{ color: C.muted }}
+              >
+                netto
+              </div>
+            </div>
+          </div>
+        </div>
+      </Page>
+
+      {/* ── 2 · Zahlung, durchgerechnet ──────────────────────────────── */}
+      <Page no={2} total={total} number={doc.number} settings={settings}>
+        <SectionHead eyebrow="Zahlung" title="Zwei Möglichkeiten" />
+        {pay?.intro && (
+          <p className="mt-4 max-w-[165mm] shrink-0 text-[15px] leading-[1.55]" style={{ color: C.body }}>
+            {pay.intro}
+          </p>
+        )}
+
+        {/* Zwei Rechenwege nebeneinander statt zweier Werbekarten: neben
+            „230,00 € monatlich" stand vorher nur eine Zahl — woher sie kommt,
+            musste der Auftraggeber selbst nachrechnen. */}
+        {pay?.tables?.length ? (
+          <div className="mt-[8mm] grid grow grid-cols-2 gap-5">
+            {pay.tables.map((tbl, ti) => (
+              <div
+                key={tbl.title}
+                className="relative flex flex-col overflow-hidden px-8 py-7"
+                style={{ border: `1px solid ${C.line}`, borderRadius: R }}
+              >
+                {/* Verlaufskante am Ratenweg: er ist der Vorschlag, der die
+                    Entscheidung leicht macht. */}
+                {ti === 1 && (
+                  <div className="absolute left-0 top-0 h-full w-[3px]" style={{ background: GRAD }} />
+                )}
+                <div className="text-[20px] font-bold leading-tight" style={{ color: C.ink }}>
+                  {tbl.title}
+                </div>
+                {tbl.sub && (
+                  <div className="mt-1.5 text-[12.5px]" style={{ color: C.muted }}>
+                    {tbl.sub}
+                  </div>
+                )}
+                {/* Rechenblöcke statt Einzelzeilen: netto, Steuer und Summe
+                    gehören zusammen und bleiben eng beieinander — verteilt
+                    wird der Platz zwischen den Blöcken. So füllt die Karte
+                    die Seite, ohne dass eine Steuerzeile von ihrem Betrag
+                    weggerissen wird. */}
+                <div className="mt-5 flex flex-1 flex-col">
+                  {groupRows(tbl.rows).map((group, gi) => (
+                    <div
+                      key={gi}
+                      className="flex flex-1 flex-col justify-center py-1"
+                      style={gi > 0 ? { borderTop: `1px solid ${C.line}` } : undefined}
+                    >
+                      {group.map((row, ri) => (
+                        <div
+                          key={`${ri}-${row.k}`}
+                          className="flex items-baseline justify-between gap-4 py-[3px]"
+                        >
+                          <span
+                            className={`leading-snug${row.strong ? " text-[15px] font-semibold" : " text-[13px]"}`}
+                            style={{ color: row.strong ? C.ink : C.muted }}
+                          >
+                            {row.k}
+                          </span>
+                          <span
+                            className={`shrink-0 tabular-nums${row.strong ? " text-[22px] font-bold" : " text-[13px]"}`}
+                            style={{ color: row.strong ? C.brand : C.muted }}
+                          >
+                            {row.v}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                {tbl.foot && (
+                  <p className="mt-auto pt-6 text-[12px] leading-[1.5]" style={{ color: C.muted }}>
+                    {tbl.foot}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {pay?.compare && (
+          <div className="mt-[7mm] shrink-0 px-7 py-5" style={{ background: C.soft, borderRadius: R }}>
+            <div className="text-[14px] font-bold" style={{ color: C.ink }}>
+              {pay.compare.title}
+            </div>
+            <div className="mt-2.5">
+              {pay.compare.rows.map((r) => (
+                <div
+                  key={r.k}
+                  className="flex items-baseline justify-between gap-4 py-[5px]"
+                  style={r.strong ? { borderTop: `1px solid ${C.line}`, marginTop: 5, paddingTop: 9 } : undefined}
+                >
+                  <span
+                    className={`text-[12.5px]${r.strong ? " font-semibold" : ""}`}
+                    style={{ color: r.strong ? C.ink : C.body }}
+                  >
+                    {r.k}
+                  </span>
+                  <span
+                    className={`shrink-0 tabular-nums${r.strong ? " text-[16px] font-bold" : " text-[13px]"}`}
+                    style={{ color: r.strong ? C.brand : C.ink }}
+                  >
+                    {r.v}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {(pay.compare.foot || pay.note) && (
+              <p className="mt-2.5 text-[11px] leading-[1.5]" style={{ color: C.muted }}>
+                {[pay.compare.foot, pay.note].filter(Boolean).join(" ")}
+              </p>
+            )}
+          </div>
+        )}
+        {/* Ohne Vergleichskasten bliebe der Rundungshinweis unsichtbar — er
+            gehört aber unter die Tabellen, sonst geht „12 × 228,33 €" nicht
+            sichtbar auf 2.740,00 € auf. */}
+        {!pay?.compare && pay?.note && (
+          <p className="mt-[6mm] shrink-0 text-[11.5px] leading-[1.5]" style={{ color: C.muted }}>
+            {pay.note}
+          </p>
+        )}
+      </Page>
+
+      {/* ── 3 · Einordnung, Rahmen, Zusage ───────────────────────────── */}
+      <Page no={3} total={total} number={doc.number} settings={settings} last>
+        {/* Der Marktvergleich ist das einzige Argument, das der Kunde selbst
+            nicht recherchieren kann. Guards wie in der Langfassung: ohne
+            Stunden gäbe es „Infinity €/Std.", ohne Vergleichswerte Balken
+            der Breite NaN. */}
+        {val && val.hours > 0 && val.benchmarks.length > 0 && (
+          <div className="shrink-0">
+            <SectionHead eyebrow="Einordnung" title="Was das woanders kostet" />
+            <p className="mt-3.5 max-w-[160mm] text-[13.5px] leading-[1.55]" style={{ color: C.body }}>
+              Zu marktüblichen Sätzen kostet dieser Umfang{" "}
+              {eur(Math.min(...val.benchmarks.map((b) => b.rate * val.hours)))} bis{" "}
+              {eur(Math.max(...val.benchmarks.map((b) => b.rate * val.hours)))} netto — dieses
+              Angebot: <strong style={{ color: C.brand }}>{eur(val.netAmount)} netto</strong>.
+            </p>
+            <div className="mt-[5mm] space-y-[6px]">
+              {[
+                {
+                  label: "Dieses Angebot",
+                  rate: val.netAmount / val.hours,
+                  amount: val.netAmount,
+                  own: true,
+                },
+                ...val.benchmarks.map((b) => ({
+                  label: b.label,
+                  rate: b.rate,
+                  amount: b.rate * val.hours,
+                  own: false,
+                })),
+              ]
+                .sort((a, b) => a.amount - b.amount)
+                .map((m) => (
+                  <Bar
+                    key={m.label}
+                    label={m.label}
+                    sub={`${Math.round(m.rate)} €/Std.`}
+                    amount={m.amount}
+                    max={Math.max(val.netAmount, ...val.benchmarks.map((b) => b.rate * val.hours))}
+                    own={m.own}
+                  />
+                ))}
+            </div>
+            {(val.sources?.length || val.sourceNote) && (
+              <p className="mt-3 text-[10.5px] leading-[1.5]" style={{ color: C.muted }}>
+                {val.sources?.length
+                  ? `Quellen: ${val.sources.map((s) => s.link ?? s.name).join(" · ")}. `
+                  : null}
+                {val.sourceNote}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Vier Kurzklauseln, mehr nicht: Preisbindung, Zeitrahmen, was nicht
+            drin ist, und der Verweis auf den Vertrag. Alles Weitere steht
+            dort — doppelt geregelt wird nichts. */}
+        <div className="mt-[8mm] shrink-0">
+          <Eyebrow>Gut zu wissen</Eyebrow>
+        </div>
+        <div className="mt-3 shrink-0" style={{ columnCount: 2, columnGap: "10mm" }}>
+          {terms.map((t) => (
+            <div key={t.title} style={{ breakInside: "avoid", paddingBottom: "5mm" }}>
+              <div className="text-[13.5px] font-bold" style={{ color: C.ink }}>
+                {t.title}
+              </div>
+              <p className="mt-1 text-[12px] leading-[1.55]" style={{ color: C.body }}>
+                {t.text}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div
+          className="relative mb-[3mm] mt-auto shrink-0 overflow-hidden px-[8mm] py-[6mm]"
+          style={{ background: C.soft, borderRadius: R }}
+        >
+          <div className="absolute left-0 top-0 h-[3px] w-full" style={{ background: GRAD }} />
+          <Eyebrow>So sagen Sie zu</Eyebrow>
+          <p className="mt-2.5 max-w-[160mm] text-[14px] leading-[1.55]" style={{ color: C.body }}>
+            {doc.orderNote ??
+              `Eine kurze Freigabe in Textform genügt. Dieses Angebot ist bis ${dateDE(doc.validUntil)} bindend.`}
+          </p>
+          {doc.orderItems?.length ? (
+            <div className="mt-[4mm] grid grid-cols-2 gap-x-8">
+              {doc.orderItems.map((it, oi) => (
+                <div
+                  key={it.k}
+                  className="flex items-start gap-3.5 py-[8px]"
+                  style={{ borderTop: `1px solid ${C.line}` }}
+                >
+                  <span className="text-[12px] font-bold tabular-nums" style={{ color: C.brand }}>
+                    {String(oi + 1).padStart(2, "0")}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[13.5px] font-bold leading-[1.25]" style={{ color: C.ink }}>
+                      {it.k}
+                    </span>
+                    {it.v && (
+                      <span className="mt-[3px] block text-[12px] leading-[1.45]" style={{ color: C.muted }}>
+                        {it.v}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {doc.orderFoot && (
+            <p className="mt-[4mm] text-[11.5px] leading-[1.5]" style={{ color: C.muted }}>
+              {doc.orderFoot}
+            </p>
+          )}
+        </div>
+      </Page>
     </div>
   )
 }

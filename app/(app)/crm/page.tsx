@@ -15,6 +15,7 @@ import {
   Trash2,
   Pencil,
   FileText,
+  FileSignature,
   ReceiptEuro,
   LayoutGrid,
   List,
@@ -27,13 +28,16 @@ import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
 import { eur, dateDE, relativeTime, computeTotals, emailSignature } from "@/lib/format"
 import {
+  CONTRACT_STATUS_LABEL,
   DEAL_STAGES,
   INVOICE_STATUS_LABEL,
   QUOTE_STATUS_LABEL,
   type Activity,
   type Customer,
+  type Database,
 } from "@/lib/types"
 import { DocEditorDialog } from "@/components/documents/doc-editor"
+import { useDocMenus, DocMenu } from "@/components/documents/doc-actions"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -66,17 +70,20 @@ const HEALTH_BADGE: Record<Customer["health"], { label: string; variant: "succes
 
 type TimelineItem = {
   id: string
-  kind: "invoice" | "quote" | "deal" | "email" | "activity"
+  kind: "invoice" | "quote" | "contract" | "deal" | "email" | "activity"
   at: string
   title: string
   amount?: number
   status?: string
   href: string
+  /** Beleg-ID — nur Belege tragen ein Aktionsmenü. */
+  docId?: string
 }
 
 const TIMELINE_ICON: Record<TimelineItem["kind"], LucideIcon> = {
   invoice: ReceiptEuro,
   quote: FileText,
+  contract: FileSignature,
   deal: TrendingUp,
   email: Mail,
   activity: History,
@@ -93,10 +100,15 @@ const ACTIVITY_HREF: Record<Activity["type"], string> = {
   ai: "/assistant",
 }
 
-/** Nächste freie Kundennummer — Format des Bestands respektieren (höchster numerischer Suffix + 1). */
-function nextCustomerNumber(customers: Customer[]): string {
+/**
+ * Nächste freie Kundennummer: eigener fortlaufender Kreis, Format des Bestands
+ * respektieren (höchster numerischer Suffix + 1). Bewusst unabhängig von den
+ * Belegnummern — Kunden haben keine, eine oder mehrere Rechnungen, und bereits
+ * versendete Belege tragen ihre Kundennummer unveränderlich.
+ */
+function nextCustomerNumber(db: Database): string {
   let best: { prefix: string; num: number; width: number } | null = null
-  for (const c of customers) {
+  for (const c of db.customers) {
     const m = /^(.*?)(\d+)$/.exec((c.customerNumber ?? "").trim())
     if (!m) continue
     const num = parseInt(m[2], 10)
@@ -108,6 +120,7 @@ function nextCustomerNumber(customers: Customer[]): string {
 
 export default function CrmPage() {
   const { db, upsertCustomer, remove, add, upsertEmail, customerById } = useStore()
+  const { quoteMenu, invoiceMenu, contractMenu } = useDocMenus()
   const confirm = useConfirm()
   const router = useRouter()
   const wantNew = useQueryFlag("new")
@@ -177,6 +190,7 @@ export default function CrmPage() {
         amount: computeTotals(i.items).gross,
         status: INVOICE_STATUS_LABEL[i.status],
         href: `/invoices?doc=${i.id}`,
+        docId: i.id,
       })
     for (const q of db.quotes)
       push(q.customerId, {
@@ -187,6 +201,18 @@ export default function CrmPage() {
         amount: computeTotals(q.items).gross,
         status: QUOTE_STATUS_LABEL[q.status],
         href: `/quotes?doc=${q.id}`,
+        docId: q.id,
+      })
+    for (const con of db.contracts)
+      push(con.customerId, {
+        id: `con-${con.id}`,
+        kind: "contract",
+        at: con.issueDate,
+        title: `Vertrag ${con.number}`,
+        amount: con.netValue,
+        status: CONTRACT_STATUS_LABEL[con.status],
+        href: `/contracts?doc=${con.id}`,
+        docId: con.id,
       })
     for (const d of db.deals)
       push(d.customerId, {
@@ -441,7 +467,7 @@ export default function CrmPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         customer={editing}
-        suggestedNumber={editing ? undefined : nextCustomerNumber(db.customers)}
+        suggestedNumber={editing ? undefined : nextCustomerNumber(db)}
         onSave={(data) => {
           upsertCustomer(data)
           toast.success(editing ? "Kunde aktualisiert" : "Kunde angelegt")
@@ -516,7 +542,7 @@ export default function CrmPage() {
 
             <div>
               <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground">
-                Verlauf
+                Verlauf — Angebote, Verträge, Rechnungen und Aktivitäten
               </p>
               {(() => {
                 const items = timelineByCustomer.get(detail.id) ?? []
@@ -530,31 +556,57 @@ export default function CrmPage() {
                   <div className="max-h-64 space-y-0.5 overflow-y-auto rounded-xl border border-white/8 bg-white/[0.02] p-2">
                     {items.map((item) => {
                       const Icon = TIMELINE_ICON[item.kind]
+                      // Belege tragen hier dasselbe Menü wie in ihrem Modul:
+                      // PDF, E-Mail, Vertrag, Status. Ein Verlaufseintrag,
+                      // der nur verlinkt, zwingt für jede Kleinigkeit zum
+                      // Modulwechsel.
+                      const menu =
+                        item.docId && item.kind === "quote"
+                          ? (() => {
+                              const q = db.quotes.find((x) => x.id === item.docId)
+                              return q ? quoteMenu(q, { hideCustomer: true }) : null
+                            })()
+                          : item.docId && item.kind === "invoice"
+                            ? (() => {
+                                const inv = db.invoices.find((x) => x.id === item.docId)
+                                return inv ? invoiceMenu(inv, { hideCustomer: true }) : null
+                              })()
+                            : item.docId && item.kind === "contract"
+                              ? (() => {
+                                  const con = db.contracts.find((x) => x.id === item.docId)
+                                  return con ? contractMenu(con, { hideCustomer: true }) : null
+                                })()
+                              : null
                       return (
-                        <Link
+                        <div
                           key={item.id}
-                          href={item.href}
-                          onClick={() => setDetailId(null)}
-                          className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]"
+                          className="flex items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-white/[0.04]"
                         >
-                          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white/[0.05] text-muted-foreground">
-                            <Icon className="size-4" />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[13.5px] font-medium">
-                              {item.title}
+                          <Link
+                            href={item.href}
+                            onClick={() => setDetailId(null)}
+                            className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2"
+                          >
+                            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white/[0.05] text-muted-foreground">
+                              <Icon className="size-4" />
                             </span>
-                            <span className="block text-[11.5px] text-muted-foreground">
-                              {dateDE(item.at)} · {relativeTime(item.at)}
-                              {item.status ? ` · ${item.status}` : ""}
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[13.5px] font-medium">
+                                {item.title}
+                              </span>
+                              <span className="block text-[11.5px] text-muted-foreground">
+                                {dateDE(item.at)} · {relativeTime(item.at)}
+                                {item.status ? ` · ${item.status}` : ""}
+                              </span>
                             </span>
-                          </span>
-                          {item.amount !== undefined && (
-                            <span className="shrink-0 text-[13px] font-semibold tnum">
-                              {eur(item.amount)}
-                            </span>
-                          )}
-                        </Link>
+                            {item.amount !== undefined && (
+                              <span className="shrink-0 text-[13px] font-semibold tnum">
+                                {eur(item.amount)}
+                              </span>
+                            )}
+                          </Link>
+                          {menu ? <DocMenu>{menu}</DocMenu> : <span className="size-8 shrink-0" />}
+                        </div>
                       )
                     })}
                   </div>
@@ -575,7 +627,7 @@ export default function CrmPage() {
                     setDocEditor({ kind: "quote", customerId: detail.id })
                   }}
                 >
-                  <FileText className="size-4 text-brand-cyan" /> Angebot
+                  <FileText className="size-4 text-brand-cyan" /> Angebot erstellen
                 </Button>
                 <Button
                   variant="outline"
@@ -585,14 +637,14 @@ export default function CrmPage() {
                     setDocEditor({ kind: "invoice", customerId: detail.id })
                   }}
                 >
-                  <ReceiptEuro className="size-4 text-brand-blue" /> Rechnung
+                  <ReceiptEuro className="size-4 text-brand-blue" /> Rechnung erstellen
                 </Button>
                 <Button
                   variant="outline"
                   className="h-auto flex-col gap-1.5 py-3"
                   onClick={() => createEmailFor(detail)}
                 >
-                  <Mail className="size-4 text-[#a78bfa]" /> E-Mail
+                  <Mail className="size-4 text-[#a78bfa]" /> E-Mail schreiben
                 </Button>
               </div>
             </div>
@@ -713,7 +765,7 @@ function CustomerDialog({
             <Input value={form.vatId ?? ""} onChange={(e) => set({ vatId: e.target.value })} placeholder="DE…" />
           </Field>
           <Field label="Kundennummer">
-            <Input value={form.customerNumber ?? ""} onChange={(e) => set({ customerNumber: e.target.value })} placeholder="z. B. K-1001" />
+            <Input value={form.customerNumber ?? ""} onChange={(e) => set({ customerNumber: e.target.value })} placeholder="z. B. K-1007" />
           </Field>
           <Field label="Adresse">
             <Input value={form.address ?? ""} onChange={(e) => set({ address: e.target.value })} placeholder="Straße & Nr." />

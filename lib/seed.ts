@@ -50,10 +50,17 @@ const settings: CompanySettings = {
   defaultTaxRate: 0.19,
   invoicePrefix: "2026",
   quotePrefix: "AN-2026",
-  contractPrefix: "V-2026",
+  // Verträge zählen nicht jahresweise, sondern je Kunde: „V-1006-01" ist der
+  // erste Vertrag von Kunde K-1006. Rechnungen und Angebote gehören zu einem
+  // Vorgang und laufen deshalb sinnvoll durch das Jahr; ein Vertrag gehört zu
+  // einer Geschäftsbeziehung, und ein Kunde hat oft mehrere (SKOPE: Website
+  // und Warenwirtschaft). An „V-2026-003" war weder der Kunde noch das Paket
+  // ablesbar. Der Präfix ist deshalb nur noch „V" — Kundennummer und
+  // Vertragszähler hängt lib/format.ts an.
+  contractPrefix: "V",
   nextInvoiceNo: 434,
-  nextQuoteNo: 516,
-  nextContractNo: 3,
+  nextQuoteNo: 517,
+  nextContractNo: 4,
   paymentTermsDays: 14,
   // Keine Zahlungsfrist in diesem Satz: das Zahlungsziel steht mit echtem
   // Datum in der Kennzahlenleiste, im Zahlungsblock und in der Rechtszeile —
@@ -66,6 +73,13 @@ const settings: CompanySettings = {
 // Echte Kunden
 // ============================================================
 
+// Kundennummern sind ein eigener, fortlaufender Nummernkreis ab K-1001 und
+// haben mit den Belegnummern nichts zu tun. Zwei Gründe: Rechnung 2026-432 ist
+// mit „K-1005" bereits beim Kunden — eine nachträgliche Umnummerierung würde
+// dem versendeten Beleg widersprechen. Und eine Kundennummer, die an einer
+// Rechnungsnummer hängt, bricht, sobald ein Kunde mehrere Rechnungen hat
+// (Skope: 2026-432 und 2026-433) oder noch gar keine. Der Start bei 1001 liest
+// sich als Nummernkreis, nicht als Kundenzähler.
 const customers: Customer[] = [
   {
     id: "c1",
@@ -101,10 +115,34 @@ const customers: Customer[] = [
     zip: "74196",
     country: "Deutschland",
     vatId: "DE346591640",
-    customerNumber: "K-1005",
+    customerNumber: "K-1005", // so auf Rechnung 2026-432 gedruckt und versendet
     tags: ["E-Mobilität", "Website", "Warenwirtschaft", "Shopify"],
     health: "active",
     createdAt: "2026-08-09T09:00:00.000Z",
+  },
+  {
+    id: "c3",
+    // Kurzform „Wrapcut" statt des Google-Profil-Zusatzes „– Ihr Folienexperte
+    // aus NRW": Der Zusatz ist Werbetext, keine Firmierung, und hat auf einem
+    // Beleg nichts verloren. Die Bestandsseite wrapcut.nrw hat kein Impressum — Rechtsform, Nachname des
+    // Inhabers und USt-IdNr. sind dort nirgends angegeben und werden hier
+    // bewusst nicht geraten; sie fehlen sowohl für die Rechnung nach § 14
+    // UStG als auch für das Impressum der neuen Website.
+    company: "Wrapcut",
+    contactName: "Roberto",
+    email: "info@wrapcut.nrw",
+    phone: "+49 176 60824446",
+    website: "wrapcut.nrw",
+    address: "Neusser Str. 111",
+    city: "Jüchen",
+    zip: "41363",
+    country: "Deutschland",
+    customerNumber: "K-1006",
+    tags: ["Fahrzeugfolierung", "Lackschutz", "Website", "Relaunch", "Local SEO"],
+    notes:
+      "Fahrzeugfolierung, Lackschutzfolie (PPF), Keramikversiegelung, Scheibentönung, Chromleisten- und Dekorfolierung, Werbebeschriftung. Einzugsgebiet Jüchen, Neuss, Grevenbroich, Mönchengladbach, Düsseldorf, Korschenbroich, Kaarst, Willich, Meerbusch, Viersen, Krefeld. Instagram @wrapcut.nrw.\n\nOffen und beim Kunden einzuholen: vollständige Rechtsform/Firmierung, Nachname des Inhabers, USt-IdNr. bzw. Steuernummer. Der Kunde hat den Preis als Hürde benannt — deshalb sichtbarer Nachlass und Ratenzahlung statt zweitem Rabatt.",
+    health: "active",
+    createdAt: "2026-08-30T09:00:00.000Z",
   },
 ]
 
@@ -119,8 +157,23 @@ const deals: Deal[] = [
     owner: "Martin Traut",
     expectedClose: "2026-09-22T10:00:00.000Z",
     notes:
-      "Seit 23.08.2026 zwei getrennte Vorgänge statt eines Gesamtangebots — jeder mit eigenem Angebot, Vertrag und Rechnung.\n\n(1) Website: Angebot AN-2026-514, Vertrag V-2026-001, Rechnung 2026-433. 81,25 Std. = 6.500 € zum Regelsatz, nach Nachlass 5.000 € netto. Ratenzahlung nach § 6: 2.000 € brutto bis 30.09.2026, Rest 3.950 € ab 01.03.2027 in Monatsraten ab 500 €, spätestens vollständig 31.12.2027. Eine einzige Rechnung bei Abnahme, die Raten sind Teilzahlungen darauf.\n\n(2) Warenwirtschaft: Angebot AN-2026-515, Vertrag V-2026-002. 324 Std. = 25.920 € zum Regelsatz, nach Nachlass 19.000 € netto. Noch nicht beauftragt; Preisbindung sechs Monate ab Abnahme der Website. Zahlung 40/30/30, Umsetzungsbeginn erst nach Eingang der ersten Rate.\n\nPflege in beiden Fällen nicht monatlich, sondern 15 % des provisionsrelevanten Deckungsbeitrags aus Websitegeschäften.",
+      "Seit 23.08.2026 zwei getrennte Vorgänge statt eines Gesamtangebots — jeder mit eigenem Angebot, Vertrag und Rechnung.\n\n(1) Website: Angebot AN-2026-514, Vertrag V-1005-01, Rechnung 2026-433. 81,25 Std. = 6.500 € zum Regelsatz, nach Nachlass 5.000 € netto. Ratenzahlung nach § 6: 2.000 € brutto bis 30.09.2026, Rest 3.950 € ab 01.03.2027 in Monatsraten ab 500 €, spätestens vollständig 31.12.2027. Eine einzige Rechnung bei Abnahme, die Raten sind Teilzahlungen darauf.\n\n(2) Warenwirtschaft: Angebot AN-2026-515, Vertrag V-1005-02. 324 Std. = 25.920 € zum Regelsatz, nach Nachlass 19.000 € netto. Noch nicht beauftragt; Preisbindung sechs Monate ab Abnahme der Website. Zahlung 40/30/30, Umsetzungsbeginn erst nach Eingang der ersten Rate.\n\nPflege in beiden Fällen nicht monatlich, sondern 15 % des provisionsrelevanten Deckungsbeitrags aus Websitegeschäften.",
     createdAt: "2026-08-14T09:00:00.000Z",
+  },
+  {
+    id: "d-wrapcut",
+    title: "WrapCut — Website-Relaunch wrapcut.nrw",
+    // Die Website ist gebaut, aber nicht abgenommen: verhandelt wird nur noch
+    // der Preis, nicht mehr der Umfang.
+    stage: "proposal",
+    customerId: "c3",
+    value: 1596.64,
+    probability: 80,
+    owner: "Martin Traut",
+    expectedClose: "2026-09-13T10:00:00.000Z",
+    notes:
+      "Angebot AN-2026-516: Festpreis bis zur Fertigstellung, keine Abrechnung geleisteter Stunden. 28,36 Std. zum Regelsatz 80,00 € = 2.268,80 € netto (2.699,87 € brutto), nach Nachlass 1.596,64 € netto = 1.900,00 € brutto. Der Restaufwand für Feinschliff, Mobilversion und SEO/GEO ist im Festpreis enthalten und wird nicht berechnet.\n\nZwei Möglichkeiten: Einmalzahlung 1.900,00 € brutto im Voraus oder zwölf Monatsraten à 228,33 € brutto (Website-Anteil 158,33 € = 1.900,00 ÷ 12, plus Pflege 70,00 €). Über zwölf Monate kosten beide 2.740,00 € brutto — kein Aufschlag, keine Zinsen, keine Anzahlung. Alle Bruttobeträge glatt, die Nettoanteile krumm.\n\nWebsite-Pflege ab Freischaltung 70,00 € brutto monatlich, monatlich kündbar — bei Einmalzahlung sofort, im Ratenweg nach den zwölf Monaten; Zusatzarbeiten 80,00 € netto je Stunde.",
+    createdAt: "2026-08-30T09:00:00.000Z",
   },
 ]
 
@@ -144,7 +197,7 @@ const projects: Project[] = [
     dueDate: "2026-09-30T18:00:00.000Z",
     color: "#00ffe6",
     description:
-      "81,25 Std. — Website mit elf festen Seiten plus Geräteseiten steht, Logo & Qualitätssiegel, Shopify-Anbindung, Google-Unternehmensprofil und Anfragestrecke offen. Angebot AN-2026-514, Vertrag V-2026-001, Rechnung 2026-433 — unabhängig von der Warenwirtschaft.",
+      "81,25 Std. — Website mit elf festen Seiten plus Geräteseiten steht, Logo & Qualitätssiegel, Shopify-Anbindung, Google-Unternehmensprofil und Anfragestrecke offen. Angebot AN-2026-514, Vertrag V-1005-01, Rechnung 2026-433 — unabhängig von der Warenwirtschaft.",
     dealId: "d-skope",
     createdAt: "2026-08-14T09:00:00.000Z",
   },
@@ -159,9 +212,26 @@ const projects: Project[] = [
     dueDate: "2027-02-28T18:00:00.000Z",
     color: "#3d00ff",
     description:
-      "324 Std. — Warenwirtschaft für Einzelstücke und Mengenbestand, Lager und Inventur, Werkstatt und Ausschlachtung, Kanalabgleich, KI-Automatisierung und Auswertung. Eigenes Angebot AN-2026-515 und eigener Vertrag V-2026-002; beginnt erst nach Abnahme der Website.",
+      "324 Std. — Warenwirtschaft für Einzelstücke und Mengenbestand, Lager und Inventur, Werkstatt und Ausschlachtung, Kanalabgleich, KI-Automatisierung und Auswertung. Eigenes Angebot AN-2026-515 und eigener Vertrag V-1005-02; beginnt erst nach Abnahme der Website.",
     dealId: "d-skope",
     createdAt: "2026-08-14T09:00:00.000Z",
+  },
+  {
+    id: "p-wrapcut",
+    name: "WrapCut — Website-Relaunch wrapcut.nrw",
+    customerId: "c3",
+    status: "active",
+    // Budget ist der Festpreis nach Nachlass, nicht die Kalkulation — sonst
+    // zeigt das Projekt eine Marge, die nie berechnet wird.
+    budget: 1596.64,
+    spent: 0,
+    startDate: "2026-07-31T09:00:00.000Z",
+    dueDate: "2026-09-30T18:00:00.000Z",
+    color: "#3d00ff",
+    description:
+      "28,36 Std. investiert: 17 Seiten stehen (Startseite, Leistungsübersicht mit sechs Leistungsseiten, Standortübersicht mit sechs lokalen Landingpages, Impressum, Datenschutz), Texte, FAQ und Bilder sind gesetzt. Offen und im Festpreis enthalten: gestalterischer Feinschliff, vollständige Mobilansicht, SEO/GEO, technischer Abschluss und Deployment. Angebot AN-2026-516.",
+    dealId: "d-wrapcut",
+    createdAt: "2026-08-30T09:00:00.000Z",
   },
 ]
 
@@ -180,12 +250,75 @@ const tasks: Task[] = [
   {
     id: "t-skope-send",
     projectId: "p-skope",
-    title: "Angebot AN-2026-514 mit Vertrag V-2026-001 an Thomas Zielke versenden",
+    title: "Angebot AN-2026-514 mit Vertrag V-1005-01 an Thomas Zielke versenden",
     status: "todo",
     kind: "event",
     due: "2026-08-25T09:00:00.000Z",
     time: "10:00",
     endTime: "10:30",
+  },
+  {
+    id: "t-wrapcut-send",
+    projectId: "p-wrapcut",
+    title: "Angebot AN-2026-516 an Roberto (WrapCut) versenden",
+    status: "todo",
+    kind: "event",
+    due: "2026-08-31T09:00:00.000Z",
+    time: "10:00",
+    endTime: "10:30",
+  },
+  {
+    id: "t-wrapcut-stammdaten",
+    projectId: "p-wrapcut",
+    // Ohne diese drei Angaben ist weder das Impressum vollständig noch die
+    // Rechnung nach § 14 UStG korrekt adressiert.
+    title: "Rechtsform, Nachname des Inhabers und USt-IdNr. bei WrapCut einholen",
+    status: "todo",
+    kind: "task",
+    due: "2026-09-05T09:00:00.000Z",
+  },
+  {
+    id: "t-wrapcut-formular",
+    projectId: "p-wrapcut",
+    title: "Kontaktformular entscheiden: mailto: beibehalten oder Serverversand über Resend",
+    status: "todo",
+    kind: "task",
+    due: "2026-09-05T09:00:00.000Z",
+  },
+  {
+    id: "t-wrapcut-mobil",
+    projectId: "p-wrapcut",
+    title: "Mobilansicht aller 17 Seiten ausarbeiten und bei 390 px auf Überlauf prüfen",
+    status: "todo",
+    kind: "task",
+    due: "2026-09-12T09:00:00.000Z",
+    hours: 6,
+  },
+  {
+    id: "t-wrapcut-seo",
+    projectId: "p-wrapcut",
+    title: "SEO/GEO: Meta-Daten, Schema-@graph und lokale Signale je Standortseite finalisieren",
+    status: "todo",
+    kind: "task",
+    due: "2026-09-18T09:00:00.000Z",
+    hours: 8,
+  },
+  {
+    id: "t-wrapcut-redirects",
+    projectId: "p-wrapcut",
+    // Ohne Weiterleitungen verliert der Kunde die Rankings der Durable-Seite.
+    title: "Weiterleitungen der alten Durable-URLs auf die neuen Seiten einrichten",
+    status: "todo",
+    kind: "task",
+    due: "2026-09-25T09:00:00.000Z",
+  },
+  {
+    id: "t-wrapcut-launch",
+    projectId: "p-wrapcut",
+    title: "Freigabe durch den Kunden, Domainumstellung und Deployment",
+    status: "todo",
+    kind: "task",
+    due: "2026-09-30T09:00:00.000Z",
   },
 ]
 
@@ -230,46 +363,6 @@ const PAKET_1_AUFGABEN: LineItemTask[] = [
   {
     text: "Einbindung Ihrer Rechtstexte, barrierearme Umsetzung nach anerkannten Grundsätzen und Messung auf allen Bildschirmbreiten; keine externen Dienste im Seitenaufruf — Karte, Schriften und Bewertungen selbst gehostet — mit dem Ziel, ohne Consent-Banner auszukommen, sofern im finalen Setup ausschließlich technisch erforderliche Technologien eingesetzt werden",
     hours: 4,
-  },
-]
-
-/** Paket 2 — 175,75 Std. × 80,00 € = 14.060,00 €, nach Nachlass 11.000,00 € netto. */
-const PAKET_2_AUFGABEN: LineItemTask[] = [
-  {
-    text: "Datenmodell und Vorgangslogik entlang des Werkstattablaufs (Ankauf, Prüfung, Instandsetzung, Einstellung, Reservierung, Verkauf, Storno, Rückgabe): jedes Gerät als Einzelstück mit eigener Geräte- und Rahmennummer, getrennte Statusebenen für Werkstatt, Verkauf und Kanäle; Sperren gegen Doppelverkauf bei gleichzeitigem Zugriff, unveränderliches Änderungsprotokoll je Datensatz, versionierte Datenbankänderungen",
-    hours: 28,
-  },
-  {
-    text: "Bedienoberfläche für Telefon und Computer: erfassen, fotografieren, hochladen (auch iPhone-Bildformate), per Ziehen sortieren, Preis und Zustand pflegen; Arbeitslisten je Prozessschritt — Wareneingang, Prüfung mit 12-Punkte-Protokoll, Aufbereitung; Akkuzustand, Zulassungsstatus, Suche und Filter über den Bestand",
-    hours: 34,
-  },
-  {
-    text: "Abgleich der angebundenen Kanäle: Website und System vollständig verbunden, Shopify automatisch über die offizielle Schnittstelle, Kleinanzeigen halbautomatisch. Veröffentlicht wird erst nach festen Freigaberegeln (Prüfung abgeschlossen, keine offenen Reparaturen, Betriebserlaubnis dokumentiert, Bilder vorhanden). Jede Änderung läuft über eine Warteschlange mit Wiederholung bei Störungen, Schutz gegen Doppelbuchungen, Prüfung der Rückmeldungen, Einhaltung der Anfragegrenzen und vollständigem Protokoll",
-    hours: 25,
-  },
-  {
-    text: "Bildverarbeitung: Ableitungen je Kanalformat beim Hochladen, Zuschnitt, Verkleinerung, Reihenfolge, Wasserzeichen, moderne Bildformate; Verarbeitung im Hintergrund",
-    hours: 16,
-  },
-  {
-    text: "KI-Automatisierungen: Geräte- und Anzeigentexte aus den erfassten Feldern, Vorsortierung eingehender Anfragen nach Anliegen und Dringlichkeit, Antwortvorschläge zur Freigabe. Nichts wird ohne Freigabe versendet; Vorlagen versioniert, Kosten je Aufruf gedeckelt",
-    hours: 24,
-  },
-  {
-    text: "Kleinanzeigen halbautomatisch: Überschrift, Beschreibung, Preisvorschlag und zugeschnittene Bilder auf Knopfdruck, Abgleich des Standorts jedes Geräts. Das Einstellen bleibt bewusst ein Klick von Hand, da automatisches Einstellen gegen die Nutzungsbedingungen verstößt",
-    hours: 13,
-  },
-  {
-    text: "Vorgangsliste und Auswertung: alle Anfragen aus Website, Shop und Kleinanzeigen in einer Liste mit Gerätebezug und Bearbeitungsstand; Bestand, Liegezeit, Verkäufe und Spanne je Zeitraum, Herkunft der Käufer (welche Werbung Kunden bringt), gebundenes Kapital je Prozessstufe; Umsatzliste automatisch nach Google Sheets",
-    hours: 14,
-  },
-  {
-    text: "Zugänge, Sicherung, Datenübernahme: Anmeldung und Rollen, tägliche Datensicherung, Übernahme vorhandener Geräte- und Lieferantenlisten per Import-Assistent mit Spaltenzuordnung und Dublettenprüfung, Bilder inklusive, Testlauf mit echten Vorgängen",
-    hours: 10,
-  },
-  {
-    text: "Livegang, zwei Schulungstermine, Kurzanleitung und technische Dokumentation",
-    hours: 11.75,
   },
 ]
 
@@ -426,7 +519,7 @@ const invoices: Invoice[] = [
       "<b>Leistungsumfang:</b> Einrichtung und persönliche Übergabe vor Ort; die verwendeten Aufsteller sind Teil der Leistung. Die hinterlegte Ziel-Adresse der NFC-Chips lässt sich jederzeit auf Wunsch ändern.",
   },
   {
-    // Entwurf. Nach § 6 Abs. 3 des Projektvertrags V-2026-001 wird genau eine
+    // Entwurf. Nach § 6 Abs. 3 des Projektvertrags V-1005-01 wird genau eine
     // Rechnung über die Gesamtleistung gestellt, und zwar mit der Abnahme —
     // keine Rechnung je Rate. Rechnungs- und Leistungsdatum stehen deshalb auf
     // dem geplanten Abnahmetag und werden beim Versenden auf den tatsächlichen
@@ -463,9 +556,9 @@ const invoices: Invoice[] = [
       },
     ],
     legalNote:
-      "<b>Zahlungsvereinbarung:</b> Abweichend von einem allgemeinen Zahlungsziel gilt der individuell vereinbarte Ratenplan aus § 6 des Projektvertrags V-2026-001: 2.000,00 € brutto bis 30.09.2026, der verbleibende Betrag von 3.950,00 € brutto ab 01.03.2027 in monatlichen Raten von mindestens 500,00 €, spätestens vollständig am 31.12.2027. Bitte geben Sie bei jeder Überweisung die Rechnungsnummer als Verwendungszweck an. Bis zur vollständigen Zahlung bleiben die Nutzungsrechte nach § 8 des Vertrags vorbehalten.",
+      "<b>Zahlungsvereinbarung:</b> Abweichend von einem allgemeinen Zahlungsziel gilt der individuell vereinbarte Ratenplan aus § 6 des Projektvertrags V-1005-01: 2.000,00 € brutto bis 30.09.2026, der verbleibende Betrag von 3.950,00 € brutto ab 01.03.2027 in monatlichen Raten von mindestens 500,00 €, spätestens vollständig am 31.12.2027. Bitte geben Sie bei jeder Überweisung die Rechnungsnummer als Verwendungszweck an. Bis zur vollständigen Zahlung bleiben die Nutzungsrechte nach § 8 des Vertrags vorbehalten.",
     notes:
-      "Leistung nach Angebot AN-2026-514 vom 23.08.2026 und Projektvertrag V-2026-001. Regulär 6.500,00 € netto (81,25 Std. × 80,00 €), berechnet 5.000,00 € netto — Nachlass 1.500,00 €.\n\nDie Warenwirtschaft ist nicht Gegenstand dieser Rechnung; sie wird gesondert angeboten (AN-2026-515) und gesondert abgerechnet.",
+      "Leistung nach Angebot AN-2026-514 vom 23.08.2026 und Projektvertrag V-1005-01. Regulär 6.500,00 € netto (81,25 Std. × 80,00 €), berechnet 5.000,00 € netto — Nachlass 1.500,00 €.\n\nDie Warenwirtschaft ist nicht Gegenstand dieser Rechnung; sie wird gesondert angeboten (AN-2026-515) und gesondert abgerechnet.",
   },
 ]
 
@@ -478,246 +571,64 @@ const PAKET_2_MODULE_515: LineItemTask[] = PAKET_2_MODULE_513.map((m) =>
   typeof m === "string" ? m : { ...m, text: m.text.replace(/^NEU: /, "") },
 )
 
+/**
+ * WrapCut — 28,36 Std. × 80,00 € = 2.268,80 €, nach Nachlass 1.596,64 € netto
+ * (1.900,00 € brutto). Die Einzelwerte müssen die Positionsmenge ergeben,
+ * sonst widersprechen sich Aufstellung und Preis auf demselben Blatt.
+ * Der Titel eröffnet im Angebot eine Leistungsgruppe.
+ */
+const WRAPCUT_AUFGABEN: LineItemTask[] = [
+  {
+    title: "Analyse & Konzept",
+    text: "Vollständige Auswertung der Bestandsseite — Startseite, Leistungen, Fahrzeugfolierung und beide FAQ-Seiten — als einzige Faktenquelle; daraus Seitenarchitektur, Navigationslogik und Designsprache",
+    hours: 3.2,
+  },
+  {
+    title: "Seitenstruktur — 17 Seiten",
+    text: "Startseite als Premium-One-Pager mit zwölf Abschnitten: Header, Hero, Vertrauensleiste, Leistungen, Kennzahlen, Ablauf, Studio, Galerie, Bewertungen, FAQ, Kontakt, Footer",
+    hours: 4.6,
+  },
+  {
+    text: "Leistungsübersicht und sechs Leistungsseiten — Voll- und Teilfolierung, Lackschutzfolie (PPF), Keramikversiegelung, Scheibentönung, Chromleisten, Werbebeschriftung",
+    hours: 3.4,
+  },
+  {
+    text: "Standortübersicht und sechs lokale Landingpages für Neuss, Mönchengladbach, Düsseldorf, Grevenbroich, Korschenbroich und Kaarst — je mit eigenem Text, eigener FAQ und eigenem Schema",
+    hours: 2.8,
+  },
+  {
+    text: "Impressum und Datenschutzerklärung als eigene Seiten mit eigenem Satzbild",
+    hours: 0.6,
+  },
+  {
+    title: "Inhalt & Redaktion",
+    text: "Alle Leistungstexte neu geschrieben, sachlich und ohne Werbefloskeln. Preise, Dauern und Haltbarkeiten stammen ausschließlich aus den von WrapCut selbst veröffentlichten Angaben",
+    hours: 3.3,
+  },
+  {
+    text: "30 echte Kundenfragen der Altseite zu einem redaktionellen FAQ verdichtet; jede Antwort beginnt mit der direkten Antwort und liefert die Details danach",
+    hours: 2.2,
+  },
+  {
+    text: "Sechs Google-Rezensionen wortgetreu übernommen, 30 Original-Fotos aufbereitet, zugeschnitten und zugeordnet",
+    hours: 1.9,
+  },
+  {
+    title: "Technik & Komponenten",
+    text: "Next.js 16 (App Router, Turbopack), React 19, typisiertes TypeScript, Tailwind CSS v4 mit eigenem Token-System — rund 7.100 Zeilen eigener Code in 46 Dateien, selbst gehostet",
+    hours: 2.4,
+  },
+  {
+    text: "Eigene Komponentenbibliothek mit rund 20 wiederverwendbaren Bausteinen — Reveal-System, Hover-Reveal, Lightbox, Marquee, Bento-Galerie, Accordion-FAQ, Sticky-CTA, Breadcrumbs, Magnetic-Buttons, Smooth-Scroll",
+    hours: 2.36,
+  },
+  {
+    text: "Bildauslieferung über next/image in AVIF und WebP, Barrierefreiheit mit ARIA und Tastaturbedienung, drei Kontaktwege (Anruf, WhatsApp, Formular), feste Aktionsleiste auf dem Telefon",
+    hours: 1.6,
+  },
+]
+
 const quotes: Quote[] = [
-  {
-    id: "quo-2026-043",
-    number: "AN-2026-512",
-    customerId: "c2",
-    projectId: "p-skope",
-    // Durch AN-2026-513 ersetzt — der Datensatz bleibt als Vorgang stehen,
-    // ist aber nicht mehr gültig.
-    status: "expired",
-    issueDate: "2026-08-14T10:00:00.000Z",
-    validUntil: "2026-09-13T10:00:00.000Z",
-    createdAt: "2026-08-14T10:00:00.000Z",
-    items: [
-      {
-        id: "paket-1",
-        description:
-          "Paket 1 — Website, Marke und Verkaufskanal: Redesign mit neuem Logo, vollständiger Webauftritt mit eigener Seite je Gerät, Shopify-Anbindung, Optimierung der Auffindbarkeit für Google, die Umkreissuche und KI-Systeme, eingerichtetes Google-Unternehmensprofil. Betrieb und Pflege danach ohne monatliche Gebühr — siehe Anmerkungen",
-        note: "Der Aufwand steckt weniger in den elf festen Seiten als darin, dass jedes Gerät eine eigene Seite bekommt, die sich aus dem Bestand füllt, und dass diese Seiten einzeln für Google, die Umkreissuche und KI-Systeme auffindbar aufgebaut sind. Wer das nachträglich anbaut, baut die Website ein zweites Mal.",
-        details: PAKET_1_AUFGABEN,
-        unit: "Std.",
-        qty: 81.25,
-        unitPrice: REGELSATZ,
-        taxRate: 0.19,
-      },
-      {
-        id: "paket-1-rabatt",
-        description:
-          "Nachlass auf Paket 1 — berechnet werden 5.000,00 € netto",
-        unit: "Nachlass",
-        qty: 1,
-        unitPrice: 5000 - 81.25 * REGELSATZ,
-        taxRate: 0.19,
-      },
-      {
-        id: "paket-2",
-        description:
-          "Paket 2 — System und Automatisierung: eigene Warenwirtschaft für Geräte, Vorgänge und Anfragen, zentraler Bestands- und Vorgangsabgleich der angebundenen Verkaufskanäle im Rahmen der jeweils verfügbaren und zulässigen Schnittstellen, KI-gestützte Texterstellung und Anfragebearbeitung, Auswertung, Einführung und Übergabe",
-        note: "Gebrauchte Geräte sind Einzelstücke: jedes mit eigener Rahmennummer, eigenem Zustand, eigenem Prüfprotokoll und Bestand 1. Standard-Warenwirtschaften rechnen mit Artikeln in Mengen; ein verkauftes Einzelstück muss dagegen auf allen Kanälen sofort verschwinden, sonst wird es ein zweites Mal verkauft. Genau dieser Fall — gleichzeitiger Zugriff, ausgefallene Verbindung mitten im Vorgang, Storno nach dem Abgleich — macht den Aufwand aus.",
-        details: PAKET_2_AUFGABEN,
-        unit: "Std.",
-        qty: 175.75,
-        unitPrice: REGELSATZ,
-        taxRate: 0.19,
-      },
-      {
-        id: "paket-2-rabatt",
-        description:
-          "Nachlass auf Paket 2 — berechnet werden 11.000,00 € netto",
-        unit: "Nachlass",
-        qty: 1,
-        unitPrice: 11000 - 175.75 * REGELSATZ,
-        taxRate: 0.19,
-      },
-    ],
-    valuation: {
-      hours: 257,
-      netAmount: 16000,
-      benchmarks: [
-        { label: "Mein Regelsatz ohne Nachlass", rate: 80 },
-        { label: "Freelancer Web & Software", rate: 91 },
-        { label: "Freelancer DACH, Schnitt", rate: 103 },
-        { label: "Agentur", rate: 130 },
-      ],
-      reasons: [
-        {
-          title: "Unter dem eigenen Regelsatz",
-          text: "257 Std. ergeben zum Regelsatz 20.560 €. Berechnet werden 16.000 € — marktübliche Sätze für Web- und Softwareentwicklung liegen bei etwa 91 bis 103 €/Std.",
-          stat: "62 €",
-          statLabel: "je Std.",
-        },
-        {
-          title: "Ein Ansprechpartner",
-          text: "Kein Agentur-Apparat, keine Weitergabe an Dritte: direkte Abstimmung, kurze Wege, ein Verantwortlicher.",
-          stat: "1",
-          statLabel: "Ansprechpartner",
-        },
-        {
-          title: "Der Unterbau trägt alle Kanäle",
-          text: "Datenmodell, Abgleichmotor und Bildverarbeitung werden einmal gebaut — Shopify und Kleinanzeigen sind danach dünne Anschlüsse.",
-          stat: "3",
-          statLabel: "Kanäle",
-        },
-        {
-          title: "Erfolgsabhängig statt Fixkosten",
-          text: "Eine Warenwirtschaft von der Stange kostet 150 bis 400 € monatlich, unbefristet. Hier fällt danach keine Grundgebühr an.",
-          stat: "0 €",
-          statLabel: "feste Pauschale",
-        },
-      ],
-      sources: [
-        {
-          name: "freelancermap — Freelancer-Kompass 2026.",
-          detail:
-            "Größte Freelancer-Studie im DACH-Raum: Ø-Stundensatz aller Freelancer 103 €/h (Vorjahr 104 €/h), Software- und Webentwicklung 91 €/h.",
-          link: "freelancermap.de/freelancer-kompass",
-        },
-        {
-          name: "Gründerküche",
-          detail:
-            "(unabhängige Fachpresse) — Bericht zum Freelancer-Kompass 2026: Stundensätze erstmals seit Studienbeginn rückläufig, im Durchschnitt 103 Euro.",
-          link: "gruenderkueche.de/news/freelancer-kompass-2026",
-        },
-        {
-          name: "GULP / Randstad Professional",
-          detail:
-            "— Stundensatz-Analyse und -Kalkulator einer der größten IT-Projektplattformen (unabhängige Zweitquelle).",
-          link: "gulp.de/freelancing/stundensatzkalkulator",
-        },
-      ],
-      sourceNote:
-        "Rechnerische Einordnung anhand marktüblicher Stundensätze, keine Zusicherung über Preise Dritter. Agentursätze (~130 €/h) sind Erfahrungswerte aus dem deutschen Markt.",
-      bottomLine:
-        "Zum Vergleich: 257 Std. entsprechen rechnerisch rund 23.100 € zu Freelancer-Sätzen und rund 33.400 € zu Agentursätzen. Beide Pakete zusammen kosten 16.000 € netto — 4.560 € unter der eigenen Kalkulation von 20.560 €.",
-    },
-    notes:
-      "## Festpreis und Leistungsumfang\n\nPaket 1 kostet 5.000,00 € netto, Paket 2 kostet 11.000,00 € netto. Die Stundenangaben dienen der nachvollziehbaren Kalkulation — Sie kaufen keine Stunden, sondern den beschriebenen Leistungsumfang. Bleibt dieser unverändert, liegt das Risiko eines höheren tatsächlichen Aufwands bei uns.\n\nEnthalten sind ausschließlich die hier beschriebenen Funktionen. Was nach Auftragserteilung dazukommt, ist eine Zusatzleistung: Wir stimmen sie vorher ab, bieten sie separat an und setzen sie erst nach Ihrer Freigabe um. Ohne Freigabe entstehen keine zusätzlichen Kosten.\n\n## Wann Paket 1 fertig ist\n\nWebsite veröffentlicht und funktionsfähig, die vereinbarten Seiten umgesetzt, Darstellung auf Telefon, Tablet und Computer geprüft, Formulare stellen zu, Shopify-Anbindung im beschriebenen Umfang in Betrieb, SEO-Grundstruktur und strukturierte Daten eingebaut, Google-Unternehmensprofil eingerichtet beziehungsweise optimiert (sofern die Zugänge vorliegen), Kontakt- und Anfragewege getestet. Zum Abschluss läuft ein gemeinsamer Funktionstest.\n\n## Wann Paket 2 fertig ist\n\nWenn ein vollständiger Vorgang durchläuft: Gerät erfassen, Rahmennummer hinterlegen, Zustand und Prüfstatus dokumentieren, Bilder hochladen, Preis festlegen, Verkaufsinformationen erzeugen, Gerät auf den angebundenen Kanälen bereitstellen, Reservierung oder Verkauf erfassen, Bestand aktualisieren, Gerät gegen Doppelverkauf sperren, Vorgang protokollieren und Verkauf samt Spanne in der Auswertung sehen. Bei Kleinanzeigen erfolgt die Veröffentlichung wie beschrieben halbautomatisch.\n\n## Zeitrahmen und Mitwirkung\n\nPaket 1 rund 3 bis 5 Wochen ab Projektstart, Paket 2 rund 6 bis 10 weitere Wochen. Das sind Planwerte. Sie setzen voraus, dass Zugänge, Gerätedaten, Bilder, Rechtstexte und Freigaben rechtzeitig vorliegen; fehlende Zugänge oder Daten, ausstehende Freigaben, Änderungen am Leistungsumfang und Wartezeiten bei Drittanbietern verschieben den Zeitraum entsprechend.\n\n## Angebundene Kanäle und Drittanbieter\n\nWebsite und internes System sind vollständig verbunden. Shopify wird automatisch abgeglichen — Geräte, Artikeldaten, Preise, Bilder, Verfügbarkeit und Bestellungen, soweit die Schnittstelle das zulässt. Kleinanzeigen bleibt bewusst halbautomatisch: Titel, Beschreibung, Preis und zugeschnittene Bilder werden vorbereitet, veröffentlicht wird per Klick von Hand, weil automatisches Einstellen gegen die Nutzungsbedingungen verstößt.\n\nFunktionen, die von Shopify, Kleinanzeigen, Google oder KI-Anbietern abhängen, lassen sich nur im Rahmen der dort jeweils verfügbaren Schnittstellen und Nutzungsbedingungen umsetzen. Ändert ein Anbieter Schnittstelle, Bedingungen oder Funktionsumfang grundlegend, ist das keine Nichterfüllung unsererseits; größere Anpassungen daraus werden separat vereinbart.\n\n## Pflege und Betreuung statt Monatspauschale\n\nEs gibt keine feste monatliche Pflegegebühr. Stattdessen 15 % des provisionsrelevanten Deckungsbeitrags aus jedem Geschäft, das durch die Website entsteht. Kein Websitegeschäft, keine Vergütung.\n\nProvisionsrelevanter Deckungsbeitrag = Nettoerlös abzüglich direktem Einkaufspreis, zurechenbarem Material, zurechenbarer Instandsetzung und zurechenbaren Fremdleistungen. Für Reparatur, Inspektion, Wartung und Zubehör gilt dieselbe Rechnung. Beispiel: Gerät für 1.900,00 € verkauft, Einkauf und Instandsetzung 1.300,00 € — Deckungsbeitrag 600,00 €, Anteil 90,00 €.\n\nAls Websitegeschäft gilt ein Auftrag, wenn Kauf, Anfrage, Formular, Terminbuchung oder ein nachweisbarer Erstkontakt über die Website oder den angebundenen Shop eingegangen ist — auch dann, wenn daraus erst später ein bezahlter Auftrag wird. Laufkundschaft, Telefon, Kleinanzeigen und Bestandskunden ohne Website-Ursprung bleiben außen vor.\n\nEnthalten sind Betrieb der Anwendung, Fehlerbehebung, Sicherheitsaktualisierungen, technische Pflege, Überwachung der angebundenen Schnittstellen, Pflege der Automatisierungen, kleinere Anpassungen und Optimierungen sowie Unterstützung bei Störungen. Nicht enthalten sind neue Funktionen und Module, umfangreiche Redesigns und die Anbindung weiterer Anbieter — das sind eigene Projekte und werden separat angeboten.\n\nAbgerechnet wird monatlich nachträglich anhand der Geschäfte, die in diesem Monat zustande gekommen sind. Storniert ein Kunde oder gibt er zurück, wird der bereits berechnete Anteil mit der nächsten Rechnung gutgeschrieben. Die Laufzeit beträgt 12 Monate; danach ist die Vereinbarung mit drei Monaten Frist zum Monatsende kündbar.\n\n## Nutzungsrechte und Beauftragung\n\nMit vollständiger Zahlung gehen alle Nutzungsrechte an Quelltext, Gestaltung, Logo und erzeugten Grafiken an Sie über. Paket 1 ist einzeln beauftragbar, Paket 2 jederzeit nachrüstbar; jedes beauftragte Paket wird einzeln in Rechnung gestellt, nicht beauftragte Pakete werden nicht berechnet.\n\n## Nicht enthalten\n\nDomain, Hosting, Shopify und die eingesetzten KI-Dienste zahlen Sie direkt beim jeweiligen Anbieter. Anbieter und Umfang legen wir vor der Einrichtung gemeinsam fest, damit Sie die monatlichen Kosten vorher kennen. Alle Beträge netto zuzüglich der gesetzlichen Umsatzsteuer.",
-  },
-  {
-    // Nachfolger von AN-2026-512: Paket 2 trägt jetzt zusätzlich Mengenbestand,
-    // Lagerplätze, Inventur und Ausschlachtung. Der Vorgänger bleibt als
-    // Datensatz stehen, ist aber nicht mehr gültig.
-    id: "quo-2026-044",
-    number: "AN-2026-513",
-    customerId: "c2",
-    projectId: "p-skope",
-    // Durch die Trennung in AN-2026-514 (Website) und AN-2026-515
-    // (Warenwirtschaft) erledigt. Der Datensatz bleibt als Vorgang stehen.
-    status: "expired",
-    issueDate: "2026-08-18T10:00:00.000Z",
-    validUntil: "2026-09-17T10:00:00.000Z",
-    createdAt: "2026-08-18T10:00:00.000Z",
-    lead: "Website, Verkaufskanäle und automatisierte Warenwirtschaft für Einzelstücke und Mengenbestand — in zwei Paketen, einzeln beauftragbar.",
-    notice:
-      "Ersetzt Angebot AN-2026-512 vom 14. Aug. 2026. Paket 2 ist um Mengenbestand, Lagerplätze, Inventur und Ausschlachtung erweitert.",
-    process: PROZESS_513,
-    items: [
-      {
-        id: "paket-1",
-        description:
-          "Paket 1 — Website, Marke und Verkaufskanal: Redesign mit neuem Logo, vollständiger Webauftritt mit eigener Seite je Gerät, Shopify-Anbindung, Optimierung der Auffindbarkeit für Google, die Umkreissuche und KI-Systeme, eingerichtetes Google-Unternehmensprofil. Betrieb und Pflege danach ohne monatliche Gebühr — siehe Anmerkungen",
-        note: "Der Aufwand steckt weniger in den elf festen Seiten als darin, dass jedes Gerät eine eigene Seite bekommt, die sich aus dem Bestand füllt, und dass diese Seiten einzeln für Google, die Umkreissuche und KI-Systeme auffindbar aufgebaut sind. Wer das nachträglich anbaut, baut die Website ein zweites Mal.",
-        details: PAKET_1_AUFGABEN,
-        unit: "Std.",
-        qty: 81.25,
-        unitPrice: REGELSATZ,
-        taxRate: 0.19,
-      },
-      {
-        id: "paket-1-rabatt",
-        description: "Nachlass auf Paket 1 — berechnet werden 5.000,00 € netto",
-        unit: "Nachlass",
-        qty: 1,
-        unitPrice: 5000 - 81.25 * REGELSATZ,
-        taxRate: 0.19,
-      },
-      {
-        id: "paket-2",
-        description:
-          "Paket 2 — System und Automatisierung: eigene Warenwirtschaft für Einzelstücke und Mengenbestand, Lager und Inventur, Werkstatt und Ausschlachtung, zentraler Bestands- und Vorgangsabgleich der angebundenen Verkaufskanäle im Rahmen der jeweils verfügbaren und zulässigen Schnittstellen, KI-gestützte Texterstellung und Anfragebearbeitung, Auswertung, Einführung und Übergabe",
-        note: "Gebrauchtware ist beides: Einzelstücke mit eigener Rahmennummer, eigenem Zustand und Bestand 1 — und Mengenware wie Ersatzteile, Zubehör und Verschleißmaterial, die nach Stückzahl und Durchschnittseinstand geführt wird. Beides gehört in ein System, mit einem gemeinsamen Bewegungsjournal als einziger Wahrheit über den Bestand. Genau das macht den Aufwand aus.",
-        details: PAKET_2_MODULE_513,
-        unit: "Std.",
-        qty: 324,
-        unitPrice: REGELSATZ,
-        taxRate: 0.19,
-      },
-      {
-        id: "paket-2-rabatt",
-        description: "Nachlass auf Paket 2 — berechnet werden 19.000,00 € netto",
-        unit: "Nachlass",
-        qty: 1,
-        unitPrice: 19000 - 324 * REGELSATZ,
-        taxRate: 0.19,
-      },
-    ],
-    valuation: {
-      // 405,25 Std. statt gerundeter 405: nur so trifft der Regelsatz-Balken
-      // exakt die Kalkulation von 32.420,00 €, die daneben ausgewiesen ist.
-      hours: 405.25,
-      netAmount: 24000,
-      benchmarks: [
-        { label: "Mein Regelsatz ohne Nachlass", rate: 80 },
-        { label: "Freelancer Web & Software", rate: 91 },
-        { label: "Freelancer DACH, Schnitt", rate: 103 },
-        { label: "Agentur", rate: 130 },
-      ],
-      reasons: [
-        {
-          title: "Unter dem eigenen Regelsatz",
-          text: "405,25 Std. ergeben zum Regelsatz 32.420 €. Berechnet werden 24.000 € — marktüblich sind 91 bis 103 €/Std.",
-          stat: "59 €",
-          statLabel: "je Std.",
-        },
-        {
-          title: "Ein Ansprechpartner",
-          text: "Kein Agentur-Apparat, keine Weitergabe an Dritte: direkte Abstimmung, kurze Wege, ein Verantwortlicher.",
-          stat: "1",
-          statLabel: "Ansprechpartner",
-        },
-        {
-          title: "Der Unterbau trägt alle Kanäle",
-          text: "Datenmodell, Bewegungsjournal, Abgleichmotor und Bildverarbeitung werden einmal gebaut — Shopify und Kleinanzeigen sind danach dünne Anschlüsse.",
-          stat: "3",
-          statLabel: "Kanäle",
-        },
-        {
-          title: "Erfolgsabhängig statt Fixkosten",
-          text: "Nach dem Livegang keine feste Grundgebühr. Die Betreuung wird nur fällig, wenn über die Website ein Geschäft zustande kommt.",
-          stat: "0 €",
-          statLabel: "feste Pauschale",
-        },
-      ],
-      sources: [
-        {
-          name: "freelancermap — Freelancer-Kompass 2026.",
-          detail:
-            "Größte Freelancer-Studie im DACH-Raum: Ø-Stundensatz aller Freelancer 103 €/h (Vorjahr 104 €/h), Software- und Webentwicklung 91 €/h.",
-          link: "freelancermap.de/freelancer-kompass",
-        },
-        {
-          name: "Gründerküche",
-          detail:
-            "(unabhängige Fachpresse) — Bericht zum Freelancer-Kompass 2026: Stundensätze erstmals seit Studienbeginn rückläufig, im Durchschnitt 103 Euro.",
-          link: "gruenderkueche.de/news/freelancer-kompass-2026",
-        },
-        {
-          name: "GULP / Randstad Professional",
-          detail:
-            "— Stundensatz-Analyse und -Kalkulator einer der größten IT-Projektplattformen (unabhängige Zweitquelle).",
-          link: "gulp.de/freelancing/stundensatzkalkulator",
-        },
-      ],
-      sourceNote:
-        "Rechnerische Einordnung anhand marktüblicher Stundensätze, keine Zusicherung über Preise Dritter. Agentursätze (~130 €/h) sind Erfahrungswerte aus dem deutschen Markt.",
-      bottomLine:
-        "Zum Vergleich: 405,25 Std. entsprechen rechnerisch rund 36.900 € zu Freelancer-Sätzen und rund 52.700 € zu Agentursätzen. Beide Pakete zusammen kosten 24.000 € netto — 8.420 € unter der eigenen Kalkulation von 32.420 €.",
-    },
-    notes:
-      "## Festpreis und Leistungsumfang\n\nPaket 1 kostet 5.000,00 € netto, Paket 2 kostet 19.000,00 € netto. Die Stundenangaben dienen der nachvollziehbaren Kalkulation — Sie kaufen keine Stunden, sondern den beschriebenen Leistungsumfang. Bleibt dieser unverändert, liegt das Risiko eines höheren tatsächlichen Aufwands bei uns.\n\nEnthalten sind ausschließlich die hier beschriebenen Funktionen. Was nach Auftragserteilung dazukommt, ist eine Zusatzleistung: Wir stimmen sie vorher ab, bieten sie separat an und setzen sie erst nach Ihrer Freigabe um. Ohne Freigabe entstehen keine zusätzlichen Kosten.\n\n## Wann Paket 1 fertig ist\n\nWebsite veröffentlicht und funktionsfähig, die vereinbarten Seiten umgesetzt, Darstellung auf Telefon, Tablet und Computer geprüft, Formulare stellen zu, Shopify-Anbindung im beschriebenen Umfang in Betrieb, SEO-Grundstruktur und strukturierte Daten eingebaut, Google-Unternehmensprofil eingerichtet beziehungsweise optimiert (sofern die Zugänge vorliegen), Kontakt- und Anfragewege getestet. Zum Abschluss läuft ein gemeinsamer Funktionstest.\n\n## Wann Paket 2 fertig ist\n\nWenn ein vollständiger Vorgang durchläuft: Gerät erfassen, Rahmennummer hinterlegen, Zustand und Prüfprotokoll dokumentieren, Bilder hochladen, Preis festlegen, Gerät auf den angebundenen Kanälen bereitstellen, Reservierung oder Verkauf erfassen, Bestand aktualisieren, Gerät gegen Doppelverkauf sperren, Vorgang protokollieren und Verkauf samt Spanne in der Auswertung sehen.\n\nZusätzlich für den Mengenbestand: ein Mengenartikel wird zugebucht, umgelagert, verbraucht und inventiert; eine Ausschlachtung verteilt den Einkaufswert eines Geräts auf die entnommenen Teile — wahlweise nach Verkaufswert, nach hinterlegtem Richtwert oder zu gleichen Teilen; ein Verkauf lässt sich stornieren und die Ware wahlweise zurück ins Lager nehmen. Bei Kleinanzeigen erfolgt die Veröffentlichung wie beschrieben halbautomatisch.\n\n## Zeitrahmen und Mitwirkung\n\nPaket 1 rund 3 bis 5 Wochen ab Projektstart, Paket 2 rund 11 bis 16 weitere Wochen — zusammen rund 14 bis 21 Wochen. Das sind Planwerte und keine Fixtermine. Sie setzen voraus, dass Zugänge, Gerätedaten, Bilder, Rechtstexte und Freigaben rechtzeitig vorliegen; fehlende Zugänge oder Daten, ausstehende Freigaben, Änderungen am Leistungsumfang und Wartezeiten bei Drittanbietern verschieben den Zeitraum entsprechend.\n\n## Angebundene Kanäle und Drittanbieter\n\nWebsite und internes System sind vollständig verbunden. Shopify wird automatisch abgeglichen — Geräte, Artikeldaten, Preise, Bilder, Verfügbarkeit und Bestellungen, soweit die Schnittstelle das zulässt. Kleinanzeigen bleibt bewusst halbautomatisch: Titel, Beschreibung, Preis und zugeschnittene Bilder werden vorbereitet, veröffentlicht wird per Klick von Hand, weil automatisches Einstellen gegen die Nutzungsbedingungen verstößt.\n\nFunktionen, die von Shopify, Kleinanzeigen, Google oder KI-Anbietern abhängen, lassen sich nur im Rahmen der dort jeweils verfügbaren Schnittstellen und Nutzungsbedingungen umsetzen. Ändert ein Anbieter Schnittstelle, Bedingungen oder Funktionsumfang grundlegend, ist das keine Nichterfüllung unsererseits; größere Anpassungen daraus werden separat vereinbart.\n\n## Pflege und Betreuung statt Monatspauschale\n\nEs gibt keine feste monatliche Pflegegebühr. Stattdessen 15 % des provisionsrelevanten Deckungsbeitrags aus jedem Geschäft, das durch die Website entsteht. Kein Websitegeschäft, keine Vergütung.\n\nProvisionsrelevanter Deckungsbeitrag = Nettoerlös abzüglich direktem Einkaufspreis, zurechenbarem Material, zurechenbarer Instandsetzung und zurechenbaren Fremdleistungen. Für Reparatur, Inspektion, Wartung und Zubehör gilt dieselbe Rechnung. Beispiel: Gerät für 1.900,00 € verkauft, Einkauf und Instandsetzung 1.300,00 € — Deckungsbeitrag 600,00 €, Anteil 90,00 €.\n\nAls Websitegeschäft gilt ein Auftrag, wenn Kauf, Anfrage, Formular, Terminbuchung oder ein nachweisbarer Erstkontakt über die Website oder den angebundenen Shop eingegangen ist — auch dann, wenn daraus erst später ein bezahlter Auftrag wird. Maßgeblich ist die Herkunftserfassung des Systems. Laufkundschaft, Telefon, Kleinanzeigen und Bestandskunden ohne Website-Ursprung bleiben außen vor.\n\nEnthalten sind Betrieb der Anwendung, Fehlerbehebung, Sicherheitsaktualisierungen, technische Pflege, Überwachung der angebundenen Schnittstellen, Pflege der Automatisierungen, kleinere Anpassungen und Optimierungen sowie Unterstützung bei Störungen. Nicht enthalten sind neue Funktionen und Module, umfangreiche Redesigns und die Anbindung weiterer Anbieter — das sind eigene Projekte und werden separat angeboten.\n\nAbgerechnet wird monatlich nachträglich anhand der Geschäfte, die in diesem Monat zustande gekommen sind. Storniert ein Kunde oder gibt er zurück, wird der bereits berechnete Anteil mit der nächsten Rechnung gutgeschrieben. Die Laufzeit beträgt 12 Monate ab Livegang; danach ist die Vereinbarung mit drei Monaten Frist zum Monatsende kündbar.\n\n## Beauftragung und Preisbindung\n\nPaket 1 ist einzeln beauftragbar. Paket 2 kann nachträglich beauftragt werden — zu dem hier genannten Preis, sofern die Beauftragung innerhalb von sechs Monaten nach Abnahme von Paket 1 erfolgt; danach wird es neu kalkuliert. Jedes beauftragte Paket wird einzeln in Rechnung gestellt, nicht beauftragte Pakete werden nicht berechnet.\n\nDie erfolgsabhängige Betreuung gehört zur Beauftragung von Paket 1 und beginnt mit dem Livegang. Sie wird nicht gesondert beauftragt und nicht pauschal berechnet; abgerechnet wird ausschließlich der Anteil aus tatsächlich zustande gekommenen Websitegeschäften.\n\n## Vertragsgrundlage\n\nDieses Angebot beschreibt Leistung, Preis und Zeitrahmen. Die rechtlichen Regelungen — Abnahme, Nutzungsrechte, Gewährleistung, Haftung, Datenschutz, Laufzeit und Kündigung — stehen im zugehörigen Projektvertrag, der diesem Angebot beiliegt. Angebot und Vertrag gehören zusammen: Mit der Unterzeichnung des Vertrags wird dieses Angebot in dem dort bezeichneten Umfang verbindlich beauftragt.\n\n## Nicht enthalten\n\nDomain, Hosting, Shopify und die eingesetzten KI-Dienste zahlen Sie direkt beim jeweiligen Anbieter. Anbieter und Umfang legen wir vor der Einrichtung gemeinsam fest, damit Sie die monatlichen Kosten vorher kennen. Ebenfalls nicht enthalten sind Rechtsberatung und die Erstellung von Rechtstexten (Impressum, Datenschutzerklärung, Shop-AGB, Widerrufsbelehrung), Marken- und Schutzrechtsrecherchen sowie Inhalte und Lizenzen Dritter. Alle Beträge netto zuzüglich der gesetzlichen Umsatzsteuer.",
-  },
   /**
    * AN-2026-514 — Website, Marke und Verkaufskanal als eigenständiges Angebot.
    *
@@ -767,7 +678,7 @@ const quotes: Quote[] = [
       hours: 81.25,
       netAmount: 5000,
       benchmarks: [
-        { label: "Mein Regelsatz ohne Nachlass", rate: 80 },
+        { label: "Regelsatz laut Angebot", rate: 80 },
         { label: "Freelancer Web & Software", rate: 91 },
         { label: "Freelancer DACH, Schnitt", rate: 103 },
         { label: "Agentur", rate: 130 },
@@ -824,7 +735,7 @@ const quotes: Quote[] = [
         "Zum Vergleich: 81,25 Std. entsprechen rechnerisch rund 7.400 € zu Freelancer-Sätzen für Web- und Softwareentwicklung und rund 10.600 € zu Agentursätzen. Die Website kostet 5.000 € netto — 1.500 € unter der eigenen Kalkulation von 6.500 €.",
     },
     notes:
-      "## Festpreis und Leistungsumfang\n\nDie Website kostet 5.000,00 € netto. Die Stundenangaben dienen der nachvollziehbaren Kalkulation — Sie kaufen keine Stunden, sondern den beschriebenen Leistungsumfang. Bleibt dieser unverändert, liegt das Risiko eines höheren tatsächlichen Aufwands bei uns.\n\nEnthalten sind ausschließlich die hier beschriebenen Funktionen. Was nach Auftragserteilung dazukommt, ist eine Zusatzleistung: Wir stimmen sie vorher ab, bieten sie separat an und setzen sie erst nach Ihrer Freigabe um. Ohne Freigabe entstehen keine zusätzlichen Kosten.\n\n## Wann die Website fertig ist\n\nWebsite veröffentlicht und funktionsfähig, die vereinbarten Seiten umgesetzt, Darstellung auf Telefon, Tablet und Computer geprüft, Formulare stellen zu, Shopify-Anbindung im beschriebenen Umfang in Betrieb, SEO-Grundstruktur und strukturierte Daten eingebaut, Google-Unternehmensprofil eingerichtet beziehungsweise optimiert (sofern die Zugänge vorliegen), Kontakt- und Anfragewege getestet. Zum Abschluss läuft ein gemeinsamer Funktionstest.\n\n## Zeitrahmen und Mitwirkung\n\nRund 3 bis 5 Wochen ab Projektstart. Das sind Planwerte und keine Fixtermine. Sie setzen voraus, dass Zugänge, Gerätedaten, Bilder, Rechtstexte und Freigaben rechtzeitig vorliegen; fehlende Zugänge oder Daten, ausstehende Freigaben, Änderungen am Leistungsumfang und Wartezeiten bei Drittanbietern verschieben den Zeitraum entsprechend.\n\n## Angebundene Kanäle und Drittanbieter\n\nShopify wird als Bestellkanal angebunden — Artikel, Preise, Bilder und Bestände werden abgeglichen, soweit die Schnittstelle das zulässt. Die Geräteseiten der Website und der Shop zeigen denselben Datenstand.\n\nFunktionen, die von Shopify, Google oder KI-Anbietern abhängen, lassen sich nur im Rahmen der dort jeweils verfügbaren Schnittstellen und Nutzungsbedingungen umsetzen. Ändert ein Anbieter Schnittstelle, Bedingungen oder Funktionsumfang grundlegend, ist das keine Nichterfüllung unsererseits; größere Anpassungen daraus werden separat vereinbart.\n\n## Pflege und Betreuung statt Monatspauschale\n\nEs gibt keine feste monatliche Pflegegebühr. Stattdessen 15 % des provisionsrelevanten Deckungsbeitrags aus jedem Geschäft, das durch die Website entsteht. Kein Websitegeschäft, keine Vergütung.\n\nProvisionsrelevanter Deckungsbeitrag = Nettoerlös abzüglich direktem Einkaufspreis, zurechenbarem Material, zurechenbarer Instandsetzung und zurechenbaren Fremdleistungen. Für Reparatur, Inspektion, Wartung und Zubehör gilt dieselbe Rechnung. Beispiel: Gerät für 1.900,00 € verkauft, Einkauf und Instandsetzung 1.300,00 € — Deckungsbeitrag 600,00 €, Anteil 90,00 €.\n\nAls Websitegeschäft gilt ein Auftrag, wenn Kauf, Anfrage, Formular, Terminbuchung oder ein nachweisbarer Erstkontakt über die Website oder den angebundenen Shop eingegangen ist — auch dann, wenn daraus erst später ein bezahlter Auftrag wird. Maßgeblich ist die Herkunftserfassung der Website. Laufkundschaft, Telefon, Kleinanzeigen und Bestandskunden ohne Website-Ursprung bleiben außen vor.\n\nEnthalten sind Betrieb der Website, Fehlerbehebung, Sicherheitsaktualisierungen, technische Pflege, Überwachung der angebundenen Schnittstellen, kleinere Anpassungen und Optimierungen sowie Unterstützung bei Störungen. Nicht enthalten sind neue Funktionen und Module, umfangreiche Redesigns und die Anbindung weiterer Anbieter — das sind eigene Projekte und werden separat angeboten.\n\nAbgerechnet wird monatlich nachträglich anhand der Geschäfte, die in diesem Monat zustande gekommen sind. Storniert ein Kunde oder gibt er zurück, wird der bereits berechnete Anteil mit der nächsten Rechnung gutgeschrieben. Die Laufzeit beträgt 12 Monate ab Livegang; danach ist die Vereinbarung mit drei Monaten Frist zum Monatsende kündbar.\n\n## Beauftragung und Preisbindung\n\nDieses Angebot betrifft ausschließlich die Website. Die Warenwirtschaft ist Gegenstand des eigenen Angebots AN-2026-515 und wird nur berechnet, wenn sie gesondert beauftragt wird. Sie bleibt sechs Monate nach Abnahme der Website zum dort genannten Preis beauftragbar.\n\nDie erfolgsabhängige Betreuung gehört zur Beauftragung dieses Angebots und beginnt mit dem Livegang. Sie wird nicht gesondert beauftragt und nicht pauschal berechnet; abgerechnet wird ausschließlich der Anteil aus tatsächlich zustande gekommenen Websitegeschäften.\n\n## Vertragsgrundlage\n\nDieses Angebot beschreibt Leistung, Preis und Zeitrahmen. Die rechtlichen Regelungen — Abnahme, Zahlung, Nutzungsrechte, Gewährleistung, Haftung, Datenschutz, Laufzeit und Kündigung — stehen im Projektvertrag V-2026-001, der diesem Angebot beiliegt. Angebot und Vertrag gehören zusammen: Mit der Unterzeichnung des Vertrags wird dieses Angebot verbindlich beauftragt.\n\n## Nicht enthalten\n\nDomain, Hosting, Shopify und die eingesetzten KI-Dienste zahlen Sie direkt beim jeweiligen Anbieter. Anbieter und Umfang legen wir vor der Einrichtung gemeinsam fest, damit Sie die monatlichen Kosten vorher kennen. Ebenfalls nicht enthalten sind Rechtsberatung und die Erstellung von Rechtstexten (Impressum, Datenschutzerklärung, Shop-AGB, Widerrufsbelehrung), Marken- und Schutzrechtsrecherchen sowie Inhalte und Lizenzen Dritter. Alle Beträge netto zuzüglich der gesetzlichen Umsatzsteuer.",
+      "## Festpreis und Leistungsumfang\n\nDie Website kostet 5.000,00 € netto. Die Stundenangaben dienen der nachvollziehbaren Kalkulation — Sie kaufen keine Stunden, sondern den beschriebenen Leistungsumfang. Bleibt dieser unverändert, liegt das Risiko eines höheren tatsächlichen Aufwands bei uns.\n\nEnthalten sind ausschließlich die hier beschriebenen Funktionen. Was nach Auftragserteilung dazukommt, ist eine Zusatzleistung: Wir stimmen sie vorher ab, bieten sie separat an und setzen sie erst nach Ihrer Freigabe um. Ohne Freigabe entstehen keine zusätzlichen Kosten.\n\n## Wann die Website fertig ist\n\nWebsite veröffentlicht und funktionsfähig, die vereinbarten Seiten umgesetzt, Darstellung auf Telefon, Tablet und Computer geprüft, Formulare stellen zu, Shopify-Anbindung im beschriebenen Umfang in Betrieb, SEO-Grundstruktur und strukturierte Daten eingebaut, Google-Unternehmensprofil eingerichtet beziehungsweise optimiert (sofern die Zugänge vorliegen), Kontakt- und Anfragewege getestet. Zum Abschluss läuft ein gemeinsamer Funktionstest.\n\n## Zeitrahmen und Mitwirkung\n\nRund 3 bis 5 Wochen ab Projektstart. Das sind Planwerte und keine Fixtermine. Sie setzen voraus, dass Zugänge, Gerätedaten, Bilder, Rechtstexte und Freigaben rechtzeitig vorliegen; fehlende Zugänge oder Daten, ausstehende Freigaben, Änderungen am Leistungsumfang und Wartezeiten bei Drittanbietern verschieben den Zeitraum entsprechend.\n\n## Angebundene Kanäle und Drittanbieter\n\nShopify wird als Bestellkanal angebunden — Artikel, Preise, Bilder und Bestände werden abgeglichen, soweit die Schnittstelle das zulässt. Die Geräteseiten der Website und der Shop zeigen denselben Datenstand.\n\nFunktionen, die von Shopify, Google oder KI-Anbietern abhängen, lassen sich nur im Rahmen der dort jeweils verfügbaren Schnittstellen und Nutzungsbedingungen umsetzen. Ändert ein Anbieter Schnittstelle, Bedingungen oder Funktionsumfang grundlegend, ist das keine Nichterfüllung unsererseits; größere Anpassungen daraus werden separat vereinbart.\n\n## Pflege und Betreuung statt Monatspauschale\n\nEs gibt keine feste monatliche Pflegegebühr. Stattdessen 15 % des provisionsrelevanten Deckungsbeitrags aus jedem Geschäft, das durch die Website entsteht. Kein Websitegeschäft, keine Vergütung.\n\nProvisionsrelevanter Deckungsbeitrag = Nettoerlös abzüglich direktem Einkaufspreis, zurechenbarem Material, zurechenbarer Instandsetzung und zurechenbaren Fremdleistungen. Für Reparatur, Inspektion, Wartung und Zubehör gilt dieselbe Rechnung. Beispiel: Gerät für 1.900,00 € verkauft, Einkauf und Instandsetzung 1.300,00 € — Deckungsbeitrag 600,00 €, Anteil 90,00 €.\n\nAls Websitegeschäft gilt ein Auftrag, wenn Kauf, Anfrage, Formular, Terminbuchung oder ein nachweisbarer Erstkontakt über die Website oder den angebundenen Shop eingegangen ist — auch dann, wenn daraus erst später ein bezahlter Auftrag wird. Maßgeblich ist die Herkunftserfassung der Website. Laufkundschaft, Telefon, Kleinanzeigen und Bestandskunden ohne Website-Ursprung bleiben außen vor.\n\nEnthalten sind Betrieb der Website, Fehlerbehebung, Sicherheitsaktualisierungen, technische Pflege, Überwachung der angebundenen Schnittstellen, kleinere Anpassungen und Optimierungen sowie Unterstützung bei Störungen. Nicht enthalten sind neue Funktionen und Module, umfangreiche Redesigns und die Anbindung weiterer Anbieter — das sind eigene Projekte und werden separat angeboten.\n\nAbgerechnet wird monatlich nachträglich anhand der Geschäfte, die in diesem Monat zustande gekommen sind. Storniert ein Kunde oder gibt er zurück, wird der bereits berechnete Anteil mit der nächsten Rechnung gutgeschrieben. Die Laufzeit beträgt 12 Monate ab Livegang; danach ist die Vereinbarung mit drei Monaten Frist zum Monatsende kündbar.\n\n## Beauftragung und Preisbindung\n\nDieses Angebot betrifft ausschließlich die Website. Die Warenwirtschaft ist Gegenstand des eigenen Angebots AN-2026-515 und wird nur berechnet, wenn sie gesondert beauftragt wird. Sie bleibt sechs Monate nach Abnahme der Website zum dort genannten Preis beauftragbar.\n\nDie erfolgsabhängige Betreuung gehört zur Beauftragung dieses Angebots und beginnt mit dem Livegang. Sie wird nicht gesondert beauftragt und nicht pauschal berechnet; abgerechnet wird ausschließlich der Anteil aus tatsächlich zustande gekommenen Websitegeschäften.\n\n## Vertragsgrundlage\n\nDieses Angebot beschreibt Leistung, Preis und Zeitrahmen. Die rechtlichen Regelungen — Abnahme, Zahlung, Nutzungsrechte, Gewährleistung, Haftung, Datenschutz, Laufzeit und Kündigung — stehen im Projektvertrag V-1005-01, der diesem Angebot beiliegt. Angebot und Vertrag gehören zusammen: Mit der Unterzeichnung des Vertrags wird dieses Angebot verbindlich beauftragt.\n\n## Nicht enthalten\n\nDomain, Hosting, Shopify und die eingesetzten KI-Dienste zahlen Sie direkt beim jeweiligen Anbieter. Anbieter und Umfang legen wir vor der Einrichtung gemeinsam fest, damit Sie die monatlichen Kosten vorher kennen. Ebenfalls nicht enthalten sind Rechtsberatung und die Erstellung von Rechtstexten (Impressum, Datenschutzerklärung, Shop-AGB, Widerrufsbelehrung), Marken- und Schutzrechtsrecherchen sowie Inhalte und Lizenzen Dritter. Alle Beträge netto zuzüglich der gesetzlichen Umsatzsteuer.",
   },
   /**
    * AN-2026-515 — Warenwirtschaft und Automatisierung als eigenständiges
@@ -872,7 +783,7 @@ const quotes: Quote[] = [
       hours: 324,
       netAmount: 19000,
       benchmarks: [
-        { label: "Mein Regelsatz ohne Nachlass", rate: 80 },
+        { label: "Regelsatz laut Angebot", rate: 80 },
         { label: "Freelancer Web & Software", rate: 91 },
         { label: "Freelancer DACH, Schnitt", rate: 103 },
         { label: "Agentur", rate: 130 },
@@ -929,7 +840,231 @@ const quotes: Quote[] = [
         "Zum Vergleich: 324 Std. entsprechen rechnerisch rund 29.500 € zu Freelancer-Sätzen für Web- und Softwareentwicklung und rund 42.100 € zu Agentursätzen. Das System kostet 19.000 € netto — 6.920 € unter der eigenen Kalkulation von 25.920 €.",
     },
     notes:
-      "## Festpreis und Leistungsumfang\n\nDie Warenwirtschaft kostet 19.000,00 € netto. Die Stundenangaben dienen der nachvollziehbaren Kalkulation — Sie kaufen keine Stunden, sondern den beschriebenen Leistungsumfang. Bleibt dieser unverändert, liegt das Risiko eines höheren tatsächlichen Aufwands bei uns.\n\nEnthalten sind ausschließlich die zwölf hier beschriebenen Module. Was nach Auftragserteilung dazukommt, ist eine Zusatzleistung: Wir stimmen sie vorher ab, bieten sie separat an und setzen sie erst nach Ihrer Freigabe um. Ohne Freigabe entstehen keine zusätzlichen Kosten.\n\n## Wann das System fertig ist\n\nWenn ein vollständiger Vorgang durchläuft: Gerät erfassen, Rahmennummer hinterlegen, Zustand und Prüfprotokoll dokumentieren, Bilder hochladen, Preis festlegen, Gerät auf den angebundenen Kanälen bereitstellen, Reservierung oder Verkauf erfassen, Bestand aktualisieren, Gerät gegen Doppelverkauf sperren, Vorgang protokollieren und Verkauf samt Spanne in der Auswertung sehen.\n\nZusätzlich für den Mengenbestand: ein Mengenartikel wird zugebucht, umgelagert, verbraucht und inventiert; eine Ausschlachtung verteilt den Einkaufswert eines Geräts auf die entnommenen Teile — wahlweise nach Verkaufswert, nach hinterlegtem Richtwert oder zu gleichen Teilen; ein Verkauf lässt sich stornieren und die Ware wahlweise zurück ins Lager nehmen. Bei Kleinanzeigen erfolgt die Veröffentlichung wie beschrieben halbautomatisch.\n\n## Zeitrahmen und Mitwirkung\n\nRund 11 bis 16 Wochen ab Projektstart. Das sind Planwerte und keine Fixtermine. Sie setzen voraus, dass die Website aus Angebot AN-2026-514 abgenommen ist und dass Zugänge, Gerätedaten, Altbestände, Bilder und Freigaben rechtzeitig vorliegen; fehlende Zugänge oder Daten, ausstehende Freigaben, Änderungen am Leistungsumfang und Wartezeiten bei Drittanbietern verschieben den Zeitraum entsprechend.\n\n## Angebundene Kanäle und Drittanbieter\n\nWebsite und System sind vollständig verbunden. Shopify wird automatisch abgeglichen — Geräte, Artikeldaten, Preise, Bilder, Verfügbarkeit und Bestellungen, soweit die Schnittstelle das zulässt. Kleinanzeigen bleibt bewusst halbautomatisch: Titel, Beschreibung, Preis und zugeschnittene Bilder werden vorbereitet, veröffentlicht wird per Klick von Hand, weil automatisches Einstellen gegen die Nutzungsbedingungen verstößt.\n\nFunktionen, die von Shopify, Kleinanzeigen, Google oder KI-Anbietern abhängen, lassen sich nur im Rahmen der dort jeweils verfügbaren Schnittstellen und Nutzungsbedingungen umsetzen. Ändert ein Anbieter Schnittstelle, Bedingungen oder Funktionsumfang grundlegend, ist das keine Nichterfüllung unsererseits; größere Anpassungen daraus werden separat vereinbart.\n\n## Beauftragung und Preisbindung\n\nDieses Angebot betrifft ausschließlich die Warenwirtschaft und setzt die Website aus Angebot AN-2026-514 voraus. Der genannte Festpreis gilt, sofern die Beauftragung innerhalb von sechs Monaten nach Abnahme der Website erfolgt; danach wird neu kalkuliert.\n\nFür das System fällt keine monatliche Grundgebühr an. Betrieb, Fehlerbehebung, Sicherheitsaktualisierungen und technische Pflege laufen über die bereits vereinbarte erfolgsabhängige Betreuung aus Angebot AN-2026-514 mit; eine zusätzliche Pauschale entsteht nicht. Endet diese Betreuung, wird die Betreuung des Systems gesondert vereinbart.\n\n## Vertragsgrundlage\n\nDieses Angebot beschreibt Leistung, Preis und Zeitrahmen. Die rechtlichen Regelungen — Abnahme, Zahlung, Nutzungsrechte, Gewährleistung, Haftung, Datenschutz, Laufzeit und Kündigung — stehen im Projektvertrag V-2026-002, der diesem Angebot beiliegt. Angebot und Vertrag gehören zusammen: Mit der Unterzeichnung des Vertrags wird dieses Angebot verbindlich beauftragt.\n\n## Nicht enthalten\n\nHosting, Rechenleistung, Speicher, Shopify und die eingesetzten KI-Dienste zahlen Sie direkt beim jeweiligen Anbieter. Anbieter und Umfang legen wir vor der Einrichtung gemeinsam fest, damit Sie die laufenden Kosten vorher kennen. Ebenfalls nicht enthalten sind Rechtsberatung, die Aufbereitung unbrauchbarer Altdaten, Hardware wie Etikettendrucker und Scanner sowie Inhalte und Lizenzen Dritter. Alle Beträge netto zuzüglich der gesetzlichen Umsatzsteuer.",
+      "## Festpreis und Leistungsumfang\n\nDie Warenwirtschaft kostet 19.000,00 € netto. Die Stundenangaben dienen der nachvollziehbaren Kalkulation — Sie kaufen keine Stunden, sondern den beschriebenen Leistungsumfang. Bleibt dieser unverändert, liegt das Risiko eines höheren tatsächlichen Aufwands bei uns.\n\nEnthalten sind ausschließlich die zwölf hier beschriebenen Module. Was nach Auftragserteilung dazukommt, ist eine Zusatzleistung: Wir stimmen sie vorher ab, bieten sie separat an und setzen sie erst nach Ihrer Freigabe um. Ohne Freigabe entstehen keine zusätzlichen Kosten.\n\n## Wann das System fertig ist\n\nWenn ein vollständiger Vorgang durchläuft: Gerät erfassen, Rahmennummer hinterlegen, Zustand und Prüfprotokoll dokumentieren, Bilder hochladen, Preis festlegen, Gerät auf den angebundenen Kanälen bereitstellen, Reservierung oder Verkauf erfassen, Bestand aktualisieren, Gerät gegen Doppelverkauf sperren, Vorgang protokollieren und Verkauf samt Spanne in der Auswertung sehen.\n\nZusätzlich für den Mengenbestand: ein Mengenartikel wird zugebucht, umgelagert, verbraucht und inventiert; eine Ausschlachtung verteilt den Einkaufswert eines Geräts auf die entnommenen Teile — wahlweise nach Verkaufswert, nach hinterlegtem Richtwert oder zu gleichen Teilen; ein Verkauf lässt sich stornieren und die Ware wahlweise zurück ins Lager nehmen. Bei Kleinanzeigen erfolgt die Veröffentlichung wie beschrieben halbautomatisch.\n\n## Zeitrahmen und Mitwirkung\n\nRund 11 bis 16 Wochen ab Projektstart. Das sind Planwerte und keine Fixtermine. Sie setzen voraus, dass die Website aus Angebot AN-2026-514 abgenommen ist und dass Zugänge, Gerätedaten, Altbestände, Bilder und Freigaben rechtzeitig vorliegen; fehlende Zugänge oder Daten, ausstehende Freigaben, Änderungen am Leistungsumfang und Wartezeiten bei Drittanbietern verschieben den Zeitraum entsprechend.\n\n## Angebundene Kanäle und Drittanbieter\n\nWebsite und System sind vollständig verbunden. Shopify wird automatisch abgeglichen — Geräte, Artikeldaten, Preise, Bilder, Verfügbarkeit und Bestellungen, soweit die Schnittstelle das zulässt. Kleinanzeigen bleibt bewusst halbautomatisch: Titel, Beschreibung, Preis und zugeschnittene Bilder werden vorbereitet, veröffentlicht wird per Klick von Hand, weil automatisches Einstellen gegen die Nutzungsbedingungen verstößt.\n\nFunktionen, die von Shopify, Kleinanzeigen, Google oder KI-Anbietern abhängen, lassen sich nur im Rahmen der dort jeweils verfügbaren Schnittstellen und Nutzungsbedingungen umsetzen. Ändert ein Anbieter Schnittstelle, Bedingungen oder Funktionsumfang grundlegend, ist das keine Nichterfüllung unsererseits; größere Anpassungen daraus werden separat vereinbart.\n\n## Beauftragung und Preisbindung\n\nDieses Angebot betrifft ausschließlich die Warenwirtschaft und setzt die Website aus Angebot AN-2026-514 voraus. Der genannte Festpreis gilt, sofern die Beauftragung innerhalb von sechs Monaten nach Abnahme der Website erfolgt; danach wird neu kalkuliert.\n\nFür das System fällt keine monatliche Grundgebühr an. Betrieb, Fehlerbehebung, Sicherheitsaktualisierungen und technische Pflege laufen über die bereits vereinbarte erfolgsabhängige Betreuung aus Angebot AN-2026-514 mit; eine zusätzliche Pauschale entsteht nicht. Endet diese Betreuung, wird die Betreuung des Systems gesondert vereinbart.\n\n## Vertragsgrundlage\n\nDieses Angebot beschreibt Leistung, Preis und Zeitrahmen. Die rechtlichen Regelungen — Abnahme, Zahlung, Nutzungsrechte, Gewährleistung, Haftung, Datenschutz, Laufzeit und Kündigung — stehen im Projektvertrag V-1005-02, der diesem Angebot beiliegt. Angebot und Vertrag gehören zusammen: Mit der Unterzeichnung des Vertrags wird dieses Angebot verbindlich beauftragt.\n\n## Nicht enthalten\n\nHosting, Rechenleistung, Speicher, Shopify und die eingesetzten KI-Dienste zahlen Sie direkt beim jeweiligen Anbieter. Anbieter und Umfang legen wir vor der Einrichtung gemeinsam fest, damit Sie die laufenden Kosten vorher kennen. Ebenfalls nicht enthalten sind Rechtsberatung, die Aufbereitung unbrauchbarer Altdaten, Hardware wie Etikettendrucker und Scanner sowie Inhalte und Lizenzen Dritter. Alle Beträge netto zuzüglich der gesetzlichen Umsatzsteuer.",
+  },
+/**
+   * AN-2026-516 — Website-Relaunch wrapcut.nrw.
+   *
+   * Kein Stundennachweis, sondern ein Festpreis bis zur Fertigstellung: Die
+   * 28,36 Std. sind bereits geleistet, Feinschliff, Mobilansicht und die
+   * SEO-/GEO-Arbeit stehen noch aus und sind eingepreist. Der Kunde hat den
+   * Preis als Hürde benannt — deshalb steht der Nachlass als eigene Zeile im
+   * Dokument, und die Liquiditätsfrage löst die Ratenzahlung, nicht ein
+   * zweiter Rabatt.
+   */
+  {
+    id: "quo-2026-047",
+    number: "AN-2026-516",
+    customerId: "c3",
+    projectId: "p-wrapcut",
+    pack: "web",
+    layout: "compact",
+    status: "draft",
+    issueDate: "2026-08-30T10:00:00.000Z",
+    validUntil: "2026-09-13T10:00:00.000Z",
+    createdAt: "2026-08-30T10:00:00.000Z",
+    title: "Website-Relaunch",
+    titleAccent: "wrapcut.nrw",
+    notice:
+      "Festpreis bis zur Fertigstellung: Feinschliff, Handy-Version und die komplette SEO-/GEO-Arbeit sind enthalten und werden nicht nachberechnet.",
+    // Grobe Übersicht statt Stundenzettel: der Kunde soll auf einen Blick
+    // sehen, was er bekommt. Der Detailumfang steht im Projektvertrag.
+    summary: [
+      {
+        k: "17 eigene Seiten",
+        v: "Startseite, sechs Leistungs- und sechs Standortseiten, zwei Übersichten, Impressum, Datenschutz",
+      },
+      {
+        k: "Eigenes Design",
+        v: "individuell entwickelt statt Vorlage, durchgängig einheitliche Bausteine",
+      },
+      {
+        k: "Handy-Version",
+        v: "vollständig ausgearbeitet für Telefon, Tablet und Computer",
+      },
+      {
+        k: "SEO & GEO",
+        v: "technische Grundlage, strukturierte Daten, lokale Signale je Standort",
+      },
+      {
+        k: "Inhalte & Bilder",
+        v: "Texte neu geschrieben, 30 Fotos aufbereitet, Bewertungen übernommen",
+      },
+      {
+        k: "Livegang",
+        v: "Domain und Hosting eingerichtet, alte Adressen weitergeleitet, kurze Einweisung",
+      },
+    ],
+    items: [
+      {
+        id: "wrapcut-website",
+        description:
+          "Website-Relaunch wrapcut.nrw: individuell entwickelte Website (Next.js) mit 17 eigenständigen Seiten, eigenem Design aus durchgängig einheitlichen Bausteinen, neu geschriebenen Inhalten und vollständiger technischer SEO-Grundlage — schlüsselfertig bis zur Abnahme",
+        note: "Jede Leistung und jeder Standort erhält eine eigene Seite mit eigenem Inhalt — die Grundlage dafür, in Neuss, Mönchengladbach und Düsseldorf getrennt gefunden zu werden.",
+        details: WRAPCUT_AUFGABEN,
+        unit: "Std.",
+        qty: 28.36,
+        unitPrice: REGELSATZ,
+        taxRate: 0.19,
+      },
+      {
+        id: "wrapcut-rabatt",
+        description: "Projektnachlass — berechnet werden 1.596,64 € netto (1.900,00 € brutto)",
+        unit: "Nachlass",
+        // Zielwert ist ein glatter Bruttopreis: 1.900,00 € — brutto, weil der
+        // Kunde brutto zahlt und diese Zahl auf dem Angebot steht. Netto und
+        // Steuer fallen dadurch krumm aus (1.596,64 + 303,36), was richtig ist:
+        // gerundet wird der Betrag, den der Kunde überweist, nicht der Anteil
+        // des Finanzamts. Im Ratenweg wird genau dieser Betrag auf zwölf
+        // gleiche Monatsraten geteilt: 1.900,00 ÷ 12 = 158,33 € Website-Anteil
+        // plus 70,00 € Pflege = 228,33 € im Monat. Kein Aufschlag, keine
+        // Sonderrate — die vier Cent Rundungsdifferenz trägt die letzte Rate.
+        unitPrice: 1900 / 1.19 - 28.36 * REGELSATZ,
+        qty: 1,
+        taxRate: 0.19,
+      },
+    ],
+    // Kurzklauseln der kompakten Fassung — nur die kaufmännische Ebene:
+    // was fertig heißt, was es kostet, was nicht drin ist. Alles Rechtliche
+    // (Abnahmefrist, Verzug, Haftung, Nutzungsrechte, Kündigung) steht im
+    // Projektvertrag V-1006-01; die letzte Klausel verweist darauf. Doppelt
+    // geregelt wird nichts — sonst gilt im Zweifel die für den Kunden
+    // günstigere Fassung.
+    terms: [
+      {
+        title: "Festpreis",
+        text: "1.900,00 € brutto bis zur Fertigstellung, keine Abrechnung nach Stunden. Bezahlt wird vor dem Start; das Angebot gilt 14 Tage.",
+      },
+      {
+        title: "Bis die Website online ist",
+        text: "Nach Zahlungseingang — Vollbetrag oder erste Monatsrate — wird die Website fertig optimiert und ist rund zwei Wochen später online (Planwert). Ab dem Livegang läuft die Pflege; ab da folgen die weiteren Monatsrechnungen.",
+      },
+      {
+        title: "Nicht enthalten",
+        text: "Domain und Hosting zahlen Sie direkt beim Anbieter (niedrig zweistellig im Monat). Ebenso wenig dabei: Rechtsberatung, Fotos, Bildlizenzen, Werbebudget.",
+      },
+      {
+        title: "Pflege monatlich kündbar",
+        text: "Bei Einmalzahlung ab dem ersten Monat zum Monatsende kündbar, im Ratenweg nach den zwölf Monaten — dann gehört die Website Ihnen.",
+      },
+      {
+        title: "So geht es weiter",
+        text: "Nach Ihrer Zusage folgen Vertrag und Rechnung. Der Vertrag regelt Abnahme, Zahlung, Rechte, Haftung und Kündigung. Unterschrieben und bezahlt, beginnt die Umsetzung.",
+      },
+    ],
+    orderNote:
+      "Antworten Sie einfach per WhatsApp, für welche der beiden Möglichkeiten Sie sich entscheiden, und schicken Sie diese Angaben mit. Mehr wird für Vertrag und Rechnung nicht benötigt.",
+    orderItems: [
+      { k: "Ihre Entscheidung", v: "einmalig 1.900,00 € oder monatlich 228,33 €" },
+      { k: "Firmierung", v: "vollständiger Firmenname mit Rechtsform" },
+      { k: "Nachname des Inhabers", v: "für das Impressum" },
+      { k: "USt-IdNr. oder Steuernummer", v: "für Impressum und Rechnung" },
+    ],
+    orderFoot:
+      "Danach folgen Vertrag, Rechnung und ein Terminvorschlag für den Start.",
+    care: {
+      eyebrow: "Nach der Freischaltung",
+      title: "Website-Pflege",
+      headline: "70,00 € brutto im Monat, ab Freischaltung.",
+      text: "Updates, Überwachung, Fehlerbehebung und kleine Inhaltsänderungen. Monatlich kündbar — bei Einmalzahlung sofort, im Ratenweg nach den zwölf Monaten.",
+      stat: "70 €",
+      statLabel: "brutto monatlich",
+      labels: ["Enthalten", "Reaktionszeit", "Nicht enthalten", "Abrechnung & Laufzeit"],
+      summaryLabel: "Website-Pflege ab Freischaltung",
+      summaryValue: "70,00 € brutto / Monat",
+    },
+    payment: {
+      intro:
+        "Auf einmal vor dem Start — oder monatlich über zwölf Monate. Der Preis ist derselbe, nur anders verteilt: einmalig kommt die Pflege Monat für Monat dazu, im Ratenweg steckt sie schon in der Rate.",
+      // Die Karten liefern nur noch die Kurzformel für den Preisblock auf
+      // Seite 1; ausgerechnet wird in den Tabellen darunter.
+      cards: [
+        { head: "1.900,00 €", when: "einmalig, vor dem Start" },
+        { head: "228,33 €", when: "monatlich, zwölf Monate" },
+      ],
+      tables: [
+        {
+          title: "Einmalzahlung",
+          sub: "1.900,00 € vorab, Pflege monatlich dazu",
+          rows: [
+            { k: "Website-Relaunch, netto", v: "1.596,64 €" },
+            { k: "zzgl. Umsatzsteuer 19 %", v: "303,36 €", muted: true },
+            { k: "Website gesamt", v: "1.900,00 €", strong: true, rule: true },
+            { k: "Pflege, netto", v: "58,82 €" },
+            { k: "zzgl. Umsatzsteuer 19 %", v: "11,18 €", muted: true },
+            { k: "Pflege je Monat", v: "70,00 €", strong: true, rule: true },
+            { k: "Vor dem Start fällig", v: "1.900,00 €", strong: true, rule: true },
+            { k: "Danach je Monat", v: "70,00 €", strong: true },
+          ],
+          foot: "Die Rechnung kommt mit der Zusage, zahlbar innerhalb von sieben Tagen. Mit dem Zahlungseingang beginnt die Fertigstellung. Die Website ist damit vollständig bezahlt; nur die Pflege läuft weiter — ab der Freischaltung 70,00 € im Monat, ab dem ersten Monat zum Monatsende kündbar.",
+        },
+        {
+          title: "Monatlich, zwölf Monate",
+          sub: "1.900,00 € ÷ 12, Pflege schon enthalten",
+          rows: [
+            { k: "Website-Rate, netto", v: "133,05 €" },
+            { k: "zzgl. Umsatzsteuer 19 %", v: "25,28 €", muted: true },
+            { k: "Website-Rate", v: "158,33 €", strong: true, rule: true },
+            { k: "Pflege, netto", v: "58,82 €" },
+            { k: "zzgl. Umsatzsteuer 19 %", v: "11,18 €", muted: true },
+            { k: "Pflege je Monat", v: "70,00 €", strong: true, rule: true },
+            { k: "Monatsrate", v: "228,33 €", strong: true, rule: true },
+            { k: "Zwölf Monate", v: "2.740,00 €", strong: true },
+          ],
+          foot: "Die 1.900,00 € auf zwölf Monate geteilt, die Pflege ist schon drin. Die erste Rate kommt vor dem Start, die weiteren monatlich — kein Aufschlag, keine Zinsen. Nach zwölf Monaten gehört die Website Ihnen; die Pflege läuft für 70,00 € weiter und ist monatlich kündbar.",
+        },
+      ],
+    },
+    valuation: {
+      hours: 28.36,
+      netAmount: 1596.64,
+      benchmarks: [
+        { label: "Regelsatz laut Angebot", rate: 80 },
+        { label: "Freelancer Web & Software", rate: 91 },
+        { label: "Freelancer DACH, Schnitt", rate: 103 },
+        { label: "Agentur", rate: 130 },
+      ],
+      reasons: [
+        {
+          title: "Unter dem eigenen Regelsatz",
+          text: "28,36 Std. ergeben zum Regelsatz 2.268,80 € netto. Berechnet werden 1.596,64 € — marktüblich sind 91 bis 103 €/Std.",
+          stat: "56 €",
+          statLabel: "je Std.",
+        },
+        {
+          title: "Der Rest ist eingepreist",
+          text: "Feinschliff, Mobilansicht und die komplette SEO-/GEO-Arbeit stehen noch aus und werden nicht berechnet. Mit jeder weiteren Arbeitsstunde sinkt der effektive Satz unter die 56 €.",
+          stat: "0 €",
+          statLabel: "Nachberechnung",
+        },
+        {
+          title: "Individuell statt Baukasten",
+          text: "Aus einem Durable-One-Pager werden 17 einzeln indexierbare Seiten mit eigener Komponentenbibliothek — selbst gehostet, ohne Baukasten-Lizenz.",
+          stat: "17",
+          statLabel: "eigene Seiten",
+        },
+        {
+          title: "Ein Ansprechpartner",
+          text: "Kein Agentur-Apparat, keine Weitergabe an Dritte: direkte Abstimmung, kurze Wege, ein Verantwortlicher — auch nach dem Livegang.",
+          stat: "1",
+          statLabel: "Ansprechpartner",
+        },
+      ],
+      sources: [
+        {
+          name: "freelancermap — Freelancer-Kompass 2026.",
+          detail:
+            "Größte Freelancer-Studie im DACH-Raum: Ø-Stundensatz aller Freelancer 103 €/Std., Software- und Webentwicklung 91 €/Std.",
+          link: "freelancermap.de/freelancer-kompass",
+        },
+      ],
+      sourceNote:
+        "Rechnerische Einordnung, keine Zusicherung über Preise Dritter. Agentursätze sind Erfahrungswerte.",
+      bottomLine:
+        "Zum Vergleich: 28,36 Std. entsprechen rechnerisch rund 2.580 € zu Freelancer-Sätzen für Web- und Softwareentwicklung und rund 3.690 € zu Agentursätzen. Der Relaunch kostet 1.596,64 € netto — und der noch ausstehende Aufwand ist darin bereits enthalten.",
+    },
+    notes:
+      "## Festpreis und Leistungsumfang\n\nDer Website-Relaunch kostet 1.596,64 € netto — glatte 1.900,00 € brutto. Das ist ein Festpreis bis zur Fertigstellung, keine Abrechnung geleisteter Stunden: Die Stundenangaben machen die Kalkulation nachvollziehbar, bezahlt wird das fertige Ergebnis. Bleibt der Leistungsumfang unverändert, liegt das Risiko eines höheren tatsächlichen Aufwands beim Auftragnehmer.\n\nEnthalten ist ausschließlich das hier beschriebene Vorhaben. Was nach Annahme dieses Angebots dazukommt, ist eine Zusatzleistung: Sie wird vorher abgestimmt, der Aufwand wird genannt und die Umsetzung erfolgt erst nach Ihrer Freigabe. Ohne Freigabe entstehen keine zusätzlichen Kosten.\n\n## Was noch enthalten ist\n\nDie aufgeführten 28,36 Std. sind bereits geleistet. Die folgenden Arbeiten stehen noch aus und sind im Festpreis enthalten — sie werden nicht nachberechnet, unabhängig davon, wie lange sie dauern.\n\nGestalterischer Feinschliff über alle 17 Seiten: Typografie, Abstände, Hierarchie und Farbflächen vereinheitlicht, Animationen und Übergänge abgestimmt. Mobiloptimierung: vollständige Ausarbeitung der Telefonansicht, Prüfung auf horizontalen Überlauf, Bildgewicht und Ladezeit bei 390 px, für jede Hover-Interaktion ein gleichwertiger Auslöser auf dem Touchgerät, Kontrolle auf Tablet-Breiten.\n\nSEO und GEO: Keyword- und Wettbewerbsrecherche für Folierung, Lackschutz und PPF im Rhein-Kreis Neuss, Meta-Titel und -Beschreibungen für alle Seiten, saubere Überschriftenhierarchie, Ausbau der strukturierten Daten zu einem verbundenen Datengraph, lokale Signale je Standortseite, Sitemap, robots.txt, interne Verlinkung und Abgleich mit dem Google-Unternehmensprofil. Technischer Abschluss: Ladezeitmessung, Produktionsbuild ohne Fehler, Open-Graph-Bild, Favicon, Weiterleitungen der alten Adressen, Domainumstellung, Deployment und eine kurze Einweisung.\n\n## Wann die Website fertig ist\n\nWebsite veröffentlicht und unter wrapcut.nrw erreichbar, alle 17 Seiten umgesetzt, Darstellung auf Telefon, Tablet und Computer geprüft, Kontaktwege getestet, strukturierte Daten und Sitemap eingebaut, Weiterleitungen der alten Adressen aktiv. Zum Abschluss läuft ein gemeinsamer Funktionstest — danach geben Sie die Seite frei.\n\n## Zeitrahmen und Mitwirkung\n\nRund zwei Wochen ab Zahlungseingang — bei Einmalzahlung wie im Ratenweg, dort ab Eingang der ersten Monatsrate. Das sind Planwerte und keine Fixtermine. Sie setzen voraus, dass Zugänge zu Domain und Google-Unternehmensprofil, die noch fehlenden Angaben für das Impressum und Ihre Freigaben rechtzeitig vorliegen; ausstehende Zugänge, Daten oder Freigaben verschieben den Zeitraum entsprechend.\n\nDie Bilder, Bewertungen und Betriebsangaben stellen Sie bei. Sie sichern damit zu, dass Sie über die erforderlichen Rechte an den überlassenen Fotos und Texten verfügen.\n\n## Website-Pflege ab Freischaltung\n\n70,00 € brutto (58,82 € netto) im Monat, beginnend mit der Freischaltung der Website. Bei Einmalzahlung ist sie ab dem ersten Monat zum Monatsende kündbar. Im Ratenweg ist die Pflege Teil der Monatsrate und für zwölf Monate fest vereinbart — die Ratenzahlung der Website setzt die laufende Pflege voraus; nach der zwölften Rate ist die Website bezahlt und die Pflege ebenfalls monatlich kündbar.\n\nEnthalten sind Sicherheits- und Framework-Aktualisierungen für Next.js, React und die eingesetzten Abhängigkeiten, Überwachung und Behebung von Fehlern und Sicherheitslücken, die technische Erreichbarkeit der Seite mit Prüfung nach jedem Deployment sowie kleine Inhaltsänderungen: neue Projektfotos einpflegen, Texte korrigieren, Kontaktdaten, Bewertungen und Leistungen aktualisieren. Für Fragen zur Website haben Sie einen festen Ansprechpartner.\n\nStörungen melden Sie per E-Mail oder Telefon. Werktags wird die Bearbeitung nach Möglichkeit innerhalb von 24 Stunden aufgenommen; ist die Website vollständig nicht erreichbar, noch am selben Werktag. Feste Reaktions- und Wiederherstellungszeiten sind damit nicht zugesichert. Inhaltsänderungen werden in der Regel innerhalb von drei Werktagen umgesetzt — planbare Änderungen werden gesammelt und gebündelt eingespielt, damit nicht jede Kleinigkeit ein eigenes Deployment auslöst.\n\nNicht enthalten sind neue Seiten, neue Funktionen, Umbauten am Layout, eine Shop-Anbindung und Kampagnen-Landingpages. Kleine Inhaltsänderung heißt: Text, Bild oder Angabe auf einer bestehenden Seite — eine zusätzliche Unterseite ist keine Inhaltsänderung. Solche Arbeiten werden nach Aufwand mit 80,00 € netto (95,20 € brutto) je Stunde abgerechnet, vorab abgestimmt, mit Stundennachweis belegt und erst nach Ihrer Freigabe begonnen.\n\nAbgerechnet wird monatlich im Voraus. Bei Einmalzahlung der Website ist die Pflege an keine Mindestlaufzeit gebunden und endet zum Monatsende, wann immer Sie kündigen — die Website bleibt in jedem Fall Ihre, samt Quellcode und Nutzungsrechten. Im Ratenweg läuft sie nach den zwölf Monaten unverändert für 70,00 € brutto monatlich weiter und ist ab dann ebenfalls monatlich kündbar. Kündigen Sie die Pflege, bleibt die Website online; sie erhält dann nur keine Aktualisierungen mehr.\n\n## Beauftragung, Zahlung und Nutzungsrechte\n\nDieses Angebot beschreibt Leistung, Preis und Zeitrahmen. Nach Ihrer Zusage erhalten Sie einen kurzen Vertrag: darin stehen Abnahme, Zahlung, Nutzungsrechte, Gewährleistung, Haftung und Kündigung. Dieses Angebot gehört als Anlage dazu und beschreibt, was gebaut wird — doppelt geregelt wird nichts. Angebotsbindung 14 Tage; danach wird neu kalkuliert.\n\nBezahlt wird im Voraus: Mit dem Vertrag erhalten Sie die Rechnung über 1.900,00 € brutto, zahlbar innerhalb von sieben Tagen; die Umsetzung beginnt mit dem Zahlungseingang. Wählen Sie die Ratenzahlung, gilt dasselbe für die erste Monatsrate — die weiteren folgen monatlich. Die Pflege wird ab der Freischaltung monatlich im Voraus abgerechnet.\n\nMit vollständiger Zahlung gehen die zeitlich und räumlich unbeschränkten Nutzungsrechte an Website, Texten und Grafiken auf Sie über, und der Quellcode wird Ihnen übergeben; bis dahin bleiben sie Eigentum des Auftragnehmers. Open-Source-Bibliotheken und Schriften bleiben unter ihren jeweiligen Lizenzen.\n\nDer Projektnachlass von 672,16 € netto (799,87 € brutto) ist projektbezogen und einmalig. Er gilt für dieses Vorhaben und begründet weder einen Anspruch für Folgeaufträge noch einen neuen Stundensatz.\n\n## Gewährleistung und Haftung\n\nFür den Website-Relaunch gilt Werkvertragsrecht. Weicht die abgenommene Website von der hier beschriebenen Beschaffenheit ab, wird das im Rahmen der Gewährleistung kostenfrei behoben; melden Sie Mängel dazu bitte in Textform. Mängel können Sie zwölf Monate ab Abnahme geltend machen; bei Arglist, Vorsatz und grober Fahrlässigkeit sowie bei Personenschäden gelten die gesetzlichen Fristen. Kein Mangel sind nachträgliche Änderungswünsche, Fehler aus beigestellten Inhalten sowie Eingriffe Dritter an der Website.\n\n## Was noch offen ist\n\nDrei Angaben fehlen und stehen auch nirgends auf der bisherigen Website: die vollständige Rechtsform und Firmierung, der Nachname des Inhabers und die USt-IdNr. beziehungsweise Steuernummer. Sie werden für das Impressum der neuen Website und für die Rechnung benötigt. Geraten wird hier bewusst nichts — bitte senden Sie die drei Angaben mit der Freigabe.\n\nZu entscheiden ist außerdem, ob das Kontaktformular die E-Mail-Anwendung des Besuchers öffnet oder serverseitig versendet, sodass die Anfrage direkt in Ihrem Postfach landet. Beides ist im Preis enthalten.\n\n## Nicht enthalten\n\nDomain und Hosting zahlen Sie direkt beim jeweiligen Anbieter; Anbieter und Umfang werden vor der Umstellung gemeinsam festgelegt, damit Sie die laufenden Kosten vorher kennen. Für eine Website dieses Umfangs liegen sie erfahrungsgemäß im niedrigen zweistelligen Bereich pro Monat.\n\nEbenfalls nicht enthalten sind Rechtsberatung und die inhaltliche Prüfung der Rechtstexte — Impressum und Datenschutzerklärung sind gesetzt und technisch eingebunden, ihre rechtliche Prüfung bleibt Ihre Sache —, Fotoproduktion, gekaufte Bildlizenzen, Werbebudgets sowie Marken- und Schutzrechtsrecherchen.\n\nDie Einrichtung von Domain und Hosting ist enthalten. Die Verträge laufen auf Ihren Namen, damit Zugänge und Rechnungen bei Ihnen liegen und Sie jederzeit unabhängig über die Seite verfügen können. Alle Beträge in Euro, Umsatzsteuer 19 % ausgewiesen.",
   },
 ]
 /**
@@ -952,6 +1087,41 @@ const K_MITWIRKUNG: ContractClause = {
     "Der Auftraggeber sichert zu, dass er an allen beigestellten Inhalten — insbesondere Texten, Bildern, Marken und Daten — die erforderlichen Rechte hält. Er stellt den Auftragnehmer von Ansprüchen Dritter frei, die aus der vertragsgemäßen Verwendung beigestellter Inhalte erhoben werden, einschließlich angemessener Kosten der Rechtsverteidigung.",
     "Verzögert sich die Mitwirkung, verschieben sich vereinbarte Zeiträume mindestens um die Dauer der Verzögerung zuzüglich einer angemessenen Wiederanlaufzeit. Nachweislich entstandener Mehraufwand — insbesondere Leerlauf und erneute Einarbeitung — wird nach § 2 Abs. 3 vergütet; Ansprüche aus § 642 BGB bleiben unberührt.",
     "Kommt der Auftraggeber seiner Mitwirkung trotz Fristsetzung von 14 Tagen in Textform länger als 30 Tage nicht nach, ist der Auftragnehmer berechtigt, den Vertrag nach § 643 BGB zu kündigen. Es gilt dann § 15 Abs. 4.",
+  ],
+}
+
+/**
+ * Mitwirkung in der WrapCut-Fassung: gleiche Substanz wie K_MITWIRKUNG,
+ * aber ohne die Verweise auf Paragrafen, die es im kurzen Vertrag nicht
+ * gibt — und mit der Freistellung für beigestellte Fotos, die bei einem
+ * Folierer der wahrscheinlichste Streitfall ist.
+ */
+const K_MITWIRKUNG_WRAPCUT: ContractClause = {
+  title: "Mitwirkungspflichten des Auftraggebers",
+  body: [
+    "Der Auftraggeber stellt rechtzeitig, vollständig und unentgeltlich alles bereit, was zur Leistungserbringung erforderlich ist: Zugänge zu Domain, Hosting und Google-Diensten, die Angaben für Impressum und Rechnung, Bilder, Bewertungen, Betriebsangaben sowie sämtliche Freigaben.",
+    "Freigaben und Rückmeldungen erfolgen innerhalb von zehn Werktagen nach Anforderung in Textform.",
+    "Der Auftraggeber sichert zu, dass er an allen beigestellten Inhalten — insbesondere Fotos, Texten, Marken und Bewertungen — die erforderlichen Rechte hält. Er stellt den Auftragnehmer von Ansprüchen Dritter frei, die aus der vertragsgemäßen Verwendung beigestellter Inhalte erhoben werden, einschließlich angemessener Kosten der Rechtsverteidigung.",
+    "Verzögert sich die Mitwirkung, verschieben sich vereinbarte Zeiträume mindestens um die Dauer der Verzögerung zuzüglich einer angemessenen Wiederanlaufzeit.",
+    "Kommt der Auftraggeber seiner Mitwirkung trotz Fristsetzung von 14 Tagen in Textform nicht nach, ist der Auftragnehmer berechtigt, den Vertrag nach § 643 BGB zu kündigen; es gilt dann § 11 Abs. 4.",
+  ],
+}
+
+/**
+ * Schlussbestimmungen für WrapCut: ohne den Satz, die Regelungen seien
+ * einzeln ausgehandelt worden. Sobald dieselben Klauseln ein zweites Mal
+ * verwendet werden, sind sie AGB — eine gegenteilige Behauptung im Vertrag
+ * ist unbeachtlich und beschädigt nur die Glaubwürdigkeit der übrigen
+ * Klauseln. Der Gerichtsstand bleibt an die Kaufmannseigenschaft geknüpft;
+ * bei einem Kleingewerbetreibenden greift er nicht (§ 38 ZPO).
+ */
+const K_SCHLUSS_WRAPCUT: ContractClause = {
+  title: "Schlussbestimmungen",
+  body: [
+    "Änderungen und Ergänzungen dieses Vertrags bedürfen der Textform. Dies gilt auch für die Aufhebung dieses Formerfordernisses. Mündliche Nebenabreden bestehen nicht.",
+    "Es gilt das Recht der Bundesrepublik Deutschland unter Ausschluss des UN-Kaufrechts.",
+    "Ausschließlicher Gerichtsstand für alle Streitigkeiten aus und im Zusammenhang mit diesem Vertrag ist Heilbronn, sofern der Auftraggeber Kaufmann, juristische Person des öffentlichen Rechts oder öffentlich-rechtliches Sondervermögen ist. Der Auftragnehmer bleibt berechtigt, auch am allgemeinen Gerichtsstand des Auftraggebers zu klagen.",
+    "Sollte eine Bestimmung dieses Vertrags unwirksam oder undurchführbar sein oder werden, bleibt die Wirksamkeit der übrigen Bestimmungen unberührt. Die Parteien werden die unwirksame Bestimmung durch eine wirksame ersetzen, die dem wirtschaftlich Gewollten am nächsten kommt.",
   ],
 }
 
@@ -1025,12 +1195,11 @@ const K_SCHLUSS: ContractClause = {
     "Ausschließlicher Gerichtsstand für alle Streitigkeiten aus und im Zusammenhang mit diesem Vertrag ist Heilbronn, sofern der Auftraggeber Kaufmann, juristische Person des öffentlichen Rechts oder öffentlich-rechtliches Sondervermögen ist. Der Auftragnehmer bleibt berechtigt, auch am allgemeinen Gerichtsstand des Auftraggebers zu klagen. Erfüllungsort ist der Sitz des Auftragnehmers.",
     "Die Abtretung von Rechten aus diesem Vertrag bedarf der Zustimmung der anderen Partei; dies gilt nicht für Geldforderungen des Auftragnehmers.",
     "Sollte eine Bestimmung dieses Vertrags unwirksam oder undurchführbar sein oder werden, bleibt die Wirksamkeit der übrigen Bestimmungen unberührt. Die Parteien werden die unwirksame Bestimmung durch eine wirksame ersetzen, die dem wirtschaftlich Gewollten am nächsten kommt. Entsprechendes gilt für Regelungslücken.",
-    "Die Parteien haben die Regelungen dieses Vertrags einzeln erörtert und ausgehandelt; sie sind keine für eine Vielzahl von Verträgen vorformulierten Bedingungen.",
-  ],
+      ],
 }
 
 /**
- * Projektvertrag V-2026-001 — Website, Marke und Verkaufskanal (AN-2026-514).
+ * Projektvertrag V-1005-01 — Website, Marke und Verkaufskanal (AN-2026-514).
  * Trägt die individuell vereinbarte Ratenzahlung und die erfolgsabhängige
  * Betreuung; die Warenwirtschaft ist ausdrücklich nicht Gegenstand.
  */
@@ -1137,7 +1306,92 @@ const VERTRAG_WEBSITE: ContractClause[] = [
 ]
 
 /**
- * Projektvertrag V-2026-002 — Warenwirtschaft und Automatisierung
+ * Projektvertrag V-1006-01 — Website-Relaunch WrapCut (AN-2026-516).
+ * Bewusst kurz: zwölf Paragrafen für ein 1.900-€-Vorhaben. Das Angebot trägt
+ * die kaufmännische Ebene, dieser Vertrag die rechtliche — doppelt geregelt
+ * wird nichts. Drei Abweichungen von den SKOPE-Verträgen: mildere
+ * Verfallklausel (Mahnung + Nachfrist statt sofortiger Fälligkeit), der
+ * Feinschliff ist auf eine Überarbeitungsrunde begrenzt, und die Pflege ist
+ * ausdrücklich Dienstvertrag ohne zugesicherte Reaktionszeit.
+ */
+const VERTRAG_WRAPCUT: ContractClause[] = [
+  {
+    title: "Vertragsgegenstand und Vertragsbestandteile",
+    body: [
+      "Gegenstand dieses Vertrags ist der Relaunch der Website wrapcut.nrw nach dem Angebot AN-2026-516 vom 30. August 2026 sowie die Website-Pflege nach § 7. Der Festpreis für den Relaunch beträgt 1.596,64 € netto (1.900,00 € brutto).",
+      "Vertragsbestandteile sind in dieser Rangfolge: (1) dieser Vertrag, (2) Anlage 1 — Angebot AN-2026-516 nebst Leistungsbeschreibung, (3) in Textform vereinbarte Änderungen nach § 2. Widersprechen sich Bestandteile, geht der jeweils vorrangige vor.",
+      "Für den Relaunch gilt Werkvertragsrecht, für die Pflege nach § 7 Dienstvertragsrecht.",
+      "Es gelten ausschließlich die Bestimmungen dieses Vertrags. Allgemeine Geschäftsbedingungen des Auftraggebers werden nicht Vertragsbestandteil, auch wenn ihnen im Einzelfall nicht ausdrücklich widersprochen wird.",
+    ],
+  },
+  {
+    title: "Leistungsumfang, Änderungen und Zusatzleistungen",
+    body: [
+      "Geschuldet ist ausschließlich der in Anlage 1 beschriebene Leistungsumfang. Eine darüber hinausgehende Beschaffenheit ist nur geschuldet, wenn sie in Textform ausdrücklich vereinbart wurde.",
+      "Der in Anlage 1 beschriebene gestalterische Feinschliff umfasst eine Überarbeitungsrunde über alle Seiten auf Grundlage einer gesammelten Rückmeldung des Auftraggebers in Textform. Maßstab bleibt die im Angebot beschriebene Gestaltung; weitergehende Gestaltungswünsche und weitere Überarbeitungsrunden sind Zusatzleistungen nach Abs. 3.",
+      "Änderungs- und Erweiterungswünsche teilt der Auftraggeber in Textform mit. Der Auftragnehmer nennt Aufwand und Auswirkung auf den Zeitrahmen; umgesetzt wird erst nach Freigabe in Textform. Ohne Freigabe entstehen keine zusätzlichen Kosten und besteht kein Anspruch auf Umsetzung. Zusatzleistungen werden nach tatsächlichem Aufwand zum Regelsatz von 80,00 € netto je Stunde mit Stundennachweis abgerechnet, angefangene Viertelstunden anteilig.",
+      "Eine bestimmte Platzierung in Suchmaschinen, eine bestimmte Sichtbarkeit in KI-Systemen, bestimmte Reichweiten oder Umsatzergebnisse werden nicht geschuldet und nicht zugesichert.",
+    ],
+  },
+  K_MITWIRKUNG_WRAPCUT,
+  K_TERMINE,
+  {
+    title: "Abnahme",
+    body: [
+      "Nach Fertigstellung zeigt der Auftragnehmer die Abnahmebereitschaft in Textform an und fordert zur Abnahme auf. Maßstab sind die in Anlage 1 unter „Fertig heißt“ beschriebenen Kriterien.",
+      "Der Auftraggeber prüft innerhalb von zehn Werktagen ab Zugang der Aufforderung und erklärt die Abnahme in Textform. Verweigert er die Abnahme, hat er dies innerhalb der Frist unter konkreter Bezeichnung der beanstandeten wesentlichen Mängel zu tun.",
+      "Erklärt sich der Auftraggeber innerhalb der Frist nicht oder verweigert er die Abnahme ohne Bezeichnung eines wesentlichen Mangels, gilt die Abnahme mit Fristablauf als erteilt. Auf diese Folge weist der Auftragnehmer in der Abnahmeaufforderung ausdrücklich hin (§ 640 Abs. 2 BGB).",
+      "Als Abnahme gilt ferner die Veröffentlichung der Website unter wrapcut.nrw auf Wunsch des Auftraggebers sowie die Verwendung der Arbeitsergebnisse im Geschäftsbetrieb.",
+      "Unwesentliche Mängel berechtigen nicht zur Verweigerung der Abnahme; sie werden im Rahmen der Gewährleistung nach § 8 beseitigt. Mit der Abnahme beginnt die Frist nach § 8 Abs. 5.",
+    ],
+  },
+  {
+    title: "Vergütung, Zahlungswege und Zahlungsverzug",
+    body: [
+      "Der Festpreis beträgt 1.596,64 € netto, zuzüglich 19 % Umsatzsteuer 303,36 €, insgesamt 1.900,00 € brutto. Der Auftraggeber wählt bei Annahme des Angebots zwischen den Zahlungswegen nach Abs. 2 und Abs. 3.",
+      "Einmalzahlung: 1.900,00 € brutto als Vorauszahlung. Die Rechnung wird mit Vertragsschluss gestellt und ist innerhalb von sieben Tagen ab Zugang ohne Abzug zahlbar. Mit dem Eingang der Zahlung nimmt der Auftragnehmer die Fertigstellung auf; vor Zahlungseingang besteht keine Leistungspflicht und die Zeiträume nach § 4 beginnen nicht zu laufen. Die Pflege nach § 7 wird daneben ab Freischaltung monatlich mit 70,00 € brutto abgerechnet und ist ab dem ersten Monat nach § 7 Abs. 2 kündbar.",
+      "Ratenzahlung: zwölf Monatsraten zu je 228,33 € brutto (191,87 € netto zzgl. 36,46 € Umsatzsteuer), bestehend aus dem Website-Anteil 158,33 € brutto (133,05 € netto zzgl. 25,28 € Umsatzsteuer) — das ist der Festpreis von 1.900,00 € brutto geteilt durch zwölf — und der Pflege 70,00 € brutto (58,82 € netto zzgl. 11,18 € Umsatzsteuer). Die rechnerische Rundungsdifferenz von 0,04 € wird mit der zwölften Rate ausgeglichen, sodass insgesamt 2.740,00 € brutto gezahlt werden — derselbe Betrag wie bei Einmalzahlung zuzüglich zwölf Monaten Pflege. Über den Website-Anteil stellt der Auftragnehmer mit Vertragsschluss eine Rechnung über 1.900,00 € brutto; die zwölf Monatsraten sind Teilzahlungen auf diese Rechnung und werden nicht gesondert mit Umsatzsteuerausweis abgerechnet. Die Pflege wird monatlich gesondert abgerechnet. Die erste Rate ist vor Umsetzungsbeginn fällig; mit ihrem Eingang nimmt der Auftragnehmer die Fertigstellung auf. Die weiteren Raten sind jeweils zum selben Kalendertag der Folgemonate fällig. Die zwölf Raten enthalten zwölf Monate Pflege; beginnt die Pflege erst mit der Freischaltung, verschiebt sich ihr Zeitraum entsprechend nach hinten, ohne dass sich der Gesamtbetrag ändert. Eine Anzahlung wird nicht erhoben, ein Stundungsentgelt oder Zinsen werden nicht berechnet. Vorzeitige Tilgung ist jederzeit ohne Zusatzkosten möglich. Nach der zwölften Rate ist die Website vollständig bezahlt; die Nutzungsrechte gehen nach § 10 Abs. 1 vollständig auf den Auftraggeber über und der Quelltext wird übergeben; die Pflege läuft nach § 7 Abs. 2 weiter und ist ab dann monatlich kündbar.",
+      "Gerät der Auftraggeber mit einer Monatsrate länger als 30 Tage in Verzug, wird der auf die Website entfallende offene Restbetrag nach einmaliger Mahnung mit einer Nachfrist von 14 Tagen sofort zur Zahlung fällig.",
+      "Bei Zahlungsverzug schuldet der Auftraggeber Verzugszinsen in Höhe von neun Prozentpunkten über dem Basiszinssatz sowie eine Pauschale von 40,00 € (§ 288 Abs. 2 und 5 BGB); die Geltendmachung eines weitergehenden Schadens bleibt vorbehalten.",
+      "Der Auftraggeber kann nur mit unbestrittenen oder rechtskräftig festgestellten Forderungen aufrechnen. Ein Zurückbehaltungsrecht steht ihm nur wegen Gegenansprüchen aus demselben Vertragsverhältnis zu.",
+    ],
+  },
+  {
+    title: "Website-Pflege",
+    body: [
+      "Ab Freischaltung erbringt der Auftragnehmer die Pflege der Website für 70,00 € brutto monatlich, abgerechnet monatlich im Voraus. Enthalten sind Sicherheits- und Framework-Aktualisierungen, Überwachung, Behebung von Fehlern und Sicherheitslücken sowie kleine Inhaltsänderungen auf bestehenden Seiten. Neue Seiten, neue Funktionen und Umbauten am Layout sind keine Inhaltsänderung und werden nach § 2 Abs. 3 abgerechnet.",
+      "Bei Einmalzahlung der Website ist die Pflege ab dem ersten Monat beiderseits mit Frist zum Monatsende in Textform kündbar; eine Mindestlaufzeit besteht nicht. Bei der Ratenzahlung ist die Pflege Teil der Monatsrate und — als Gegenleistung für die zins- und anzahlungsfreie Ratenzahlung — für zwölf Monate ab Freischaltung fest vereinbart; nach Ablauf dieser zwölf Monate gilt Satz 1 entsprechend, die Pflege ist also ebenfalls monatlich kündbar. Das Recht zur Kündigung aus wichtigem Grund bleibt unberührt.",
+      "Für die Pflege gilt Dienstvertragsrecht. Ein bestimmter Erfolg, eine bestimmte Verfügbarkeit sowie feste Reaktions- und Wiederherstellungszeiten werden nicht geschuldet; ein Service-Level-Agreement ist nicht vereinbart. Der Auftragnehmer bemüht sich, mit der Bearbeitung gemeldeter Störungen an Werktagen binnen 24 Stunden zu beginnen, bei vollständiger Nichterreichbarkeit der Website noch am selben Werktag.",
+      "Endet die Pflege, bleibt die Website online; eine Aktualisierungs-, Überwachungs- oder Betriebspflicht des Auftragnehmers besteht dann nicht mehr.",
+    ],
+  },
+  K_GEWAEHRLEISTUNG,
+  K_HAFTUNG,
+  {
+    title: "Nutzungsrechte, Rechtstexte und Referenz",
+    body: [
+      "Mit vollständiger Zahlung räumt der Auftragnehmer dem Auftraggeber das räumlich und zeitlich unbeschränkte Recht ein, die eigens für ihn erstellten Arbeitsergebnisse — Quelltext, Gestaltung, Texte und erzeugte Grafiken — für die eigenen geschäftlichen Zwecke zu nutzen, zu bearbeiten und weiterzuentwickeln. Der Quelltext wird mit vollständiger Zahlung übergeben.",
+      "Nicht übertragen werden Rechte an vorbestehenden und wiederverwendbaren Bestandteilen — insbesondere an Frameworks, Bibliotheken, Komponenten und Vorlagen des Auftragnehmers. Hieran erhält der Auftraggeber ein einfaches Nutzungsrecht im Rahmen des Werks. Open-Source-Bestandteile und Schriften unterliegen den Lizenzen der jeweiligen Rechteinhaber; erforderliche Lizenzen erwirbt der Auftraggeber in eigenem Namen.",
+      "Bis zur vollständigen Zahlung des Website-Anteils steht dem Auftraggeber ein widerrufliches Nutzungsrecht zu Betriebszwecken zu. Befindet er sich länger als 30 Tage nach Mahnung in Verzug, ist der Auftragnehmer berechtigt, das Nutzungsrecht zu widerrufen und die Website bis zum Zahlungseingang offline zu nehmen; die Herausgabe der vom Auftraggeber beigestellten Inhalte bleibt unberührt.",
+      "Der Auftragnehmer erbringt keine Rechtsberatung. Impressum, Datenschutzerklärung und sonstige Rechtstexte verantwortet der Auftraggeber; der Auftragnehmer bindet sie technisch ein. Für Inhalt, Vollständigkeit und Rechtmäßigkeit dieser Texte haftet er nicht. Geschuldet ist eine barrierearme technische Umsetzung nach anerkannten Grundsätzen; eine Konformität nach BFSG, BITV oder EN 301 549 wird nicht zugesichert.",
+      "Der Auftragnehmer ist berechtigt, das Projekt unter Nennung von Name und Abbildungen als Referenz zu verwenden; der Auftraggeber kann dem in Textform widersprechen. Der Auftragnehmer darf im Fußbereich der Website einen dezenten Urheberhinweis mit Verlinkung anbringen.",
+    ],
+  },
+  {
+    title: "Laufzeit, Kündigung und Projektabbruch",
+    body: [
+      "Der Werkvertragsteil endet mit Abnahme und vollständiger Zahlung. Die Pflege richtet sich nach § 7 Abs. 2.",
+      "Der Auftraggeber kann den Werkvertragsteil nach § 648 BGB jederzeit kündigen. Der Auftragnehmer behält den Anspruch auf die vereinbarte Vergütung abzüglich ersparter Aufwendungen; diese werden pauschal mit 40 % der auf die noch nicht erbrachten Leistungen entfallenden Vergütung angesetzt. Beiden Parteien bleibt der Nachweis höherer oder niedrigerer Ersparnis vorbehalten.",
+      "Das Recht beider Parteien zur Kündigung aus wichtigem Grund bleibt unberührt. Ein wichtiger Grund liegt für den Auftragnehmer insbesondere vor bei Zahlungsverzug von mehr als 30 Tagen nach Mahnung sowie bei anhaltender Verweigerung der Mitwirkung nach § 3.",
+      "Wird der Vertrag aus Gründen beendet, die der Auftragnehmer nicht zu vertreten hat, rechnet er die bis dahin erbrachten Leistungen nach den kalkulierten Stunden zum Regelsatz von 80,00 € netto je Stunde ab, höchstens jedoch bis zur Höhe des Festpreises nach § 6 Abs. 1. Bereits gezahlte Beträge werden angerechnet.",
+      "Kündigungen bedürfen der Textform.",
+    ],
+  },
+  K_SCHLUSS_WRAPCUT,
+]
+
+/**
+ * Projektvertrag V-1005-02 — Warenwirtschaft und Automatisierung
  * (AN-2026-515). Gleiche Paragrafenfolge wie der Websitevertrag, damit die
  * Verweise zwischen den Klauseln in beiden Verträgen dieselben sind. Kein
  * Ratenplan: 19.000 € laufen über einen Zahlungsplan mit Vorkasse-Anteil.
@@ -1147,7 +1401,7 @@ const VERTRAG_SYSTEM: ContractClause[] = [
     title: "Vertragsgegenstand und Vertragsbestandteile",
     body: [
       "Gegenstand dieses Vertrags ist die Herstellung und Überlassung des im Angebot AN-2026-515 vom 23. August 2026 beschriebenen Werks — Warenwirtschaft und Automatisierung — zum Festpreis von 19.000,00 € netto.",
-      "Der Vertrag setzt die Website aus dem Projektvertrag V-2026-001 voraus: Das System bindet die Website als Verkaufskanal an. Ist die Website nicht abgenommen, verschieben sich die Zeiträume dieses Vertrags entsprechend.",
+      "Der Vertrag setzt die Website aus dem Projektvertrag V-1005-01 voraus: Das System bindet die Website als Verkaufskanal an. Ist die Website nicht abgenommen, verschieben sich die Zeiträume dieses Vertrags entsprechend.",
       "Vertragsbestandteile sind in dieser Rangfolge: (1) dieser Vertrag, (2) Anlage 1 — Angebot AN-2026-515 nebst Leistungsbeschreibung, (3) Anlage 2 — Vereinbarung zur Auftragsverarbeitung nach Art. 28 DSGVO, (4) in Textform vereinbarte Änderungen nach § 2. Widersprechen sich Bestandteile, geht der jeweils vorrangige vor.",
       "Für die Herstellung des Werks gilt Werkvertragsrecht.",
       "Es gelten ausschließlich die Bestimmungen dieses Vertrags. Allgemeine Geschäftsbedingungen des Auftraggebers werden nicht Vertragsbestandteil, auch wenn ihnen im Einzelfall nicht ausdrücklich widersprochen wird.",
@@ -1181,7 +1435,7 @@ const VERTRAG_SYSTEM: ContractClause[] = [
     body: [
       "Der Festpreis beträgt 19.000,00 € netto, zuzüglich 19 % Umsatzsteuer 3.610,00 €, insgesamt 22.610,00 € brutto. Alle weiteren Beträge dieses Vertrags verstehen sich netto zuzüglich der jeweils gesetzlichen Umsatzsteuer.",
       "Die Vergütung wird in drei Raten abgerechnet: 40 % bei Vertragsschluss, 30 % bei Erreichen des Zwischenstands — lauffähiger Kernprozess im Testsystem — und 30 % bei Abnahme. Jede Rate wird gesondert in Rechnung gestellt und ist ohne Abzug innerhalb von 14 Tagen ab Zugang der Rechnung zahlbar.",
-      "Die Ratenzahlung aus § 6 des Projektvertrags V-2026-001 gilt für diesen Vertrag nicht. Eine abweichende Zahlungsvereinbarung bedarf der Textform.",
+      "Die Ratenzahlung aus § 6 des Projektvertrags V-1005-01 gilt für diesen Vertrag nicht. Eine abweichende Zahlungsvereinbarung bedarf der Textform.",
       "Der Auftragnehmer beginnt mit der Umsetzung erst nach Eingang der ersten Rate. Zeiträume beginnen mit diesem Eingang.",
       "Bei Zahlungsverzug schuldet der Auftraggeber Verzugszinsen in Höhe von neun Prozentpunkten über dem Basiszinssatz sowie eine Pauschale von 40,00 € (§ 288 Abs. 2 und 5 BGB); die Geltendmachung eines weitergehenden Schadens bleibt vorbehalten.",
       "Befindet sich der Auftraggeber länger als 14 Tage nach Fälligkeit in Verzug, ist der Auftragnehmer berechtigt, seine Leistungen bis zum vollständigen Zahlungseingang einzustellen; vereinbarte Zeiträume verschieben sich entsprechend. Ferner gilt § 8 Abs. 5.",
@@ -1191,8 +1445,8 @@ const VERTRAG_SYSTEM: ContractClause[] = [
   {
     title: "Betrieb und Betreuung des Systems",
     body: [
-      "Für den Betrieb des Systems wird keine monatliche Grundgebühr geschuldet. Betrieb, Fehlerbehebung, Sicherheitsaktualisierungen, technische Pflege, Überwachung der angebundenen Schnittstellen und kleinere Anpassungen sind von der erfolgsabhängigen Betreuung nach § 7 des Projektvertrags V-2026-001 mit umfasst, solange diese läuft.",
-      "Endet die Betreuung nach V-2026-001, endet damit auch die Betreuung des Systems. Ihre Fortführung wird in diesem Fall gesondert vereinbart; ohne Vereinbarung schuldet der Auftragnehmer keine Pflege- oder Betriebsleistung.",
+      "Für den Betrieb des Systems wird keine monatliche Grundgebühr geschuldet. Betrieb, Fehlerbehebung, Sicherheitsaktualisierungen, technische Pflege, Überwachung der angebundenen Schnittstellen und kleinere Anpassungen sind von der erfolgsabhängigen Betreuung nach § 7 des Projektvertrags V-1005-01 mit umfasst, solange diese läuft.",
+      "Endet die Betreuung nach V-1005-01, endet damit auch die Betreuung des Systems. Ihre Fortführung wird in diesem Fall gesondert vereinbart; ohne Vereinbarung schuldet der Auftragnehmer keine Pflege- oder Betriebsleistung.",
       "Nicht umfasst sind neue Funktionen und Module, umfangreiche Umbauten sowie die Anbindung weiterer Anbieter. Sie sind Zusatzleistungen nach § 2.",
       "Laufende Kosten für Betrieb, Rechenleistung, Speicher und eingesetzte KI-Dienste trägt der Auftraggeber nach § 13 Abs. 4.",
     ],
@@ -1225,7 +1479,7 @@ const VERTRAG_SYSTEM: ContractClause[] = [
   {
     title: "Laufzeit, Kündigung und Projektabbruch",
     body: [
-      "Der Vertrag endet mit Abnahme und vollständiger Zahlung. Der Betrieb nach § 7 richtet sich nach der Laufzeit der Betreuung im Projektvertrag V-2026-001.",
+      "Der Vertrag endet mit Abnahme und vollständiger Zahlung. Der Betrieb nach § 7 richtet sich nach der Laufzeit der Betreuung im Projektvertrag V-1005-01.",
       "Der Auftraggeber kann den Vertrag nach § 648 BGB jederzeit kündigen. Der Auftragnehmer behält in diesem Fall den Anspruch auf die vereinbarte Vergütung abzüglich ersparter Aufwendungen. Die ersparten Aufwendungen werden pauschal mit 40 % der auf die noch nicht erbrachten Leistungen entfallenden Vergütung angesetzt. Beiden Parteien bleibt der Nachweis vorbehalten, dass die ersparten Aufwendungen tatsächlich höher oder niedriger sind.",
       "Das Recht beider Parteien zur Kündigung aus wichtigem Grund bleibt unberührt. Ein wichtiger Grund liegt für den Auftragnehmer insbesondere vor bei Zahlungsverzug von mehr als 30 Tagen nach Mahnung, bei Eintritt der Zahlungsunfähigkeit oder Stellung eines Insolvenzantrags über das Vermögen des Auftraggebers sowie bei anhaltender Verweigerung der Mitwirkung nach § 3 Abs. 5.",
       "Wird der Vertrag aus Gründen beendet, die der Auftragnehmer nicht zu vertreten hat, rechnet er die bis dahin erbrachten Leistungen nach den kalkulierten Stunden zum Regelsatz von 80,00 € netto je Stunde ab, höchstens jedoch bis zur Höhe des Festpreises nach § 6 Abs. 1. Bereits gezahlte Beträge werden angerechnet. Den erreichten Stand erhält der Auftraggeber nach vollständiger Zahlung samt der Nutzungsrechte nach § 8.",
@@ -1237,8 +1491,8 @@ const VERTRAG_SYSTEM: ContractClause[] = [
 
 const contracts: Contract[] = [
   {
-    id: "con-2026-001",
-    number: "V-2026-001",
+    id: "con-1005-01",
+    number: "V-1005-01",
     customerId: "c2",
     quoteId: "quo-2026-045",
     projectId: "p-skope",
@@ -1261,8 +1515,8 @@ const contracts: Contract[] = [
     createdAt: "2026-08-23T10:00:00.000Z",
   },
   {
-    id: "con-2026-002",
-    number: "V-2026-002",
+    id: "con-1005-02",
+    number: "V-1005-02",
     customerId: "c2",
     quoteId: "quo-2026-046",
     projectId: "p-skope-2",
@@ -1280,8 +1534,28 @@ const contracts: Contract[] = [
     ],
     clauses: VERTRAG_SYSTEM,
     notes:
-      "Noch nicht beauftragt. Kein Ratenplan wie beim Websitevertrag: 19.000,00 € netto laufen über 40 % bei Vertragsschluss, 30 % bei lauffähigem Kernprozess, 30 % bei Abnahme — Umsetzungsbeginn erst nach Eingang der ersten Rate (§ 6 Abs. 4). Preisbindung sechs Monate ab Abnahme der Website. Betrieb läuft über die erfolgsabhängige Betreuung aus V-2026-001; endet sie, endet auch die Systembetreuung.",
+      "Noch nicht beauftragt. Kein Ratenplan wie beim Websitevertrag: 19.000,00 € netto laufen über 40 % bei Vertragsschluss, 30 % bei lauffähigem Kernprozess, 30 % bei Abnahme — Umsetzungsbeginn erst nach Eingang der ersten Rate (§ 6 Abs. 4). Preisbindung sechs Monate ab Abnahme der Website. Betrieb läuft über die erfolgsabhängige Betreuung aus V-1005-01; endet sie, endet auch die Systembetreuung.",
     createdAt: "2026-08-23T10:00:00.000Z",
+  },
+  {
+    id: "con-1006-01",
+    number: "V-1006-01",
+    customerId: "c3",
+    quoteId: "quo-2026-047",
+    projectId: "p-wrapcut",
+    // Geht erst nach der Zusage raus: Das Angebot trägt Preis und Umfang,
+    // dieser Vertrag die rechtliche Ebene. Die Zusage selbst ist formfrei.
+    status: "draft",
+    issueDate: "2026-08-30T10:00:00.000Z",
+    title: "Projektvertrag",
+    titleAccent: "Website-Relaunch",
+    lead: "Rechtlicher Rahmen zum Angebot AN-2026-516 — Abnahme, Zahlung, Pflege, Rechte, Haftung und Kündigung.",
+    netValue: 1596.64,
+    attachments: ["Anlage 1 — Angebot AN-2026-516 vom 30. August 2026 nebst Leistungsbeschreibung"],
+    clauses: VERTRAG_WRAPCUT,
+    notes:
+      "Kurzvertrag zum Website-Relaunch (1.596,64 € netto / 1.900,00 € brutto). Das Angebot trägt Preis, Leistung und Zeitrahmen; hier stehen nur die rechtlichen Punkte — doppelt geregelt wird nichts. Der Auftraggeber wählt bei Annahme zwischen Einmalzahlung und Ratenzahlung (12 × 228,33 € brutto — über zwölf Monate kosten beide Möglichkeiten 2.740,00 € brutto); beide stehen in § 6. Bezahlt wird in beiden Fällen im Voraus: Rechnung mit Vertragsschluss, sieben Tage Zahlungsziel, Umsetzung ab Zahlungseingang. Keine DSGVO-Anlage: ohne Formularverarbeitung im Auftrag ist keine AVV erforderlich — wird das Kontaktformular serverseitig versendet, ist sie nachzureichen. Gerichtsstand Heilbronn greift nur, wenn WrapCut im Handelsregister steht; bei Kleingewerbe gilt der Gerichtsstand des Auftraggebers.",
+    createdAt: "2026-08-30T10:00:00.000Z",
   },
 ]
 
@@ -1290,17 +1564,33 @@ const transactions: Transaction[] = []
 const emails: EmailDraft[] = []
 const activities: Activity[] = [
   {
+    id: "a-wrapcut-quote",
+    type: "quote",
+    title: "Angebot AN-2026-516 erstellt — Website-Relaunch wrapcut.nrw",
+    meta: "1.596,64 € netto / 1.900,00 € brutto · Festpreis bis zur Fertigstellung · 672,16 € Nachlass (netto)",
+    customerId: "c3",
+    at: "2026-08-30T13:00:00.000Z",
+  },
+  {
+    id: "a-wrapcut-customer",
+    type: "customer",
+    title: "Kunde WrapCut angelegt — Jüchen, Fahrzeugfolierung",
+    meta: "K-1006 · Rechtsform und USt-IdNr. noch einzuholen",
+    customerId: "c3",
+    at: "2026-08-30T12:30:00.000Z",
+  },
+  {
     id: "a-skope-split",
     type: "quote",
     title: "Angebote getrennt — AN-2026-514 Website, AN-2026-515 Warenwirtschaft",
-    meta: "5.000,00 € und 19.000,00 € netto · eigene Verträge V-2026-001 und V-2026-002 · ersetzt AN-2026-513",
+    meta: "5.000,00 € und 19.000,00 € netto · eigene Verträge V-1005-01 und V-1005-02",
     customerId: "c2",
     at: "2026-08-23T14:00:00.000Z",
   },
   {
     id: "a-skope-con-002",
     type: "quote",
-    title: "Vertrag V-2026-002 entworfen — Warenwirtschaft & Automatisierung",
+    title: "Vertrag V-1005-02 entworfen — Warenwirtschaft & Automatisierung",
     meta: "19.000,00 € netto · Zahlung 40/30/30 · zu AN-2026-515",
     customerId: "c2",
     at: "2026-08-23T14:05:00.000Z",
@@ -1309,33 +1599,17 @@ const activities: Activity[] = [
     id: "a-skope-inv-433",
     type: "invoice",
     title: "Rechnung 2026-433 vorbereitet — Website & Verkaufskanal",
-    meta: "5.000,00 € netto · gestellt mit der Abnahme · Ratenplan nach § 6 V-2026-001",
+    meta: "5.000,00 € netto · gestellt mit der Abnahme · Ratenplan nach § 6 V-1005-01",
     customerId: "c2",
     at: "2026-08-23T14:10:00.000Z",
   },
   {
     id: "a-skope-con-001",
     type: "quote",
-    title: "Vertrag V-2026-001 entworfen — Projektvertrag SKOPE",
-    meta: "Paket 1 5.000,00 € netto · Ratenzahlung ab 30.09.2026 · zu AN-2026-513",
+    title: "Vertrag V-1005-01 entworfen — Projektvertrag SKOPE",
+    meta: "Paket 1 5.000,00 € netto · Ratenzahlung ab 30.09.2026 · zu AN-2026-514",
     customerId: "c2",
     at: "2026-08-23T10:10:00.000Z",
-  },
-  {
-    id: "a-skope-quo-513",
-    type: "quote",
-    title: "Angebot AN-2026-513 erstellt — SKOPE Digitalisierung, Paket 2 erweitert",
-    meta: "24.000,00 € netto · gültig bis 17.09.2026 · ersetzt AN-2026-512",
-    customerId: "c2",
-    at: "2026-08-18T10:05:00.000Z",
-  },
-  {
-    id: "a-skope-quo",
-    type: "quote",
-    title: "Angebot AN-2026-512 erstellt — SKOPE Digitalisierung",
-    meta: "16.000,00 € netto · gültig bis 13.09.2026",
-    customerId: "c2",
-    at: "2026-08-14T10:05:00.000Z",
   },
 ]
 

@@ -5,18 +5,14 @@ import Link from "next/link"
 import {
   MoreHorizontal,
   FileDown,
-  Trash2,
   FileSignature,
   FileText,
   ReceiptEuro,
   FolderKanban,
-  CheckCircle2,
-  Send,
   ChevronRight,
   Paperclip,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
-import { useConfirm } from "@/lib/confirm"
 import { useQueryValue } from "@/hooks/use-query-flag"
 import { eur, dateDE, computeTotals } from "@/lib/format"
 import type { Contract, ContractStatus } from "@/lib/types"
@@ -24,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, EmptyState } from "@/components/ui/misc"
 import { Toolbar, SearchInput, FilterChips } from "@/components/page-toolbar"
 import { ContractStatusBadge } from "@/components/documents/status-badge"
+import { useDocMenus } from "@/components/documents/doc-actions"
 import {
   Dialog,
   DialogContent,
@@ -35,15 +32,14 @@ import {
   DropdownTrigger,
   DropdownContent,
   DropdownItem,
-  DropdownSeparator,
 } from "@/components/ui/dropdown"
 import { toast } from "sonner"
 
 type Filter = "all" | ContractStatus
 
 export default function ContractsPage() {
-  const { db, customerById, upsertContract, createContractFromQuote, remove, add } = useStore()
-  const confirm = useConfirm()
+  const { db, customerById, createContractFromQuote } = useStore()
+  const { contractMenu } = useDocMenus()
   const focusDoc = useQueryValue("doc")
   const [query, setQuery] = React.useState("")
   const [filter, setFilter] = React.useState<Filter>("all")
@@ -85,60 +81,9 @@ export default function ContractsPage() {
     (q) => q.status !== "expired" && q.status !== "declined" && !db.contracts.some((c) => c.quoteId === q.id),
   )
 
-  function menuFor(c: Contract) {
-    return (
-      <DropdownContent>
-        <DropdownItem onSelect={() => openDetail(c)}>
-          <FileSignature /> Details
-        </DropdownItem>
-        <DropdownItem asChild>
-          <Link href={`/print/contract/${c.id}`} target="_blank">
-            <FileDown /> PDF / Drucken
-          </Link>
-        </DropdownItem>
-        <DropdownSeparator />
-        {c.status === "draft" && (
-          <DropdownItem
-            onSelect={() => {
-              upsertContract({ ...c, status: "sent" })
-              toast.success("Als versendet markiert")
-            }}
-          >
-            <Send /> Als versendet markieren
-          </DropdownItem>
-        )}
-        {c.status !== "signed" && c.status !== "active" && (
-          <DropdownItem
-            onSelect={() => {
-              upsertContract({ ...c, status: "signed", signedAt: new Date().toISOString() })
-              toast.success("Als unterzeichnet markiert")
-            }}
-          >
-            <CheckCircle2 /> Als unterzeichnet markieren
-          </DropdownItem>
-        )}
-        <DropdownSeparator />
-        <DropdownItem
-          className="text-destructive data-[highlighted]:text-destructive"
-          onSelect={async () => {
-            const ok = await confirm({
-              title: `Vertrag ${c.number} löschen?`,
-              description: "Der Vertrag wird entfernt. Angebot und Rechnungen bleiben bestehen.",
-              confirmLabel: "Löschen",
-              destructive: true,
-            })
-            if (!ok) return
-            remove("contracts", c.id)
-            toast.success("Vertrag gelöscht", {
-              action: { label: "Rückgängig", onClick: () => add("contracts", c) },
-            })
-          }}
-        >
-          <Trash2 /> Löschen
-        </DropdownItem>
-      </DropdownContent>
-    )
-  }
+  // Das Menü kommt aus `useDocMenus` — dieselben Aktionen wie in der
+  // Kundenakte und in der Pipeline.
+  const menuFor = (c: Contract) => contractMenu(c, { onDetail: openDetail })
 
   return (
     <div className="mx-auto max-w-[1760px]">

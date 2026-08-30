@@ -2,53 +2,25 @@
 
 import * as React from "react"
 import Link from "next/link"
-import {
-  Plus,
-  MoreHorizontal,
-  FileDown,
-  Mail,
-  ArrowRightLeft,
-  Trash2,
-  Pencil,
-  FileText,
-  FileSignature,
-  Sparkles,
-  CheckCircle2,
-  ChevronRight,
-} from "lucide-react"
+import { Plus, MoreHorizontal, FileText, Sparkles, ChevronRight } from "lucide-react"
 import { useStore } from "@/lib/store"
-import { useConfirm } from "@/lib/confirm"
 import { useQueryFlag, useQueryValue } from "@/hooks/use-query-flag"
-import { eur, dateDE, computeTotals, emailSignature } from "@/lib/format"
+import { eur, dateDE, computeTotals } from "@/lib/format"
 import type { Quote, QuoteStatus } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Avatar, EmptyState } from "@/components/ui/misc"
 import { Toolbar, SearchInput, FilterChips } from "@/components/page-toolbar"
 import { QuoteStatusBadge } from "@/components/documents/status-badge"
 import { DocEditorDialog } from "@/components/documents/doc-editor"
-import {
-  Dropdown,
-  DropdownTrigger,
-  DropdownContent,
-  DropdownItem,
-  DropdownSeparator,
-} from "@/components/ui/dropdown"
+import { useDocMenus } from "@/components/documents/doc-actions"
+import { Dropdown, DropdownTrigger } from "@/components/ui/dropdown"
 import { toast } from "sonner"
 
 type Filter = "all" | QuoteStatus
 
 export default function QuotesPage() {
-  const {
-    db,
-    customerById,
-    upsertQuote,
-    convertQuoteToInvoice,
-    createContractFromQuote,
-    remove,
-    add,
-    upsertEmail,
-  } = useStore()
-  const confirm = useConfirm()
+  const { db, customerById } = useStore()
+  const { quoteMenu } = useDocMenus()
   const wantNew = useQueryFlag("new")
   const focusDoc = useQueryValue("doc") // Deep-Link: bestimmtes Angebot direkt öffnen
   const [query, setQuery] = React.useState("")
@@ -92,97 +64,9 @@ export default function QuotesPage() {
     setOpen(true)
   }
 
-  // Aktions-Menü — identisch für Tabellenzeile (Desktop) und Karte (Phone)
-  function menuFor(q: Quote) {
-    const c = customerById(q.customerId)
-    const total = computeTotals(q.items).gross
-    return (
-      <DropdownContent>
-        <DropdownItem onSelect={() => openEditor(q)}>
-          <Pencil /> Bearbeiten
-        </DropdownItem>
-        <DropdownItem asChild>
-          <Link href={`/print/quote/${q.id}`} target="_blank"><FileDown /> PDF / Drucken</Link>
-        </DropdownItem>
-        <DropdownItem
-          onSelect={() => {
-            upsertEmail({
-              to: c?.email ?? "",
-              customerId: q.customerId,
-              subject: `Ihr Angebot ${q.number} von ${db.settings.name}`,
-              body: `Hallo ${c?.contactName ?? ""},\n\nanbei unser Angebot ${q.number} über ${eur(total)}. Bei Fragen bin ich jederzeit für Sie da.\n\n${emailSignature(db.settings)}`,
-              relatedType: "quote",
-              relatedId: q.id,
-              status: "draft",
-            })
-            if (q.status === "draft") upsertQuote({ ...q, status: "sent" })
-            toast.success("E-Mail-Entwurf erstellt")
-          }}
-        >
-          <Mail /> Per E-Mail senden
-        </DropdownItem>
-        <DropdownSeparator />
-        {(() => {
-          // Der Vertrag hängt am Angebot: gibt es schon einen, führt der
-          // Eintrag dorthin — sonst legt er ihn an. Zwei Verträge zu einem
-          // Angebot wären ein Widerspruch, kein zweiter Vorgang.
-          const con = db.contracts.find((x) => x.quoteId === q.id)
-          return con ? (
-            <DropdownItem asChild>
-              <Link href={`/contracts?doc=${con.id}`}>
-                <FileSignature /> Vertrag {con.number} öffnen
-              </Link>
-            </DropdownItem>
-          ) : (
-            <DropdownItem
-              onSelect={() => {
-                const created = createContractFromQuote(q.id)
-                if (created)
-                  toast.success(`Vertrag ${created.number} angelegt`, {
-                    description: "Im Bereich Verträge verfügbar.",
-                  })
-              }}
-            >
-              <FileSignature /> Vertrag erstellen
-            </DropdownItem>
-          )
-        })()}
-        <DropdownSeparator />
-        {q.status !== "accepted" && (
-          <DropdownItem onSelect={() => { upsertQuote({ ...q, status: "accepted" }); toast.success("Angebot angenommen") }}>
-            <CheckCircle2 /> Als angenommen markieren
-          </DropdownItem>
-        )}
-        <DropdownItem
-          onSelect={() => {
-            const inv = convertQuoteToInvoice(q.id)
-            if (inv) toast.success(`Rechnung ${inv.number} erstellt`, { description: "Im Bereich Rechnungen verfügbar." })
-          }}
-        >
-          <ArrowRightLeft /> In Rechnung umwandeln
-        </DropdownItem>
-        <DropdownSeparator />
-        <DropdownItem
-          className="text-destructive data-[highlighted]:text-destructive"
-          onSelect={async () => {
-            const ok = await confirm({
-              title: `Angebot ${q.number} löschen?`,
-              description: `Das Angebot für ${c?.company ?? "diesen Kunden"} wird entfernt.`,
-              confirmLabel: "Löschen",
-              destructive: true,
-            })
-            if (!ok) return
-            remove("quotes", q.id)
-            toast.success("Angebot gelöscht", {
-              action: { label: "Rückgängig", onClick: () => add("quotes", q) },
-            })
-          }}
-        >
-          <Trash2 /> Löschen
-        </DropdownItem>
-      </DropdownContent>
-    )
-  }
+  // Das Menü kommt aus `useDocMenus` — dieselben Aktionen wie in der
+  // Kundenakte und in der Pipeline.
+  const menuFor = (q: Quote) => quoteMenu(q, { onEdit: openEditor })
 
   return (
     <div className="mx-auto max-w-[1760px]">

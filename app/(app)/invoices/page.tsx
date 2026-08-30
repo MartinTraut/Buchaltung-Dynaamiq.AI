@@ -1,28 +1,10 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
-import {
-  Plus,
-  MoreHorizontal,
-  FileDown,
-  Building2,
-  Mail,
-  CheckCircle2,
-  Send,
-  Trash2,
-  Pencil,
-  ReceiptEuro,
-  BellRing,
-  Repeat,
-  CopyPlus,
-  Ban,
-  ChevronRight,
-} from "lucide-react"
+import { Plus, MoreHorizontal, ReceiptEuro, Repeat, ChevronRight } from "lucide-react"
 import { useStore } from "@/lib/store"
-import { useConfirm } from "@/lib/confirm"
 import { useQueryFlag, useQueryValue } from "@/hooks/use-query-flag"
-import { eur, dateDE, computeTotals, emailSignature } from "@/lib/format"
+import { eur, dateDE, computeTotals } from "@/lib/format"
 import { REMINDER_LABEL } from "@/lib/types"
 import type { Invoice, InvoiceStatus } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -30,32 +12,15 @@ import { Avatar, EmptyState } from "@/components/ui/misc"
 import { Toolbar, SearchInput, FilterChips } from "@/components/page-toolbar"
 import { InvoiceStatusBadge } from "@/components/documents/status-badge"
 import { DocEditorDialog } from "@/components/documents/doc-editor"
-import {
-  Dropdown,
-  DropdownTrigger,
-  DropdownContent,
-  DropdownItem,
-  DropdownSeparator,
-} from "@/components/ui/dropdown"
+import { useDocMenus } from "@/components/documents/doc-actions"
+import { Dropdown, DropdownTrigger } from "@/components/ui/dropdown"
 import { toast } from "sonner"
 
 type Filter = "all" | InvoiceStatus
 
 export default function InvoicesPage() {
-  const {
-    db,
-    customerById,
-    setInvoiceStatus,
-    remove,
-    add,
-    upsertEmail,
-    pushActivity,
-    sendReminder,
-    toggleRecurring,
-    duplicateRecurring,
-    createCancellation,
-  } = useStore()
-  const confirm = useConfirm()
+  const { db, customerById } = useStore()
+  const { invoiceMenu } = useDocMenus()
   const wantNew = useQueryFlag("new")
   const newCustomer = useQueryValue("customer") // Vorbelegung z. B. aus Kunden-/Projektansicht
   const focusDoc = useQueryValue("doc") // Deep-Link: bestimmte Rechnung direkt öffnen
@@ -101,154 +66,14 @@ export default function InvoicesPage() {
   const counts = (s: InvoiceStatus) =>
     db.invoices.filter((i) => i.status === s).length
 
-  function sendByEmail(inv: Invoice) {
-    const c = customerById(inv.customerId)
-    const total = eur(computeTotals(inv.items).gross)
-    upsertEmail({
-      to: c?.email ?? "",
-      customerId: inv.customerId,
-      subject: `Ihre Rechnung ${inv.number} von ${db.settings.name}`,
-      body: `Hallo ${c?.contactName ?? ""},\n\nanbei erhalten Sie die Rechnung ${inv.number} über ${total}.\nZahlbar bis ${dateDE(inv.dueDate)}.\n\nVielen Dank für die gute Zusammenarbeit!\n\n${emailSignature(db.settings)}`,
-      relatedType: "invoice",
-      relatedId: inv.id,
-      status: "draft",
-    })
-    if (inv.status === "draft") setInvoiceStatus(inv.id, "sent")
-    toast.success("E-Mail-Entwurf erstellt", {
-      description: "Im Bereich E-Mails findest du den Entwurf.",
-    })
-  }
-
   function openEditor(inv: Invoice | null) {
     setEditing(inv)
     setOpen(true)
   }
 
-  // Aktions-Menü — identisch für Tabellenzeile (Desktop) und Karte (Phone)
-  function menuFor(inv: Invoice) {
-    const c = customerById(inv.customerId)
-    const total = computeTotals(inv.items).gross
-    return (
-      <DropdownContent>
-        <DropdownItem onSelect={() => openEditor(inv)}>
-          <Pencil /> Bearbeiten
-        </DropdownItem>
-        {inv.customerId && (
-          <DropdownItem asChild>
-            <Link href={`/crm?c=${inv.customerId}`}>
-              <Building2 /> Kunde öffnen
-            </Link>
-          </DropdownItem>
-        )}
-        {inv.pdfPath && (
-          <DropdownItem asChild>
-            <a href={inv.pdfPath} target="_blank" rel="noopener noreferrer">
-              <ReceiptEuro /> Original-PDF öffnen
-            </a>
-          </DropdownItem>
-        )}
-        <DropdownItem asChild>
-          <Link href={`/print/invoice/${inv.id}`} target="_blank">
-            <FileDown /> PDF / Drucken
-          </Link>
-        </DropdownItem>
-        <DropdownItem onSelect={() => sendByEmail(inv)}>
-          <Mail /> Per E-Mail senden
-        </DropdownItem>
-        <DropdownSeparator />
-        {inv.status !== "paid" && (
-          <DropdownItem
-            onSelect={() => {
-              setInvoiceStatus(inv.id, "paid")
-              pushActivity({
-                type: "payment",
-                title: `Zahlung erhalten — ${inv.number}`,
-                meta: `${c?.company ?? ""} · ${eur(total)}`,
-                customerId: inv.customerId,
-              })
-              toast.success("Als bezahlt markiert")
-            }}
-          >
-            <CheckCircle2 /> Als bezahlt markieren
-          </DropdownItem>
-        )}
-        {inv.status === "draft" && (
-          <DropdownItem onSelect={() => setInvoiceStatus(inv.id, "sent")}>
-            <Send /> Als versendet markieren
-          </DropdownItem>
-        )}
-        {(inv.status === "sent" || inv.status === "overdue") && (
-          <DropdownItem
-            onSelect={() => {
-              const r = sendReminder(inv.id)
-              if (r)
-                toast.success(`${r.email.subject.split(" — ")[0]} erstellt`, {
-                  description: "Entwurf im Bereich E-Mails.",
-                })
-            }}
-          >
-            <BellRing /> Mahnung / Erinnerung senden
-          </DropdownItem>
-        )}
-        {inv.status !== "draft" &&
-          inv.status !== "canceled" &&
-          !inv.cancelsInvoiceId && (
-            <DropdownItem
-              onSelect={async () => {
-                const ok = await confirm({
-                  title: `Rechnung ${inv.number} stornieren?`,
-                  description: `Es wird eine Stornorechnung mit negierten Positionen erstellt. ${inv.number} wird auf „Storniert" gesetzt.`,
-                  confirmLabel: "Stornorechnung erstellen",
-                  destructive: true,
-                })
-                if (!ok) return
-                const storno = createCancellation(inv.id)
-                if (storno)
-                  toast.success(`Stornorechnung ${storno.number} erstellt`, {
-                    description: `${inv.number} wurde storniert.`,
-                  })
-              }}
-            >
-              <Ban /> Stornorechnung erstellen
-            </DropdownItem>
-          )}
-        <DropdownSeparator />
-        <DropdownItem onSelect={() => toggleRecurring(inv.id)}>
-          <Repeat /> {inv.recurring ? "Retainer deaktivieren" : "Als monatlich (Retainer)"}
-        </DropdownItem>
-        <DropdownItem
-          onSelect={() => {
-            const next = duplicateRecurring(inv.id)
-            if (next)
-              toast.success(`Folge-Rechnung ${next.number} erzeugt`, {
-                description: "Als Entwurf für den nächsten Monat angelegt.",
-              })
-          }}
-        >
-          <CopyPlus /> Folge-Rechnung erzeugen
-        </DropdownItem>
-        <DropdownSeparator />
-        <DropdownItem
-          className="text-destructive data-[highlighted]:text-destructive"
-          onSelect={async () => {
-            const ok = await confirm({
-              title: `Rechnung ${inv.number} löschen?`,
-              description: `Die Rechnung für ${c?.company ?? "diesen Kunden"} über ${eur(total)} wird entfernt.`,
-              confirmLabel: "Löschen",
-              destructive: true,
-            })
-            if (!ok) return
-            remove("invoices", inv.id)
-            toast.success("Rechnung gelöscht", {
-              action: { label: "Rückgängig", onClick: () => add("invoices", inv) },
-            })
-          }}
-        >
-          <Trash2 /> Löschen
-        </DropdownItem>
-      </DropdownContent>
-    )
-  }
+  // Das Menü kommt aus `useDocMenus` — dieselben Aktionen wie in der
+  // Kundenakte und in der Pipeline.
+  const menuFor = (inv: Invoice) => invoiceMenu(inv, { onEdit: openEditor })
 
   return (
     <div className="mx-auto max-w-[1760px]">

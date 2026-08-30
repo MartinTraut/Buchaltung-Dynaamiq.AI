@@ -15,12 +15,14 @@ import {
   ChartNoAxesGantt,
   Building2,
   ReceiptEuro,
+  FileText,
+  FileSignature,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
 import { useQueryFlag } from "@/hooks/use-query-flag"
 import { useLocalState } from "@/hooks/use-local-state"
-import { eur, dateDE } from "@/lib/format"
+import { eur, dateDE, computeTotals } from "@/lib/format"
 import { PROJECT_STATUS_LABEL, type Project, type ProjectStatus } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -31,6 +33,7 @@ import { Toolbar, FilterChips } from "@/components/page-toolbar"
 import { Segmented } from "@/components/ui/segmented"
 import { ProjectTimeline, PROJECT_STATUS_VARIANT } from "@/components/projects/timeline"
 import { TaskDialog } from "@/components/tasks/task-dialog"
+import { useDocMenus, DocMenu } from "@/components/documents/doc-actions"
 import type { Task } from "@/lib/types"
 import {
   Dialog,
@@ -46,6 +49,7 @@ type Filter = "all" | ProjectStatus
 
 export default function ProjectsPage() {
   const { db, customerById, upsertProject, upsertTask, toggleTask, remove, add } = useStore()
+  const { quoteMenu, contractMenu, invoiceMenu } = useDocMenus()
   const confirm = useConfirm()
   const wantNew = useQueryFlag("new")
   const [filter, setFilter] = React.useState<Filter>("all")
@@ -244,6 +248,56 @@ export default function ProjectsPage() {
               </div>
             </div>
 
+            {(() => {
+              // Belege des Projekts — dasselbe Menü wie im Rechnungs- und
+              // Angebotsmodul, damit man das Projekt für ein PDF nicht
+              // verlassen muss.
+              const q = db.quotes.filter(
+                (x) => x.projectId === detail.id || x.customerId === detail.customerId,
+              )
+              const co = db.contracts.filter((x) => x.customerId === detail.customerId)
+              const inv = db.invoices.filter(
+                (x) => x.projectId === detail.id || x.customerId === detail.customerId,
+              )
+              if (!q.length && !co.length && !inv.length) return null
+              return (
+                <div>
+                  <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground">
+                    Belege — Angebote, Verträge und Rechnungen
+                  </p>
+                  <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border border-white/8 bg-white/[0.02] p-2">
+                    {q.map((x) => (
+                      <DocLine
+                        key={x.id}
+                        icon={<FileText className="size-4" />}
+                        title={`Angebot ${x.number}`}
+                        meta={`${eur(computeTotals(x.items).gross)} brutto · ${dateDE(x.issueDate)}`}
+                        menu={quoteMenu(x)}
+                      />
+                    ))}
+                    {co.map((x) => (
+                      <DocLine
+                        key={x.id}
+                        icon={<FileSignature className="size-4" />}
+                        title={`Vertrag ${x.number}`}
+                        meta={`${eur(x.netValue ?? 0)} netto · ${dateDE(x.issueDate)}`}
+                        menu={contractMenu(x)}
+                      />
+                    ))}
+                    {inv.map((x) => (
+                      <DocLine
+                        key={x.id}
+                        icon={<ReceiptEuro className="size-4" />}
+                        title={`Rechnung ${x.number}`}
+                        meta={`${eur(computeTotals(x.items).gross)} brutto · ${dateDE(x.issueDate)}`}
+                        menu={invoiceMenu(x)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
             <DialogFooter>
               <Button
                 variant="destructive"
@@ -387,5 +441,31 @@ function ProjectDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** Beleg-Zeile mit dem gemeinsamen Aktionsmenü. */
+function DocLine({
+  icon,
+  title,
+  meta,
+  menu,
+}: {
+  icon: React.ReactNode
+  title: string
+  meta: string
+  menu: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]">
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white/[0.05] text-muted-foreground">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13.5px] font-medium">{title}</span>
+        <span className="block text-[11.5px] text-muted-foreground">{meta}</span>
+      </span>
+      <DocMenu>{menu}</DocMenu>
+    </div>
   )
 }

@@ -178,6 +178,58 @@ export const REMINDER_LABEL: Record<number, string> = {
   4: "Letzte Mahnung",
 }
 
+/**
+ * Betreuung nach dem Livegang. Ohne dieses Feld zeigt das Angebot die
+ * erfolgsabhängige Betreuung (Anteil am Deckungsbeitrag). Projekte mit fester
+ * Monatspauschale beschreiben sie hier — Layout und Text bleiben dieselben,
+ * nur die Zahlen und die Marginalien kommen aus dem Datensatz.
+ */
+export interface CareTerms {
+  eyebrow?: string
+  /** Seitentitel; ohne Angabe „Betreuung ohne Monatspauschale". */
+  title?: string
+  /** Fette Zeile im dunklen Kasten — der Kern der Vereinbarung in einem Satz. */
+  headline: string
+  text: string
+  /** Kernzahl rechts im Kasten, z. B. „70 €" oder „15 %". */
+  stat: string
+  statLabel: string
+  /** Marginalien der Absätze, in ihrer Reihenfolge. */
+  labels?: string[]
+  /** Zeile im Beauftragungsblock der Schlussseite. */
+  summaryLabel?: string
+  summaryValue?: string
+}
+
+/**
+ * Zahlungsplan des Angebots. Ohne dieses Feld greift 40/30/30 auf den
+ * Festpreis — Angebote mit Einmalzahlung oder Ratenmodell setzen es.
+ */
+export interface PaymentTerms {
+  intro: string
+  /** Eine Karte je Zahlungsweg oder Rate. */
+  cards: { head: string; when: string; value?: string }[]
+  note?: string
+  /**
+   * Nachvollziehbare Rechnung je Zahlungsweg: netto, Umsatzsteuer, brutto —
+   * eine Zeile je Bestandteil. Ohne sie steht neben „230,00 € monatlich" nur
+   * eine Zahl, die der Auftraggeber selbst nachrechnen müsste.
+   */
+  tables?: {
+    title: string
+    sub?: string
+    rows: { k: string; v: string; strong?: boolean; muted?: boolean; rule?: boolean }[]
+    foot?: string
+  }[]
+  /** Gegenüberstellung der Varianten unter dem Plan. */
+  compare?: {
+    title: string
+    text?: string
+    rows: { k: string; v: string; strong?: boolean }[]
+    foot?: string
+  }
+}
+
 export interface Quote {
   id: ID
   number: string
@@ -214,6 +266,45 @@ export interface Quote {
    * Das Feld steuert, welche Seiten gesetzt werden — ohne Angabe: „both".
    */
   pack?: "both" | "web" | "system"
+  /** Betreuung nach dem Livegang — ohne Angabe die erfolgsabhängige Fassung. */
+  care?: CareTerms
+  /** Zahlungsplan — ohne Angabe 40/30/30 auf den Festpreis. */
+  payment?: PaymentTerms
+  /**
+   * Was nach der Freigabe passiert. Ohne Angabe verweist das Angebot auf den
+   * Projektvertrag — bei Vorhaben ohne eigenen Vertrag wäre das eine Zusage
+   * auf ein Dokument, das nicht existiert.
+   */
+  orderNote?: string
+  /**
+   * Grobe Leistungsübersicht für die kompakte Fassung — je Punkt ein
+   * Schlagwort und eine Zeile Erklärung. Bewusst ohne Stunden: das Angebot
+   * soll den Umfang zeigen, nicht die Kalkulation.
+   */
+  summary?: { k: string; v: string }[]
+  /**
+   * Angaben, die mit der Zusage mitkommen — als Stichpunkt-Karten gesetzt
+   * statt im Fließtext versteckt: der Auftraggeber sieht auf einen Blick,
+   * was noch fehlt.
+   */
+  orderItems?: { k: string; v?: string }[]
+  /** Schlusszeile unter den Stichpunkten — was nach der Zusage passiert. */
+  orderFoot?: string
+  /**
+   * Bauform des Dokuments. „full" ist die ausgeschriebene Fassung mit
+   * Prozess-, Wert- und Rahmenseiten (SKOPE-Angebote ab 19.000 €). „compact"
+   * setzt dieselben Inhalte auf drei Seiten — bei einem Vorhaben um 1.900 €
+   * wirkt ein siebenseitiges Dokument nicht gründlich, sondern aufgeblasen.
+   * Ohne Angabe: „full".
+   */
+  layout?: "full" | "compact"
+  /**
+   * Kurzklauseln der kompakten Fassung. Die Langtexte in `notes` erklären,
+   * diese Sätze verpflichten — deshalb ein eigenes Feld statt eines
+   * automatischen Kürzens, das genau die Zusicherung wegschneiden würde,
+   * auf die es ankommt.
+   */
+  terms?: { title: string; text: string }[]
   createdAt: string
 }
 

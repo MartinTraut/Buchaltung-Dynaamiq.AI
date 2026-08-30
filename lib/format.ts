@@ -132,10 +132,13 @@ export function relativeTime(iso: string): string {
 }
 
 export function initials(name: string): string {
+  // Gedankenstriche und Klammern in Firmierungen („Wrapcut – Ihr Folienexperte")
+  // sind keine Wörter: ohne den Filter stünde „W–" im Kürzel.
   return name
     .split(/\s+/)
+    .filter((w) => /\p{L}|\d/u.test(w))
     .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
+    .map((w) => w.match(/[\p{L}\d]/u)?.[0].toUpperCase() ?? "")
     .join("")
 }
 
@@ -173,6 +176,33 @@ export function lineNet(item: LineItem): number {
  *  damit Rechnungs-/Angebotsnummern einheitlich und professionell aussehen. */
 export function formatDocNumber(prefix: string, no: number): string {
   return `${prefix}-${String(no).padStart(3, "0")}`
+}
+
+/**
+ * Vertragsnummer „V-1006-01" — Kundennummer plus laufende Nummer je Kunde.
+ *
+ * Anders als Rechnung und Angebot gehört ein Vertrag nicht zu einem Vorgang im
+ * Jahr, sondern zu einer Geschäftsbeziehung, und ein Kunde kann mehrere haben
+ * (SKOPE: Website und Warenwirtschaft). Eine jahresweise Zählung zeigt weder
+ * den Kunden noch das wievielte Paket. Fehlt dem Kunden eine Nummer, fällt die
+ * Vergabe auf die reine Laufnummer zurück, damit nie eine leere Stelle im
+ * Nummernkreis entsteht.
+ */
+export function contractNumberFor(
+  prefix: string,
+  customerNumber: string | undefined,
+  existingNumbers: string[],
+): string {
+  const digits = /\d+/.exec(customerNumber ?? "")?.[0]
+  if (!digits) return formatDocNumber(prefix, existingNumbers.length + 1)
+  const base = `${prefix}-${digits}`
+  const seq = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-(\\d+)$`)
+  let highest = 0
+  for (const number of existingNumbers) {
+    const m = seq.exec(number)
+    if (m) highest = Math.max(highest, parseInt(m[1], 10))
+  }
+  return `${base}-${String(highest + 1).padStart(2, "0")}`
 }
 
 export function computeTotals(items: LineItem[]): DocTotals {

@@ -29,13 +29,21 @@ import {
   ChevronDown,
   ChevronRight,
   ReceiptEuro,
+  FileSignature,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
 import { useQueryFlag } from "@/hooks/use-query-flag"
 import { useLocalState } from "@/hooks/use-local-state"
-import { DEAL_STAGES, type Deal, type DealStage } from "@/lib/types"
-import { eur, dateDE } from "@/lib/format"
+import {
+  DEAL_STAGES,
+  type Contract,
+  type Deal,
+  type DealStage,
+  type Invoice,
+  type Quote,
+} from "@/lib/types"
+import { eur, dateDE, computeTotals } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, EmptyState } from "@/components/ui/misc"
@@ -43,6 +51,7 @@ import { Input, Label, Select, Textarea } from "@/components/ui/input"
 import { SearchInput } from "@/components/page-toolbar"
 import { Segmented } from "@/components/ui/segmented"
 import { DocEditorDialog } from "@/components/documents/doc-editor"
+import { useDocMenus, DocMenu } from "@/components/documents/doc-actions"
 import {
   Dialog,
   DialogContent,
@@ -259,6 +268,9 @@ export default function PipelinePage() {
           key={detail.id}
           deal={detail}
           company={companyOf(detail)}
+          quotes={db.quotes.filter((q) => q.customerId === detail.customerId)}
+          contracts={db.contracts.filter((c) => c.customerId === detail.customerId)}
+          invoices={db.invoices.filter((i) => i.customerId === detail.customerId)}
           onOpenChange={(o) => !o && setDetail(null)}
           onSave={(d) => {
             upsertDeal(d)
@@ -623,6 +635,9 @@ function TimelineView({
 function DealDetailDialog({
   deal,
   company,
+  quotes,
+  contracts,
+  invoices,
   onOpenChange,
   onSave,
   onCreateQuote,
@@ -632,6 +647,9 @@ function DealDetailDialog({
 }: {
   deal: Deal
   company: string
+  quotes: Quote[]
+  contracts: Contract[]
+  invoices: Invoice[]
   onOpenChange: (o: boolean) => void
   onSave: (d: Partial<Deal>) => void
   onCreateQuote: () => void
@@ -641,6 +659,7 @@ function DealDetailDialog({
 }) {
   const [form, setForm] = React.useState<Deal>(deal)
   const set = (p: Partial<Deal>) => setForm((f) => ({ ...f, ...p }))
+  const { quoteMenu, contractMenu, invoiceMenu } = useDocMenus()
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent size="lg">
@@ -683,6 +702,43 @@ function DealDetailDialog({
             <Textarea value={form.notes ?? ""} onChange={(e) => set({ notes: e.target.value })} />
           </div>
         </div>
+
+        {(quotes.length > 0 || contracts.length > 0 || invoices.length > 0) && (
+          <div>
+            <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground">
+              Belege zu diesem Kunden
+            </p>
+            <div className="max-h-52 space-y-1 overflow-y-auto rounded-xl border border-white/8 bg-white/[0.02] p-2">
+              {quotes.map((q) => (
+                <DocLine
+                  key={q.id}
+                  icon={<FileText className="size-4" />}
+                  title={`Angebot ${q.number}`}
+                  meta={`${eur(computeTotals(q.items).gross)} brutto · ${dateDE(q.issueDate)}`}
+                  menu={quoteMenu(q)}
+                />
+              ))}
+              {contracts.map((c) => (
+                <DocLine
+                  key={c.id}
+                  icon={<FileSignature className="size-4" />}
+                  title={`Vertrag ${c.number}`}
+                  meta={`${eur(c.netValue ?? 0)} netto · ${dateDE(c.issueDate)}`}
+                  menu={contractMenu(c)}
+                />
+              ))}
+              {invoices.map((i) => (
+                <DocLine
+                  key={i.id}
+                  icon={<ReceiptEuro className="size-4" />}
+                  title={`Rechnung ${i.number}`}
+                  meta={`${eur(computeTotals(i.items).gross)} brutto · ${dateDE(i.issueDate)}`}
+                  menu={invoiceMenu(i)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         <div>
           <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground">Aus diesem Deal erstellen</p>
@@ -913,5 +969,32 @@ function DealDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** Beleg-Zeile mit dem gemeinsamen Aktionsmenü — PDF, E-Mail, Status, ohne
+ *  den Deal zu verlassen. */
+function DocLine({
+  icon,
+  title,
+  meta,
+  menu,
+}: {
+  icon: React.ReactNode
+  title: string
+  meta: string
+  menu: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04]">
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white/[0.05] text-muted-foreground">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13.5px] font-medium">{title}</span>
+        <span className="block text-[11.5px] text-muted-foreground">{meta}</span>
+      </span>
+      <DocMenu>{menu}</DocMenu>
+    </div>
   )
 }
