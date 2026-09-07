@@ -8,10 +8,11 @@ import { useQueryFlag, useQueryValue } from "@/hooks/use-query-flag"
 import { eur, dateDE, computeTotals } from "@/lib/format"
 import type { Quote, QuoteStatus } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { Avatar, EmptyState } from "@/components/ui/misc"
+import { EmptyState } from "@/components/ui/misc"
+import { CustomerAvatar } from "@/components/ui/customer-avatar"
 import { Toolbar, SearchInput, FilterChips } from "@/components/page-toolbar"
 import { QuoteStatusBadge } from "@/components/documents/status-badge"
-import { DocEditorDialog } from "@/components/documents/doc-editor"
+import { DocComposer } from "@/components/documents/doc-composer"
 import { useDocMenus } from "@/components/documents/doc-actions"
 import { Dropdown, DropdownTrigger } from "@/components/ui/dropdown"
 import { toast } from "sonner"
@@ -129,7 +130,7 @@ export default function QuotesPage() {
                   className="glass cursor-pointer rounded-2xl p-4 transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-white/[0.04]"
                 >
                   <div className="flex items-center gap-3">
-                    <Avatar name={c?.company ?? "?"} className="size-11 shrink-0 text-[12px]" />
+                    <CustomerAvatar customer={c} className="size-11 shrink-0 text-[12px]" />
                     <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">
                       {c?.company ?? "—"}
                     </span>
@@ -188,7 +189,7 @@ export default function QuotesPage() {
                     onClick={() => openEditor(q)}
                     className="flex items-center gap-3.5 text-left"
                   >
-                    <Avatar name={c?.company ?? "?"} className="size-11 text-[12px]" />
+                    <CustomerAvatar customer={c} className="size-11 text-[12px]" />
                     <span className="min-w-0">
                       <span className="block truncate text-[15px] font-semibold">{c?.company ?? "—"}</span>
                     </span>
@@ -200,7 +201,12 @@ export default function QuotesPage() {
                   <div className="flex justify-end">
                     <Dropdown>
                       <DropdownTrigger asChild>
-                        <Button variant="ghost" size="icon-sm" className="size-11 md:size-7">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Aktionen"
+                          className="size-11 md:size-7"
+                        >
                           <MoreHorizontal className="size-4" />
                         </Button>
                       </DropdownTrigger>
@@ -214,7 +220,7 @@ export default function QuotesPage() {
         </>
       )}
 
-      <DocEditorDialog
+      <DocComposer
         kind="quote"
         key={editing?.id ?? (open ? "new" : "closed")}
         open={open}

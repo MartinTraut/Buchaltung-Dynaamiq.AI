@@ -17,6 +17,7 @@ import {
   Pencil,
   ReceiptEuro,
   Repeat,
+  Lock,
   Send,
   Trash2,
 } from "lucide-react"
@@ -33,6 +34,21 @@ import {
   DropdownSeparator,
 } from "@/components/ui/dropdown"
 import { toast } from "sonner"
+
+/**
+ * Eine ausgestellte Rechnung ist unveränderlich.
+ *
+ * §14 UStG und die GoBD verlangen, dass ein einmal erteilter Beleg nicht
+ * nachträglich geändert oder entfernt wird: der Empfänger hält bereits ein
+ * Dokument mit dieser Nummer in der Hand, und eine gelöschte Nummer reißt eine
+ * unerklärliche Lücke in den Nummernkreis. Korrekturen laufen über eine
+ * Stornorechnung und eine neue Rechnung — nicht über den Stift.
+ *
+ * Nur Entwürfe sind frei bearbeitbar; sie waren nie außer Haus.
+ */
+function isIssued(inv: Invoice): boolean {
+  return inv.status !== "draft"
+}
 
 /**
  * Die Aktionen eines Belegs — an einer Stelle.
@@ -196,7 +212,14 @@ export function useDocMenus() {
     const total = computeTotals(inv.items).gross
     return (
       <DropdownContent>
-        {opts.onEdit ? (
+        {isIssued(inv) ? (
+          <DropdownItem
+            disabled
+            title="Ausgestellte Rechnungen bleiben unverändert — Korrektur über eine Stornorechnung."
+          >
+            <Lock /> Ausgestellt — nicht änderbar
+          </DropdownItem>
+        ) : opts.onEdit ? (
           <DropdownItem onSelect={() => opts.onEdit!(inv)}>
             <Pencil /> Bearbeiten
           </DropdownItem>
@@ -310,35 +333,53 @@ export function useDocMenus() {
           <CopyPlus /> Folge-Rechnung erzeugen
         </DropdownItem>
         <DropdownSeparator />
-        <DropdownItem
-          className="text-destructive data-[highlighted]:text-destructive"
-          onSelect={async () => {
-            const ok = await confirm({
-              title: `Rechnung ${inv.number} löschen?`,
-              description: `Die Rechnung für ${c?.company ?? "diesen Kunden"} über ${eur(total)} wird entfernt.`,
-              confirmLabel: "Löschen",
-              destructive: true,
-            })
-            if (!ok) return
-            remove("invoices", inv.id)
-            toast.success("Rechnung gelöscht", {
-              action: { label: "Rückgängig", onClick: () => add("invoices", inv) },
-            })
-          }}
-        >
-          <Trash2 /> Löschen
-        </DropdownItem>
+        {isIssued(inv) ? (
+          <DropdownItem
+            disabled
+            title="Eine vergebene Rechnungsnummer darf nicht verschwinden — sonst fehlt sie im Nummernkreis."
+          >
+            <Lock /> Löschen gesperrt (Nummernkreis)
+          </DropdownItem>
+        ) : (
+          <DropdownItem
+            className="text-destructive data-[highlighted]:text-destructive"
+            onSelect={async () => {
+              const ok = await confirm({
+                title: `Rechnungsentwurf ${inv.number} löschen?`,
+                description: `Der Entwurf für ${c?.company ?? "diesen Kunden"} über ${eur(total)} wird entfernt. Die Nummer ${inv.number} bleibt vergeben und wird nicht neu verwendet.`,
+                confirmLabel: "Löschen",
+                destructive: true,
+              })
+              if (!ok) return
+              remove("invoices", inv.id)
+              toast.success("Entwurf gelöscht", {
+                action: { label: "Rückgängig", onClick: () => add("invoices", inv) },
+              })
+            }}
+          >
+            <Trash2 /> Löschen
+          </DropdownItem>
+        )}
       </DropdownContent>
     )
   }
 
   function contractMenu(
     con: Contract,
-    opts: { onDetail?: (c: Contract) => void; hideCustomer?: boolean } = {},
+    opts: {
+      onDetail?: (c: Contract) => void
+      onEdit?: (c: Contract) => void
+      hideCustomer?: boolean
+    } = {},
   ) {
     const quote = db.quotes.find((q) => q.id === con.quoteId)
     return (
       <DropdownContent>
+        {opts.onEdit && (
+          <DropdownItem onSelect={() => opts.onEdit!(con)}>
+            <Pencil /> Bearbeiten
+          </DropdownItem>
+        )}
         {opts.onDetail ? (
           <DropdownItem onSelect={() => opts.onDetail!(con)}>
             <FileSignature /> Details

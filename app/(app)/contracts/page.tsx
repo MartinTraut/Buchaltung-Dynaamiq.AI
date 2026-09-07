@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import {
   MoreHorizontal,
+  Plus,
   FileDown,
   FileSignature,
   FileText,
@@ -17,10 +18,12 @@ import { useQueryValue } from "@/hooks/use-query-flag"
 import { eur, dateDE, computeTotals } from "@/lib/format"
 import type { Contract, ContractStatus } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { Avatar, EmptyState } from "@/components/ui/misc"
+import { EmptyState } from "@/components/ui/misc"
+import { CustomerAvatar } from "@/components/ui/customer-avatar"
 import { Toolbar, SearchInput, FilterChips } from "@/components/page-toolbar"
 import { ContractStatusBadge } from "@/components/documents/status-badge"
 import { useDocMenus } from "@/components/documents/doc-actions"
+import { ContractComposer } from "@/components/documents/contract-composer"
 import {
   Dialog,
   DialogContent,
@@ -48,6 +51,9 @@ export default function ContractsPage() {
   // dass der Nutzer sie geschlossen hat — sonst risse der Link sie wieder auf.
   const [detailId, setDetailId] = React.useState<string | null>(null)
   const [dismissed, setDismissed] = React.useState(false)
+  // Composer: `editing` ist der Vertrag, der bearbeitet wird — null heißt neu.
+  const [editing, setEditing] = React.useState<Contract | null>(null)
+  const [composerOpen, setComposerOpen] = React.useState(false)
   const activeId = detailId ?? (dismissed ? null : (focusDoc ?? null))
   const detail = db.contracts.find((x) => x.id === activeId) ?? null
 
@@ -83,7 +89,12 @@ export default function ContractsPage() {
 
   // Das Menü kommt aus `useDocMenus` — dieselben Aktionen wie in der
   // Kundenakte und in der Pipeline.
-  const menuFor = (c: Contract) => contractMenu(c, { onDetail: openDetail })
+  const openEditor = (c: Contract | null) => {
+    setEditing(c)
+    setComposerOpen(true)
+  }
+  const menuFor = (c: Contract) =>
+    contractMenu(c, { onDetail: openDetail, onEdit: openEditor })
 
   return (
     <div className="mx-auto max-w-[1760px]">
@@ -110,12 +121,12 @@ export default function ContractsPage() {
             { id: "signed", label: "Unterzeichnet", count: counts("signed") },
           ]}
         />
-        {offeneAngebote.length > 0 && (
-          <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          {offeneAngebote.length > 0 && (
             <Dropdown>
               <DropdownTrigger asChild>
-                <Button variant="brand" size="lg" className="gap-1.5">
-                  <FileSignature className="size-4" /> Vertrag zum Angebot
+                <Button variant="outline" size="lg" className="gap-1.5">
+                  <FileSignature className="size-4" /> Zum Angebot
                 </Button>
               </DropdownTrigger>
               <DropdownContent>
@@ -135,15 +146,26 @@ export default function ContractsPage() {
                 ))}
               </DropdownContent>
             </Dropdown>
-          </div>
-        )}
+          )}
+          <Button
+            variant="brand"
+            size="lg"
+            className="gap-1.5"
+            onClick={() => {
+              setEditing(null)
+              setComposerOpen(true)
+            }}
+          >
+            <Plus className="size-4" /> Neuer Vertrag
+          </Button>
+        </div>
       </Toolbar>
 
       {rows.length === 0 ? (
         <EmptyState
           icon={<FileSignature className="size-6" />}
           title="Keine Verträge"
-          hint="Ein Vertrag entsteht aus einem Angebot — er regelt, was das Angebot bewusst offenlässt."
+          hint="Ein Vertrag regelt, was das Angebot bewusst offenlässt — mit Angebot als Grundlage oder frei angelegt."
         />
       ) : (
         <div className="glass overflow-hidden rounded-2xl">
@@ -166,7 +188,7 @@ export default function ContractsPage() {
                 className="grid grid-cols-1 gap-2 border-b border-white/[0.05] px-4 py-4 transition-colors last:border-0 hover:bg-white/[0.025] md:grid-cols-[1.5fr_1fr_1fr_130px_140px_130px_48px] md:items-center md:gap-4 md:px-6"
               >
                 <button onClick={() => openDetail(c)} className="flex items-center gap-3.5 text-left">
-                  <Avatar name={cust?.company ?? "?"} className="size-11 text-[12px]" />
+                  <CustomerAvatar customer={cust} className="size-11 text-[12px]" />
                   <span className="min-w-0">
                     <span className="block truncate text-[15px] font-semibold">
                       {cust?.company ?? "—"}
@@ -203,7 +225,12 @@ export default function ContractsPage() {
                 <div className="flex justify-end">
                   <Dropdown>
                     <DropdownTrigger asChild>
-                      <Button variant="ghost" size="icon-sm" className="size-11 md:size-7">
+                      <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Aktionen"
+                          className="size-11 md:size-7"
+                        >
                         <MoreHorizontal className="size-4" />
                       </Button>
                     </DropdownTrigger>
@@ -217,6 +244,12 @@ export default function ContractsPage() {
       )}
 
       <ContractDetail contract={detail} onClose={closeDetail} />
+
+      <ContractComposer
+        open={composerOpen}
+        onOpenChange={setComposerOpen}
+        contract={editing}
+      />
     </div>
   )
 }

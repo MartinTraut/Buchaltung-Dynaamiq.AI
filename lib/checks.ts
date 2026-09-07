@@ -22,6 +22,7 @@ export type CheckArea =
   | "Kunden"
   | "Ausgaben"
   | "Stammdaten"
+  | "Datensicherung"
 
 export interface CheckFinding {
   /** Stabil über Neuberechnungen hinweg: Regel + Datensatz. Genau deshalb
@@ -216,6 +217,72 @@ export const CHECK_RULES: CheckRule[] = [
   },
 
   // ── Angebote ──────────────────────────────────────────────────────────
+  {
+    id: "invoice-number-gap",
+    area: "Rechnungen",
+    label: "Lücke im Rechnungsnummernkreis",
+    description:
+      "Fehlende laufende Nummern zwischen den ausgestellten Rechnungen. Der Nummernkreis muss lückenlos sein — jede fehlende Nummer ist im Zweifel gegenüber dem Finanzamt zu erklären.",
+    severity: "warning",
+    run: (db) => {
+      // Nur Nummern im aktuellen Präfix-Schema vergleichen: importierte oder
+      // von Hand vergebene Nummern haben ihre eigene Systematik und würden
+      // sonst jede Lücke der Welt melden.
+      const prefix = db.settings.invoicePrefix
+      const pattern = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-(\\d+)$`)
+      const numbers = issued(db)
+        .map((i) => pattern.exec(i.number.trim())?.[1])
+        .filter((n): n is string => !!n)
+        .map(Number)
+        .sort((a, b) => a - b)
+      if (numbers.length < 2) return []
+      const missing: number[] = []
+      for (let n = numbers[0] + 1; n < numbers[numbers.length - 1]; n++) {
+        if (!numbers.includes(n)) missing.push(n)
+      }
+      if (!missing.length) return []
+      return [
+        {
+          id: "invoice-number-gap:all",
+          ruleId: "invoice-number-gap",
+          area: "Rechnungen" as const,
+          severity: "warning" as const,
+          title: `${plural(missing.length, "fehlende Rechnungsnummer", "fehlende Rechnungsnummern")} im Nummernkreis`,
+          detail: `${missing.slice(0, 8).map((n) => `${prefix}-${n}`).join(", ")}${missing.length > 8 ? " …" : ""} — vergeben, aber kein Beleg vorhanden (gelöschter Entwurf?).`,
+          href: "/invoices",
+        },
+      ]
+    },
+  },
+  // ── Datensicherung ────────────────────────────────────────────────────
+  {
+    id: "backup-stale",
+    area: "Datensicherung",
+    label: "Datensicherung überfällig",
+    description:
+      "Der gesamte Bestand liegt allein im Speicher dieses Browsers. Ohne regelmäßigen Export ist er nach einem Gerätewechsel oder geleerten Websitedaten verloren — Rechnungen sind nach § 147 AO zehn Jahre aufzubewahren.",
+    severity: "critical",
+    threshold: { label: "Erinnern nach", suffix: "Tagen", min: 1, max: 90 },
+    defaultDays: 7,
+    run: (db, days) => {
+      const last = db.settings.lastBackupAt
+      const age = last ? daysAgo(last) : Infinity
+      if (age < days) return []
+      return [
+        {
+          id: "backup-stale:settings",
+          ruleId: "backup-stale",
+          area: "Datensicherung" as const,
+          severity: "critical" as const,
+          title: last
+            ? `Letzte Datensicherung vor ${plural(age, "Tag", "Tagen")}`
+            : "Noch nie eine Datensicherung erstellt",
+          detail: `${db.invoices.length} Rechnungen, ${db.customers.length} Kunden und ${db.contracts.length} Verträge liegen nur in diesem Browser.`,
+          href: "/settings",
+        },
+      ]
+    },
+  },
   {
     id: "quote-expiring",
     area: "Angebote",

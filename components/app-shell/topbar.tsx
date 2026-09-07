@@ -25,6 +25,7 @@ import { DynaamiqMark } from "@/components/brand/logo"
 const TITLES: Record<string, { title: string; sub: string }> = {
   "/": { title: "Dashboard", sub: "Dein Business auf einen Blick" },
   "/tasks": { title: "Offene Punkte", sub: "Was noch zu erledigen ist" },
+  "/onboarding": { title: "Onboarding", sub: "Erstgespräch aufnehmen & verwerten" },
   "/crm": { title: "CRM & Kontakte", sub: "Kunden, Leads & Beziehungen" },
   "/pipeline": { title: "Pipeline", sub: "Deals von Lead bis Abschluss" },
   "/quotes": { title: "Angebote", sub: "Erstellen, versenden, gewinnen" },
@@ -95,7 +96,12 @@ export function Topbar() {
 
       <Dropdown>
         <DropdownTrigger asChild>
-          <Button variant="brand" size="lg" className="gap-1.5 px-3.5 sm:px-5">
+          <Button
+            variant="brand"
+            size="lg"
+            aria-label="Neu erstellen"
+            className="gap-1.5 px-3.5 sm:px-5"
+          >
             <Plus className="size-4" />
             <span className="hidden sm:inline">Neu</span>
           </Button>

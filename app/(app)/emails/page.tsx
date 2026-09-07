@@ -10,7 +10,8 @@ import type { EmailDraft, Template } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, EmptyState } from "@/components/ui/misc"
+import { EmptyState } from "@/components/ui/misc"
+import { CustomerAvatar } from "@/components/ui/customer-avatar"
 import { Input, Label, Textarea, Select } from "@/components/ui/input"
 import { Toolbar, FilterChips } from "@/components/page-toolbar"
 import {
@@ -68,7 +69,7 @@ export default function EmailsPage() {
             return (
               <Card key={e.id} className="cursor-pointer p-4" onClick={() => { setEditing(e); setOpen(true) }}>
                 <div className="flex items-start gap-3">
-                  <Avatar name={c?.company ?? e.to ?? "?"} className="size-9 text-[10px]" />
+                  <CustomerAvatar customer={c} name={e.to} className="size-9 text-[10px]" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="truncate text-sm font-semibold">{e.subject || "(kein Betreff)"}</p>

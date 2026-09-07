@@ -8,8 +8,6 @@ import {
   Sparkles,
   SendHorizontal,
   FileText,
-  ReceiptEuro,
-  Mail,
   Check,
   Loader2,
   Wand2,
@@ -20,6 +18,7 @@ import {
   Lightbulb,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
+import { businessBriefing, briefingPrompts } from "@/lib/briefing"
 import { eur, computeTotals } from "@/lib/format"
 import type { LineItem } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -64,6 +63,9 @@ interface Turn {
   demo?: boolean
   analyzed?: string | null
   tier?: "fast" | "balanced" | "max" | "override"
+  /** Herangezogene Datenquellen — steht über der Antwort, damit man sieht,
+   *  worauf sie beruht, bevor man sie liest. */
+  sources?: string[]
   done?: { kind: string; href: string; label: string }
 }
 
@@ -100,6 +102,9 @@ export default function AssistantPage() {
     setInput("")
     setTurns((t) => [...t, { id: nanoid(6), role: "user", text }])
     setLoading(true)
+    // Der eigene Bestand geht als Befund mit: eine Empfehlung ohne Zahlen ist
+    // eine Meinung. Welche Quellen das waren, steht später über der Antwort.
+    const brief = businessBriefing(db)
     try {
       const res = await fetch("/api/ai", {
         method: "POST",
@@ -108,6 +113,7 @@ export default function AssistantPage() {
           prompt: text,
           intent,
           customers: db.customers.map((c) => ({ id: c.id, company: c.company })),
+          briefing: brief.text,
           company: { name: db.settings.name, defaultTaxRate: db.settings.defaultTaxRate, today: new Date().toISOString().slice(0, 10), ownerName: db.settings.ownerName },
         }),
       })
@@ -115,7 +121,15 @@ export default function AssistantPage() {
       const action = data.action as AiAction
       setTurns((t) => [
         ...t,
-        { id: nanoid(6), role: "assistant", action, demo: data.demo, analyzed: data.analyzed, tier: data.tier },
+        {
+          id: nanoid(6),
+          role: "assistant",
+          action,
+          demo: data.demo,
+          analyzed: data.analyzed,
+          tier: data.tier,
+          sources: action?.type === "answer" ? brief.sources : undefined,
+        },
       ])
     } catch {
       setTurns((t) => [...t, { id: nanoid(6), role: "assistant", text: "Es gab ein Problem bei der Anfrage. Bitte erneut versuchen." }])
@@ -221,12 +235,34 @@ export default function AssistantPage() {
             </div>
             <p className="eyebrow mt-6">Dynaamiq Intelligence</p>
             <h2 className="mt-3 font-display text-[clamp(1.6rem,1.2rem+1.4vw,2.1rem)] font-bold tracking-tight">
-              Was soll ich für dich <span className="text-brand-gradient">erstellen</span>?
+              Woran <span className="text-brand-gradient">arbeiten</span> wir?
             </h2>
             <p className="mt-2.5 max-w-md text-sm leading-relaxed text-muted-foreground">
-              Beschreibe in natürlicher Sprache, was du brauchst — ich erzeuge das Angebot, die Rechnung oder die E-Mail und lege sie nach einem Klick direkt an.
+              Ich kenne deine Pipeline, deine offenen Rechnungen und deine Zahlen —
+              frag nach Prioritäten, und ich antworte mit dem, was tatsächlich
+              dasteht. Oder beschreibe, was du brauchst: Angebot, Rechnung oder
+              E-Mail entstehen als Entwurf.
             </p>
-            <p className="eyebrow mt-9 w-full text-left">Schnellstart</p>
+            {/* Startpunkte aus dem echten Bestand: „Leads bearbeiten" ist eine
+                Überschrift, „aus 19 offenen Deals" eine Aufgabe. */}
+            <p className="eyebrow mt-9 w-full text-left">Aus deinem Bestand</p>
+            <div className="mt-3 grid w-full gap-2.5">
+              {briefingPrompts(db).map((q) => (
+                <button
+                  key={q}
+                  onClick={() => send(q, "auto")}
+                  className="group flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.02] p-3.5 text-left transition-all hover:border-brand-cyan/30 hover:bg-white/[0.04]"
+                >
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-cyan/12 text-brand-cyan">
+                    <Sparkles className="size-4" />
+                  </span>
+                  <span className="flex-1 text-sm text-foreground/90">{q}</span>
+                  <ArrowRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                </button>
+              ))}
+            </div>
+
+            <p className="eyebrow mt-9 w-full text-left">Anlegen</p>
             <div className="mt-3 grid w-full gap-2.5">
               {SUGGESTIONS.map((s) => (
                 <button
@@ -278,6 +314,15 @@ export default function AssistantPage() {
                   {turn.demo && (
                     <Badge variant="warning" className="text-[11px]">Demo-Modus · ohne API-Key</Badge>
                   )}
+                  {/* Worauf die Antwort beruht — vor der Antwort, nicht danach. */}
+                  {turn.sources?.map((src) => (
+                    <span
+                      key={src}
+                      className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] text-muted-foreground"
+                    >
+                      {src}
+                    </span>
+                  ))}
                 </div>
                 {turn.action && <ActionPreview action={turn.action} customerName={turn.action.customerId ? customerById(turn.action.customerId)?.company : turn.action.customerName ?? undefined} />}
                 {turn.text && <p className="text-sm text-foreground/90">{turn.text}</p>}

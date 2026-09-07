@@ -62,6 +62,7 @@ const SEV_ICON: Record<CheckSeverity, React.ReactNode> = {
 }
 
 const AREA_ORDER: CheckArea[] = [
+  "Datensicherung",
   "Rechnungen",
   "Angebote",
   "Kunden",

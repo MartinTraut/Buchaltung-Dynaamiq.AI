@@ -25,6 +25,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
+import { ProtocolLink } from "@/components/onboarding/protocol-link"
 import { useConfirm } from "@/lib/confirm"
 import { eur, dateDE, relativeTime, computeTotals, emailSignature } from "@/lib/format"
 import {
@@ -36,12 +37,13 @@ import {
   type Customer,
   type Database,
 } from "@/lib/types"
-import { DocEditorDialog } from "@/components/documents/doc-editor"
+import { DocComposer } from "@/components/documents/doc-composer"
 import { useDocMenus, DocMenu } from "@/components/documents/doc-actions"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, EmptyState } from "@/components/ui/misc"
+import { EmptyState } from "@/components/ui/misc"
+import { CustomerAvatar } from "@/components/ui/customer-avatar"
 import { Input, Label, Textarea, Select } from "@/components/ui/input"
 import { Toolbar, SearchInput, FilterChips } from "@/components/page-toolbar"
 import { Segmented } from "@/components/ui/segmented"
@@ -54,7 +56,6 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
 
 type Health = "all" | "active" | "lead" | "churned"
 type CrmView = "grid" | "list"
@@ -361,7 +362,7 @@ export default function CrmPage() {
                 onClick={() => setDetailId(c.id)}
               >
                 <div className="flex items-start gap-3">
-                  <Avatar name={c.company} className="size-11" />
+                  <CustomerAvatar customer={c} className="size-11" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="truncate font-display font-semibold">{c.company}</p>
@@ -428,7 +429,7 @@ export default function CrmPage() {
                     className="grid w-full grid-cols-[minmax(240px,1.8fr)_110px_110px_130px_110px_170px_16px] items-center gap-4 border-b border-white/[0.05] px-6 py-4 text-left transition-[background-color,transform] duration-150 ease-out last:border-0 hover:bg-white/[0.025] active:scale-[0.99]"
                   >
                     <span className="flex min-w-0 items-center gap-3.5">
-                      <Avatar name={c.company} className="size-11 text-[12px]" />
+                      <CustomerAvatar customer={c} className="size-11 text-[12px]" />
                       <span className="min-w-0">
                         <span className="block truncate text-[15px] font-semibold">
                           {c.company}
@@ -481,7 +482,7 @@ export default function CrmPage() {
           <DialogContent size="lg">
             <DialogHeader>
               <div className="flex items-center gap-3">
-                <Avatar name={detail.company} className="size-12" />
+                <CustomerAvatar customer={detail} className="size-12" />
                 <div>
                   <DialogTitle>{detail.company}</DialogTitle>
                   <p className="text-sm text-muted-foreground">
@@ -539,6 +540,8 @@ export default function CrmPage() {
                 {detail.notes}
               </div>
             )}
+
+            <ProtocolLink slot="customerId" id={detail.id} />
 
             <div>
               <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground">
@@ -690,7 +693,7 @@ export default function CrmPage() {
       </Dialog>
 
       {docEditor && (
-        <DocEditorDialog
+        <DocComposer
           kind={docEditor.kind}
           open={!!docEditor}
           onOpenChange={(o) => !o && setDocEditor(null)}
@@ -760,6 +763,13 @@ function CustomerDialog({
           </Field>
           <Field label="Website">
             <Input value={form.website ?? ""} onChange={(e) => set({ website: e.target.value })} placeholder="firma.de" />
+          </Field>
+          <Field label="Logo-URL (optional)">
+            <Input
+              value={form.logoUrl ?? ""}
+              onChange={(e) => set({ logoUrl: e.target.value })}
+              placeholder="Leer = Logo der Website"
+            />
           </Field>
           <Field label="USt-IdNr.">
             <Input value={form.vatId ?? ""} onChange={(e) => set({ vatId: e.target.value })} placeholder="DE…" />

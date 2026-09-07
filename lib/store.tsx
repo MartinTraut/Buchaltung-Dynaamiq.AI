@@ -23,6 +23,7 @@ import type {
   Contract,
   Template,
   EmailDraft,
+  OnboardingSession,
   Transaction,
   Activity,
   CompanySettings,
@@ -38,7 +39,7 @@ const SEED_REV_KEY = "dynaamiq-os-seed-revision"
  * Beträge, Preis-Einordnung). Beim nächsten Laden werden genau diese Datensätze
  * auf den Seed-Stand gebracht — eigene Datensätze bleiben unberührt.
  */
-const SEED_REVISION = 96
+const SEED_REVISION = 102
 
 /**
  * Seed-Datensätze, die es nicht mehr geben soll. Der Merge legt nur an und
@@ -64,6 +65,25 @@ const RETIRED_SEED_IDS = new Set([
   "quo-2026-044",
   "a-skope-quo",
   "a-skope-quo-513",
+  // ── Alter Demo-Bestand aus der Zeit vor den echten Firmendaten ──────────
+  //
+  // Er war nie zurückgezogen worden und stand deshalb in jeder bestehenden
+  // Installation weiter in den Listen. Bösartig daran: Die alten Demo-Kunden
+  // hießen ebenfalls c1 bis c8. Alles, was damals auf "c2" zeigte — Deals
+  // „TikTok Creative Paket" und „Reels Produktion", Rechnung DYN-RE-1040,
+  // Angebot DYN-AN-1023 — hängt seit dem Datenwechsel unter SKOPE, weil SKOPE
+  // heute die c2 ist. Der Kunde selbst wird nicht zurückgezogen (c1 bis c3
+  // sind echte Kunden), nur die Datensätze, die es nie gab.
+  "c4", "c5", "c6", "c7", "c8",
+  "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9",
+  "i1", "i2", "i3", "i4", "i5", "i6", "i7",
+  "q1", "q2", "q3", "q4",
+  "con-2026-001", "con-2026-002",
+  "p1", "p2", "p3", "p4", "p5",
+  "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9",
+  "a1", "a2", "a3", "a4", "a5", "a6",
+  "e1", "e2", "e3", "e4", "em1",
+  "tpl1", "tpl2", "tpl3", "tpl4",
 ])
 
 /**
@@ -81,6 +101,13 @@ type CollectionKey = keyof Collections
 interface StoreContextValue {
   db: Database
   ready: boolean
+  /**
+   * Klartext-Fehler, wenn der Browserspeicher das Schreiben abgelehnt hat
+   * (Kontingent voll, privater Modus). Vorher wurde das stillschweigend
+   * verschluckt: die App lief weiter, der Bestand war beim nächsten Laden auf
+   * dem alten Stand. Wer Rechnungen schreibt, muss das sofort erfahren.
+   */
+  storageError: string | null
   // generic helpers
   add: <K extends CollectionKey>(key: K, item: Database[K][number]) => void
   update: <K extends CollectionKey>(
@@ -107,11 +134,16 @@ interface StoreContextValue {
   upsertContract: (c: Partial<Contract> & { id?: string }) => Contract
   createContractFromQuote: (quoteId: string) => Contract | null
   upsertTemplate: (t: Partial<Template> & { id?: string }) => Template
+  upsertOnboarding: (
+    o: Partial<OnboardingSession> & { id?: string },
+  ) => OnboardingSession
   upsertEmail: (e: Partial<EmailDraft> & { id?: string }) => EmailDraft
   addTransaction: (t: Partial<Transaction>) => Transaction
   updateSettings: (patch: Partial<CompanySettings>) => void
   pushActivity: (a: Omit<Activity, "id" | "at"> & { at?: string }) => void
   resetDemo: () => void
+  /** Kompletten Bestand ersetzen — Wiederherstellung aus einer Sicherung. */
+  replaceDatabase: (next: Database) => void
   // lookups
   customerById: (id?: string) => Customer | undefined
 }
@@ -195,6 +227,21 @@ function mergeNewSeedRecords(db: Database, seed: Database): Database {
 
   // Alle Seed-IDs vormerken, auch die schon vorhandenen — sonst kämen gelöschte
   // Datensätze beim nächsten Start zurück.
+  markSeedApplied(seed)
+
+  return added.length ? next : db
+}
+
+/**
+ * Seed-IDs und Revisionsstand als eingespielt vormerken.
+ *
+ * Muss auch beim allerersten Start laufen. Ohne diese Markierung stand der
+ * Revisionsstand bei der zweiten Sitzung noch auf 0, der Merge hielt sich für
+ * überfällig und setzte sämtliche Seed-Datensätze auf den Auslieferungsstand
+ * zurück — jede Statusänderung, jede Preiskorrektur und jede Notiz der ersten
+ * Sitzung war damit stillschweigend weg.
+ */
+function markSeedApplied(seed: Database) {
   const allIds = SEED_COLLECTIONS.flatMap((k) =>
     (seed[k] as { id: string }[]).map((r) => r.id),
   )
@@ -204,8 +251,6 @@ function mergeNewSeedRecords(db: Database, seed: Database): Database {
   } catch {
     /* quota / private mode — ignore */
   }
-
-  return added.length ? next : db
 }
 
 function load(): Database {
@@ -213,13 +258,17 @@ function load(): Database {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     const seed = seedDatabase()
-    if (!raw) return seed
+    if (!raw) {
+      markSeedApplied(seed)
+      return seed
+    }
     const parsed = JSON.parse(raw) as Database
     // basic shape guard
     if (!parsed.customers || !parsed.settings) return seed
     // Neu hinzugekommene Sammlungen fehlen in älteren Ständen. Ohne diese
     // Zeile liefe der Seed-Merge über `undefined` und verlöre alles Weitere.
     if (!parsed.contracts) parsed.contracts = []
+    if (!parsed.onboardings) parsed.onboardings = []
     // Neue Settings-Felder (z. B. Amtsgericht, HR-Nr.) aus den Defaults ergänzen,
     // ohne eigene Änderungen zu überschreiben.
     const merged = mergeNewSeedRecords(parsed, seed)
@@ -263,6 +312,7 @@ function load(): Database {
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [db, setDb] = React.useState<Database>(() => seedDatabase())
   const [ready, setReady] = React.useState(false)
+  const [storageError, setStorageError] = React.useState<string | null>(null)
 
   // hydrate from localStorage on mount (avoids SSR mismatch)
   React.useEffect(() => {
@@ -283,8 +333,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!latest.current.ready) return
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(latest.current.db))
-    } catch {
-      /* quota / private mode — ignore */
+      setStorageError((prev) => (prev === null ? prev : null))
+    } catch (e) {
+      // Nicht verschlucken: ohne diese Meldung arbeitet man stundenlang weiter
+      // und verliert alles beim Neuladen.
+      setStorageError(
+        e instanceof Error && e.name === "QuotaExceededError"
+          ? "Der Browserspeicher ist voll — neue Eingaben werden NICHT gesichert. Bitte jetzt eine Sicherung exportieren."
+          : "Der Browserspeicher ist nicht beschreibbar (privater Modus?) — Eingaben gehen beim Neuladen verloren.",
+      )
     }
   }, [])
 
@@ -358,6 +415,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         email: c.email ?? "",
         phone: c.phone,
         website: c.website,
+        logoUrl: c.logoUrl,
         address: c.address,
         city: c.city,
         zip: c.zip,
@@ -565,6 +623,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const upsertInvoice: StoreContextValue["upsertInvoice"] = React.useCallback(
     (i) => {
       const full: Invoice = {
+        // Erst alles übernehmen, was mitgeschickt wurde: Leistungsdatum,
+        // Überschrift, Einordnung und Co. gingen sonst beim Anlegen verloren,
+        // weil sie in der Pflichtliste unten nicht vorkommen.
+        ...(definedProps<Invoice>(i) as Invoice),
         id: i.id ?? nanoid(8),
         number: i.number ?? "",
         customerId: i.customerId ?? "",
@@ -844,6 +906,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const upsertQuote: StoreContextValue["upsertQuote"] = React.useCallback((q) => {
     const full: Quote = {
+      // Siehe upsertInvoice: die optionalen Felder des Angebots (Fassung,
+      // Kurzübersicht, Konditionen, Zahlungsplan) müssen das Anlegen überleben.
+      ...(definedProps<Quote>(q) as Quote),
       id: q.id ?? nanoid(8),
       number: q.number ?? "",
       customerId: q.customerId ?? "",
@@ -924,6 +989,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const upsertContract: StoreContextValue["upsertContract"] = React.useCallback((c) => {
     const full: Contract = {
+      // Wie bei Angebot und Rechnung: erst alles Mitgeschickte übernehmen,
+      // damit Laufzeit, Anlagen und Auftragswert das Anlegen überleben.
+      ...(definedProps<Contract>(c) as Contract),
       id: c.id ?? nanoid(8),
       number: c.number ?? "",
       customerId: c.customerId ?? "",
@@ -1011,6 +1079,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return created
   }, [])
 
+  const upsertOnboarding: StoreContextValue["upsertOnboarding"] = React.useCallback(
+    (o) => {
+      const full: OnboardingSession = {
+        ...(definedProps<OnboardingSession>(o) as OnboardingSession),
+        id: o.id ?? nanoid(8),
+        status: o.status ?? "open",
+        answers: o.answers ?? {},
+        createdAt: o.createdAt ?? new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      setDb((d) => {
+        const existing = d.onboardings.find((x) => x.id === full.id)
+        if (existing) {
+          Object.assign(full, {
+            ...existing,
+            ...definedProps<OnboardingSession>(o),
+            updatedAt: full.updatedAt,
+          })
+        }
+        return {
+          ...d,
+          onboardings: existing
+            ? d.onboardings.map((x) => (x.id === full.id ? { ...full } : x))
+            : [full, ...d.onboardings],
+        }
+      })
+      return full
+    },
+    [],
+  )
+
   const upsertTemplate: StoreContextValue["upsertTemplate"] = React.useCallback(
     (t) => {
       const full: Template = {
@@ -1085,7 +1184,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const resetDemo = React.useCallback(() => {
     const fresh = seedDatabase()
+    markSeedApplied(fresh)
     setDb(fresh)
+  }, [])
+
+  /**
+   * Bestand aus einer Sicherung ersetzen. Der Seed-Merge darf danach nicht
+   * erneut greifen: sonst kämen zurückgezogene Beispieldatensätze in die
+   * wiederhergestellte Buchhaltung zurück. Deshalb wird der Revisionsstand
+   * mitgesetzt, bevor der neue Bestand die Persistenz auslöst.
+   */
+  const replaceDatabase = React.useCallback((next: Database) => {
+    try {
+      window.localStorage.setItem(SEED_REV_KEY, String(SEED_REVISION))
+    } catch {
+      /* nicht schreibbar — der Fehler wird beim nächsten flush gemeldet */
+    }
+    setDb(next)
   }, [])
 
   const customerById = React.useCallback(
@@ -1099,6 +1214,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     () => ({
       db,
       ready,
+      storageError,
       add,
       update,
       remove,
@@ -1119,16 +1235,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       upsertContract,
       createContractFromQuote,
       upsertTemplate,
+      upsertOnboarding,
       upsertEmail,
       addTransaction,
       updateSettings,
       pushActivity,
       resetDemo,
+      replaceDatabase,
       customerById,
     }),
     [
       db,
       ready,
+      storageError,
       add,
       update,
       remove,
@@ -1149,11 +1268,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       upsertContract,
       createContractFromQuote,
       upsertTemplate,
+      upsertOnboarding,
       upsertEmail,
       addTransaction,
       updateSettings,
       pushActivity,
       resetDemo,
+      replaceDatabase,
       customerById,
     ],
   )

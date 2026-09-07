@@ -13,6 +13,7 @@ import {
   LayoutTemplate,
   Mail,
   Sparkles,
+  ClipboardList,
   Settings,
   type LucideIcon,
 } from "lucide-react"
@@ -39,6 +40,7 @@ export const NAV: NavGroup[] = [
   {
     label: "Vertrieb",
     items: [
+      { href: "/onboarding", label: "Onboarding", icon: ClipboardList },
       { href: "/crm", label: "CRM & Kontakte", icon: Users },
       { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
       { href: "/quotes", label: "Angebote", icon: FileText },
@@ -76,6 +78,7 @@ export const NAV_BOTTOM: NavItem[] = [
 
 /** Module, die auf dem Phone im „Mehr"-Sheet statt in der Tab-Bar liegen */
 export const NAV_MORE: NavItem[] = [
+  { href: "/onboarding", label: "Onboarding", icon: ClipboardList },
   { href: "/tasks", label: "Offene Punkte", icon: ListChecks },
   { href: "/quotes", label: "Angebote", icon: FileText },
   { href: "/contracts", label: "Verträge", icon: FileSignature },

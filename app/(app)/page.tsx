@@ -28,7 +28,8 @@ import { KpiCard, SectionTitle } from "@/components/kpi-card"
 import { RevenueArea, PipelineBars, DonutChart } from "@/components/charts"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, Progress, StatPill } from "@/components/ui/misc"
+import { Progress, StatPill } from "@/components/ui/misc"
+import { CustomerAvatar } from "@/components/ui/customer-avatar"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import {
@@ -347,7 +348,7 @@ export default function DashboardPage() {
                   key={inv.id}
                   className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-white/[0.03]"
                 >
-                  <Avatar name={c?.company ?? "?"} className="size-8 text-[10px]" />
+                  <CustomerAvatar customer={c} className="size-8 text-[10px]" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{c?.company}</p>
                     <p className="text-xs text-muted-foreground">{inv.number}</p>
@@ -437,7 +438,7 @@ export default function DashboardPage() {
               <div className="grid gap-x-8 gap-y-4 p-5 md:grid-cols-2">
                 {topCustomers.map(({ c, revenue }) => (
                   <div key={c.id} className="flex items-center gap-3">
-                    <Avatar name={c.company} className="size-9" />
+                    <CustomerAvatar customer={c} className="size-9" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-sm font-medium">{c.company}</p>

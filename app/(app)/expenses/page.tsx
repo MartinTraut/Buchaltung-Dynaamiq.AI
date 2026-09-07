@@ -270,7 +270,15 @@ export default function ExpensesPage() {
               </div>
               <Dropdown>
                 <DropdownTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-8 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Aktionen"
+                    /* Auf dem Telefon gibt es kein Hover: dort steht der Knopf
+                       dauerhaft und in Fingergröße. Erst ab Zeigergeräten
+                       blendet er sich wieder aus, bis die Zeile berührt wird. */
+                    className="size-11 md:size-8 md:opacity-0 md:group-hover:opacity-100 md:data-[state=open]:opacity-100"
+                  >
                     <MoreHorizontal className="size-4" />
                   </Button>
                 </DropdownTrigger>

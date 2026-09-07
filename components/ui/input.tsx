@@ -16,11 +16,36 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   )
 }
 
-function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
+/**
+ * `autoGrow` lässt das Feld mit seinem Inhalt wachsen. In den Belegmasken
+ * stehen mehrzeilige Texte — Leistungsbeschreibungen, Klauseln, Erläuterungen.
+ * Mit fester Höhe ist genau der Teil abgeschnitten, den man prüfen will.
+ */
+function Textarea({
+  className,
+  autoGrow,
+  ...props
+}: React.ComponentProps<"textarea"> & { autoGrow?: boolean }) {
+  const ref = React.useRef<HTMLTextAreaElement>(null)
+
+  React.useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || !autoGrow) return
+    // Erst zurücksetzen, sonst wächst die Höhe nur, schrumpft aber nie.
+    el.style.height = "auto"
+    el.style.height = `${el.scrollHeight}px`
+  }, [autoGrow, props.value])
+
   return (
     <textarea
+      ref={ref}
       data-slot="textarea"
-      className={cn(fieldBase, "min-h-20 resize-y leading-relaxed", className)}
+      className={cn(
+        fieldBase,
+        "min-h-20 leading-relaxed",
+        autoGrow ? "resize-none overflow-hidden" : "resize-y",
+        className,
+      )}
       {...props}
     />
   )

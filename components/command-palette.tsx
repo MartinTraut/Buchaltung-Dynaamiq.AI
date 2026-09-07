@@ -180,7 +180,7 @@ export function CommandPalette() {
           <div ref={listRef} className="max-h-[52dvh] overflow-y-auto p-2">
             {items.length === 0 ? (
               <p className="px-3 py-8 text-center text-sm text-muted-foreground">
-                Nichts gefunden für „{query}"
+                Nichts gefunden für „{query}&#8220;
               </p>
             ) : (
               grouped.map(([group, groupItems]) => (

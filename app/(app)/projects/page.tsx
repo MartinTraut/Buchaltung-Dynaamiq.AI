@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress, EmptyState } from "@/components/ui/misc"
+import { ProtocolLink } from "@/components/onboarding/protocol-link"
 import { Input, Label, Select, Textarea } from "@/components/ui/input"
 import { Toolbar, FilterChips } from "@/components/page-toolbar"
 import { Segmented } from "@/components/ui/segmented"
@@ -169,6 +170,7 @@ export default function ProjectsPage() {
             </DialogHeader>
 
             {detail.description && <p className="text-sm text-muted-foreground">{detail.description}</p>}
+            <ProtocolLink slot="projectId" id={detail.id} />
 
             {/* Volle Beträge statt Kurzform — im breiten Dialog ist Platz, und
                 „3000 €" neben „14.000 €" sah wie zwei Formate aus. */}

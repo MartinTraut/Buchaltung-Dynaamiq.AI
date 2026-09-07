@@ -38,6 +38,9 @@ function DropdownItem({
     <DM.Item
       className={cn(
         "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-foreground/90 outline-none transition-colors select-none data-[highlighted]:bg-white/[0.06] data-[highlighted]:text-foreground [&_svg]:size-4 [&_svg]:text-muted-foreground",
+        // Gesperrte Einträge müssen als gesperrt zu erkennen sein — sonst wirkt
+        // ein wirkungsloser Klick wie ein Fehler der App.
+        "data-[disabled]:cursor-not-allowed data-[disabled]:text-muted-foreground/60 data-[disabled]:[&_svg]:text-muted-foreground/50",
         inset && "pl-8",
         className,
       )}

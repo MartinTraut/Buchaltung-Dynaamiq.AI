@@ -32,6 +32,7 @@ import {
   FileSignature,
 } from "lucide-react"
 import { useStore } from "@/lib/store"
+import { ProtocolLink } from "@/components/onboarding/protocol-link"
 import { useConfirm } from "@/lib/confirm"
 import { useQueryFlag } from "@/hooks/use-query-flag"
 import { useLocalState } from "@/hooks/use-local-state"
@@ -46,11 +47,12 @@ import {
 import { eur, dateDE, computeTotals } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, EmptyState } from "@/components/ui/misc"
+import { EmptyState } from "@/components/ui/misc"
+import { CustomerAvatar } from "@/components/ui/customer-avatar"
 import { Input, Label, Select, Textarea } from "@/components/ui/input"
 import { SearchInput } from "@/components/page-toolbar"
 import { Segmented } from "@/components/ui/segmented"
-import { DocEditorDialog } from "@/components/documents/doc-editor"
+import { DocComposer } from "@/components/documents/doc-composer"
 import { useDocMenus, DocMenu } from "@/components/documents/doc-actions"
 import {
   Dialog,
@@ -304,7 +306,7 @@ export default function PipelinePage() {
       )}
 
       {docDeal && (
-        <DocEditorDialog
+        <DocComposer
           kind={docDeal.kind}
           open={!!docDeal}
           onOpenChange={(o) => !o && setDocDeal(null)}
@@ -504,7 +506,7 @@ function ListView({
                 </span>
               </span>
               <span className="flex min-w-0 items-center gap-2.5">
-                <Avatar name={company} className="size-8 text-[10px]" />
+                <CustomerAvatar customerId={deal.customerId} name={company} className="size-8 text-[10px]" />
                 <span className="truncate text-[14px] text-muted-foreground">{company}</span>
               </span>
               <span>
@@ -606,7 +608,7 @@ function TimelineView({
                 >
                   <p className="text-[15px] font-semibold leading-snug">{deal.title}</p>
                   <div className="mt-2.5 flex items-center gap-2">
-                    <Avatar name={companyOf(deal)} className="size-7 text-[10px]" />
+                    <CustomerAvatar customerId={deal.customerId} name={companyOf(deal)} className="size-7 text-[10px]" />
                     <span className="truncate text-[13px] text-muted-foreground">
                       {companyOf(deal)}
                     </span>
@@ -700,6 +702,9 @@ function DealDetailDialog({
           <div className="col-span-2">
             <Label>Notizen</Label>
             <Textarea value={form.notes ?? ""} onChange={(e) => set({ notes: e.target.value })} />
+            <div className="mt-2">
+              <ProtocolLink slot="dealId" id={form.id} />
+            </div>
           </div>
         </div>
 
@@ -876,7 +881,7 @@ function DealCardInner({
         </button>
       </div>
       <div className="mt-2.5 flex items-center gap-2">
-        <Avatar name={company} className="size-7 text-[10px]" />
+        <CustomerAvatar customerId={deal.customerId} name={company} className="size-7 text-[10px]" />
         <span className="truncate text-[13.5px] text-muted-foreground">{company}</span>
       </div>
       <div className="mt-3.5 flex items-center justify-between">

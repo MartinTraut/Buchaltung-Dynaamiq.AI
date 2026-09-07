@@ -30,6 +30,49 @@ export function num(n: number, digits = 0): string {
   }).format(n)
 }
 
+/**
+ * Auf Cent runden. Beträge, die aus einer Zielgröße zurückgerechnet werden
+ * (Nachlass auf einen glatten Bruttopreis), tragen sonst Bruchteile eines
+ * Cents durch die Eingabemaske — im Feld steht dann „−672,161", was nach
+ * einem Fehler aussieht, obwohl der gedruckte Beleg richtig rundet.
+ */
+export function cents(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
+/**
+ * Deutsche Zahleingabe lesen: „1.234,56", „1234,56", „1234.56", „1 234,56 €".
+ * Gibt NaN zurück, wenn nichts Sinnvolles übrig bleibt — der Aufrufer
+ * verwirft die Eingabe dann, statt eine 0 zu speichern.
+ */
+export function parseDE(input: string): number {
+  const raw = input.replace(/[\s€]/g, "")
+  if (!raw) return NaN
+  const hasComma = raw.includes(",")
+  const hasDot = raw.includes(".")
+  // Beide Zeichen: der Punkt gruppiert, das Komma trennt die Nachkommastellen.
+  // Nur Punkte: eine einzelne Gruppe mit genau drei Ziffern ist eine
+  // Tausendergruppe („1.900"), alles andere ein Dezimalpunkt („1234.56").
+  const normalized =
+    hasComma && hasDot
+      ? raw.replace(/\./g, "").replace(",", ".")
+      : hasComma
+        ? raw.replace(",", ".")
+        : /^-?\d{1,3}(\.\d{3})+$/.test(raw)
+          ? raw.replace(/\./g, "")
+          : raw
+  const n = Number(normalized)
+  return Number.isFinite(n) ? n : NaN
+}
+
+/** Zahl für ein Eingabefeld: deutsche Schreibweise ohne Währungszeichen. */
+export function numInput(n: number, minDigits = 0, maxDigits = 2): string {
+  return new Intl.NumberFormat("de-DE", {
+    minimumFractionDigits: minDigits,
+    maximumFractionDigits: maxDigits,
+  }).format(n)
+}
+
 export function pct(n: number, digits = 1): string {
   return `${n > 0 ? "+" : ""}${n.toFixed(digits)} %`
 }
@@ -205,21 +248,33 @@ export function contractNumberFor(
   return `${base}-${String(highest + 1).padStart(2, "0")}`
 }
 
+/**
+ * Summen eines Belegs — durchgehend auf Cent gerundet.
+ *
+ * Zwei Fallen stecken darin, und beide fallen erst auf dem gedruckten Beleg
+ * auf. Erstens rundet die Anzeige jede Positionszeile für sich: summiert man
+ * ungerundet weiter, steht unter drei Zeilen eine Zwischensumme, die um einen
+ * Cent von den darüberstehenden Zahlen abweicht — der Kunde rechnet nach und
+ * findet einen Fehler. Zweitens ist Gleitkomma nicht exakt (1899 × 0,19 ergibt
+ * 360,81000000000006); jeder Vergleich auf Gleichheit, jede Zahlungsabgleichung
+ * und der Betrag im GiroCode erben diesen Rest. Deshalb: Position auf Cent,
+ * Steuer je Steuersatz auf Cent, und alles Weitere aus diesen festen Werten.
+ *
+ * Die Steuer wird je Steuersatz aus der gerundeten Bemessungsgrundlage
+ * berechnet, nicht je Zeile — so verlangt es §14 UStG für den Steuerausweis.
+ */
 export function computeTotals(items: LineItem[]): DocTotals {
-  const byRate = new Map<number, { base: number; tax: number }>()
+  const byRate = new Map<number, number>()
   let net = 0
   for (const it of items) {
-    const base = lineNet(it)
-    net += base
-    const cur = byRate.get(it.taxRate) ?? { base: 0, tax: 0 }
-    cur.base += base
-    cur.tax += base * it.taxRate
-    byRate.set(it.taxRate, cur)
+    const base = cents(lineNet(it))
+    net = cents(net + base)
+    byRate.set(it.taxRate, cents((byRate.get(it.taxRate) ?? 0) + base))
   }
   const taxBreakdown = [...byRate.entries()]
     .filter(([rate]) => rate > 0)
-    .map(([rate, v]) => ({ rate, base: v.base, tax: v.tax }))
+    .map(([rate, base]) => ({ rate, base, tax: cents(base * rate) }))
     .sort((a, b) => b.rate - a.rate)
-  const tax = taxBreakdown.reduce((s, t) => s + t.tax, 0)
-  return { net, tax, gross: net + tax, taxBreakdown }
+  const tax = cents(taxBreakdown.reduce((s, t) => s + t.tax, 0))
+  return { net, tax, gross: cents(net + tax), taxBreakdown }
 }

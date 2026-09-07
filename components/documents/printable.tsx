@@ -343,9 +343,8 @@ export function PrintableDoc({
           </h1>
           {isStorno && (
             <p className="mt-[6px] max-w-[620px] text-[13.5px] leading-[1.55]" style={{ color: C.ink2 }}>
-              Hiermit stornieren wir die Rechnung{" "}
-              <strong style={{ color: C.ink }}>{originalNumber ?? "—"}</strong> vollständig. Der
-              Betrag wird verrechnet bzw. erstattet.
+              Die Rechnung <strong style={{ color: C.ink }}>{originalNumber ?? "—"}</strong> wird
+              hiermit vollständig storniert. Der Betrag wird verrechnet bzw. erstattet.
             </p>
           )}
           {doc.lead && (

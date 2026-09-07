@@ -33,6 +33,8 @@ export interface Customer {
   email: string
   phone?: string
   website?: string
+  /** Eigenes Logo (URL) — überschreibt das aus der Domain abgeleitete Favicon. */
+  logoUrl?: string
   address?: string
   city?: string
   zip?: string
@@ -207,8 +209,18 @@ export interface CareTerms {
  */
 export interface PaymentTerms {
   intro: string
-  /** Eine Karte je Zahlungsweg oder Rate. */
-  cards: { head: string; when: string; value?: string }[]
+  /**
+   * Überschrift der Zahlungsseite in der kompakten Fassung. Ohne Angabe
+   * „Zwei Zahlungsmodelle" — was nur stimmt, wenn es zwei sind. Angebote mit
+   * einem vereinbarten Plan setzen hier ihre eigene Überschrift.
+   */
+  title?: string
+  /**
+   * Eine Karte je Zahlungsweg oder Rate. `label` beschriftet den Block im
+   * Preiskasten der ersten Seite; ohne Angabe steht dort „Ratenzahlung ·
+   * 12 Monate", was nur für Laufzeiten von zwölf Monaten zutrifft.
+   */
+  cards: { head: string; when: string; value?: string; label?: string }[]
   note?: string
   /**
    * Nachvollziehbare Rechnung je Zahlungsweg: netto, Umsatzsteuer, brutto —
@@ -218,7 +230,8 @@ export interface PaymentTerms {
   tables?: {
     title: string
     sub?: string
-    rows: { k: string; v: string; strong?: boolean; muted?: boolean; rule?: boolean }[]
+    /** `head` setzt eine Zwischenüberschrift — Website und Pflege bleiben so getrennte Blöcke. */
+    rows: { k: string; v: string; strong?: boolean; muted?: boolean; rule?: boolean; head?: boolean }[]
     foot?: string
   }[]
   /** Gegenüberstellung der Varianten unter dem Plan. */
@@ -354,6 +367,42 @@ export interface Contract {
   createdAt: string
 }
 
+/**
+ * Erstgespräch mit einem (potenziellen) Kunden. Die Antworten stehen als
+ * flaches Feld-Wörterbuch — welche Fragen es gibt, steht in `lib/onboarding.ts`
+ * und darf sich ändern, ohne dass alte Protokolle unlesbar werden.
+ *
+ * `created` merkt sich, was aus dem Gespräch schon entstanden ist: ohne diese
+ * Spur legt ein zweiter Klick einen zweiten Kunden an.
+ */
+export interface OnboardingSession {
+  id: ID
+  /**
+   * Onboarding oder Verkaufsgespräch. Beide laufen durch dieselbe Akte, aber
+   * nicht durch denselben Leitfaden: im Onboarding steht der Auftrag fest und
+   * es geht um Umfang und Zugänge, im Verkaufsgespräch entscheidet sich, ob es
+   * überhaupt ein Angebot gibt. Ohne Angabe: Onboarding — so bleiben die
+   * bestehenden Protokolle lesbar.
+   */
+  kind?: "onboarding" | "sales"
+  status: "open" | "done"
+  answers: Record<string, string | string[]>
+  /** Rohmitschrift aus Diktat oder Zuruf — die KI liest daraus die Felder. */
+  transcript?: string
+  /** Freier Vermerk, der nicht ins Protokoll gehört. */
+  notes?: string
+  created?: {
+    customerId?: ID
+    dealId?: ID
+    quoteId?: ID
+    invoiceId?: ID
+    contractId?: ID
+    projectId?: ID
+  }
+  createdAt: string
+  updatedAt?: string
+}
+
 export interface Template {
   id: ID
   kind: TemplateKind
@@ -446,6 +495,9 @@ export interface CompanySettings {
    *  lässt sich ein bewusst hingenommener Fall stummschalten, ohne die ganze
    *  Prüfung abzuschalten. */
   checksHidden?: string[]
+  /** Zeitpunkt der letzten exportierten Datensicherung. Grundlage der
+   *  Erinnerung unter den offenen Punkten — der Bestand liegt nur lokal. */
+  lastBackupAt?: string
 }
 
 export interface Database {
@@ -460,6 +512,7 @@ export interface Database {
   emails: EmailDraft[]
   transactions: Transaction[]
   activities: Activity[]
+  onboardings: OnboardingSession[]
   settings: CompanySettings
 }
 

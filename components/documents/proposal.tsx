@@ -23,7 +23,7 @@ import type { Quote, Customer, CompanySettings, LineItem, LineItemTask } from "@
 const C = {
   ink: "#16161a",
   body: "#3f3f46",
-  muted: "#6b6b74",
+  muted: "#5c5c66",
   line: "#e6e6ea",
   soft: "#f6f7fa",
   /** Indigo-Ende des Markenverlaufs. Ein Standard-Blau lässt acht sauber
@@ -35,6 +35,12 @@ const C = {
 } as const
 
 const GRAD = "linear-gradient(90deg,#00ffe6,#3416e8 55%,#5b2eff)"
+
+/** Ein Auszeichnungsstil für alle Abschnittslabels. Versalien mit weitem
+ *  Tracking sind damit den Kategorien vorbehalten; Unterinformationen laufen
+ *  in normaler Schreibweise. Vorher standen allein im Preisblock vier
+ *  Größen desselben Stils übereinander. */
+const LABEL = "text-[10.5px] font-semibold uppercase tracking-[0.16em]"
 const HERO_BG = "linear-gradient(118deg,#08080d 0%,#101018 52%,#1a1a2e 100%)"
 
 /** Ein Radius für alle Karten und Preisboxen. */
@@ -1361,7 +1367,7 @@ export function ProposalDoc({
           {/* mt-auto drückte den Satz an den Fuß und riss die Blattmitte auf —
               den Rest verteilt jetzt justify-between des Containers. */}
           <p className="pb-[4mm] pt-[6mm] text-[14px] font-semibold" style={{ color: C.ink }}>
-            Wir freuen uns auf die Zusammenarbeit und die gemeinsame Umsetzung Ihres Projekts.
+            Für Rückfragen zu diesem Angebot steht Ihr Ansprechpartner zur Verfügung.
           </p>
         </div>
 
@@ -1932,18 +1938,57 @@ function Bar({
  * jeder hervorgehobenen Summenzeile. Nur so lässt sich der freie Platz einer
  * Karte zwischen den Blöcken verteilen, ohne Zusammengehöriges zu trennen.
  */
-function groupRows<T extends { strong?: boolean }>(rows: T[]): T[][] {
+function groupRows<T extends { strong?: boolean; head?: boolean }>(rows: T[]): T[][] {
   const groups: T[][] = []
   let current: T[] = []
+  // Mit Zwischenüberschriften trennen diese die Blöcke; ohne sie trennt die
+  // Betragszeile. Sonst risse eine hervorgehobene Zeile ihren eigenen Block auf.
+  const byHead = rows.some((r) => r.head)
   for (const row of rows) {
+    if (byHead && row.head && current.length) {
+      groups.push(current)
+      current = []
+    }
     current.push(row)
-    if (row.strong) {
+    if (!byHead && row.strong) {
       groups.push(current)
       current = []
     }
   }
   if (current.length) groups.push(current)
   return groups
+}
+
+/**
+ * Kurzübersicht aus den Positionen, wenn keine gepflegt ist.
+ *
+ * Die kompakte Titelseite lebt von dieser Liste. Ohne sie stand zwischen
+ * Überschrift und Preisblock ein halbes leeres Blatt — genau das, was ein
+ * frisch angelegtes Angebot bisher zeigte. Erfunden wird dabei nichts: die
+ * Zeilen kommen aus Positionstitel, Begründung und Teilleistungen.
+ */
+function summaryFromItems(items: LineItem[]): { k: string; v: string }[] {
+  const real = items.filter((it) => it.description.trim() && lineNet(it) >= 0)
+  const detailText = (d: NonNullable<LineItem["details"]>[number]) =>
+    (typeof d === "string" ? d : d.text).replace(/^NEU:\s*/, "")
+
+  // Eine einzelne Position sagt so wenig wie keine — dann tragen ihre
+  // Teilleistungen die Übersicht.
+  if (real.length === 1 && real[0].details?.length) {
+    const it = real[0]
+    return (it.details ?? []).slice(0, 6).map((d) => ({
+      k: typeof d === "string" ? "Leistung" : (d.title ?? "Leistung"),
+      v: detailText(d),
+    }))
+  }
+
+  return real.slice(0, 6).map((it) => ({
+    k: it.description,
+    v:
+      it.note?.trim() ||
+      (it.details?.length ? it.details.map(detailText).join(" · ") : "") ||
+      `${it.qty} ${it.unit ?? "Stk."} · ${eur(lineNet(it))} netto`,
+  }))
 }
 
 function ProposalCompact({
@@ -1956,10 +2001,6 @@ function ProposalCompact({
   settings: CompanySettings
 }) {
   const totals = computeTotals(doc.items)
-  const positive = doc.items.filter((it) => lineNet(it) > 0)
-  const discount = doc.items.reduce((s, it) => s + Math.min(0, lineNet(it)), 0)
-  const main = positive[0]
-  const regular = main ? lineNet(main) : totals.net
   const sec = sections(doc.notes)
   const terms =
     doc.terms?.length
@@ -1967,9 +2008,43 @@ function ProposalCompact({
       : // Ohne Kurzklauseln bleiben die Langtexte die Quelle: lieber ein
         // dichteres Blatt als ein Angebot ohne Konditionen.
         sec.map((x) => ({ title: x.title, text: x.body.join(" ") }))
+  const summary = doc.summary?.length ? doc.summary : summaryFromItems(doc.items)
   const pay = doc.payment
   const val = doc.valuation
-  const total = 3
+  /**
+   * Die Zahlungsseite bekommt nur ein Blatt, wenn sie etwas zu sagen hat.
+   * Vorher stand über einer leeren Fläche die Überschrift „Zwei
+   * Zahlungsmodelle" — bei einem Angebot ohne hinterlegten Plan, also bei
+   * jedem frisch angelegten.
+   */
+  const hasPay = !!(pay && (pay.tables?.length || pay.compare || pay.intro || pay.note))
+  // Die Preis-Einordnung bekommt eine eigene Seite, sobald es sie gibt. Auf
+  // dem Konditionenblatt gemessen 1332 px Inhalt bei 1123 px Seitenhöhe — sie
+  // hat die Klauseln aus dem Blatt gedrückt. WrapCut hat keine Einordnung und
+  // bleibt deshalb bei drei Seiten.
+  const hasVal = !!(val && val.hours > 0 && val.benchmarks.length > 0)
+  const payNo = 2
+  const valNo = hasPay ? 3 : 2
+  // Ab der siebten Kurzklausel passt der Beauftragungskasten nicht mehr mit
+  // aufs Konditionenblatt — gemessen 1142 px bei 1123 px Seitenhöhe.
+  const splitOrder = terms.length > 6
+  // Aufgeteilt werden die Klauseln, nicht nur der Kasten: schöbe man allein
+  // den Beauftragungsblock auf ein neues Blatt, stünde er als einziges
+  // Element am Fuß einer sonst leeren Seite.
+  // Gleichmäßig teilen: das zweite Blatt trägt zusätzlich den
+  // Beauftragungskasten, deshalb dort die kleinere Hälfte.
+  const split = splitOrder ? Math.ceil(terms.length / 2) : terms.length
+  const termsHead = terms.slice(0, split)
+  const termsTail = splitOrder ? terms.slice(split) : []
+  const total = 2 + (hasPay ? 1 : 0) + (hasVal ? 1 : 0) + (splitOrder ? 1 : 0)
+
+  // Pflegezeile des Preisblocks: „Label: Wert". Fehlt der Doppelpunkt, ist
+  // der ganze Satz der Wert — sonst stünde er als Versalien-Label und
+  // darunter noch einmal als Text.
+  const careRaw = pay?.cards?.[1]?.when ?? ""
+  const careSplit = careRaw.split(": ")
+  const careLabel = careSplit.length > 1 ? careSplit[0] : careRaw ? "Laufende Betreuung" : ""
+  const careValue = careSplit.length > 1 ? careSplit.slice(1).join(": ") : careRaw
 
   // Zwei Zeilen statt einer: bei lesbarer Größe (10 px) passt die volle
   // Absenderangabe nicht mehr einzeilig in die 85-mm-Fensterspalte.
@@ -2019,7 +2094,7 @@ function ProposalCompact({
             ).map(([k, v]) =>
               v ? (
                 <div key={k} className="flex items-baseline justify-between gap-4 py-[3px]">
-                  <span className="text-[11.5px]" style={{ color: C.muted }}>
+                  <span className="text-[11px]" style={{ color: C.muted }}>
                     {k}
                   </span>
                   <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: C.ink }}>
@@ -2031,7 +2106,7 @@ function ProposalCompact({
           </div>
         </div>
 
-        <div className="mt-[6mm] shrink-0">
+        <div className="mt-[5mm] shrink-0">
           <Eyebrow>Festpreis · gültig bis {dateDE(doc.validUntil)}</Eyebrow>
           <h1
             className="mt-2.5 text-[36px] font-bold leading-[1.1] tracking-tight"
@@ -2060,7 +2135,7 @@ function ProposalCompact({
             Hinweiskasten das einfängt. */}
         {doc.notice && (
           <p
-            className="mt-[5mm] shrink-0 px-6 py-3.5 text-[12.5px] leading-[1.55]"
+            className="mt-[5mm] shrink-0 px-6 py-2.5 text-[12.5px] leading-[1.55]"
             style={{ background: C.soft, borderRadius: R, color: C.body }}
           >
             {doc.notice}
@@ -2070,14 +2145,14 @@ function ProposalCompact({
         {/* Grobe Übersicht statt Leistungsverzeichnis: Schlagwort plus eine
             Zeile. Alles Detaillierte steht im Vertrag — hier soll der
             Auftraggeber in zehn Sekunden wissen, was er bekommt. */}
-        {doc.summary?.length ? (
-          <div className="mt-[5mm] shrink-0">
+        {summary.length ? (
+          <div className="mb-[4mm] mt-[5mm] shrink-0">
             <Eyebrow>Enthalten</Eyebrow>
             <div className="mt-2.5 grid grid-cols-2 gap-x-8">
-              {doc.summary.map((it, i) => (
+              {summary.map((it, i) => (
                 <div
                   key={it.k}
-                  className="flex items-start gap-3.5 py-[11px]"
+                  className="flex items-start gap-3.5 py-[9px]"
                   style={{ borderTop: `1px solid ${C.line}` }}
                 >
                   <span
@@ -2087,7 +2162,7 @@ function ProposalCompact({
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[14.5px] font-bold leading-[1.25]" style={{ color: C.ink }}>
+                    <span className="block text-[14px] font-bold leading-[1.25]" style={{ color: C.ink }}>
                       {it.k}
                     </span>
                     <span className="mt-[3px] block text-[12.5px] leading-[1.45]" style={{ color: C.muted }}>
@@ -2102,36 +2177,41 @@ function ProposalCompact({
 
         {/* Preisblock am Fuß: eine Zahl, und daneben der Weg dorthin. Die
             Verlaufskante oben markiert ihn als das Wichtigste der Seite.
-            Beide Spalten laufen über die volle Höhe — die Aufstellung stand
-            sonst unten in der Ecke, während oben Leerraum blieb. */}
+            Links die kaufmännische Aufstellung (Bezeichnung links, Betrag
+            rechts), rechts eine einzige Mittelachse: Betrag, Raten, Pflege
+            stehen mittig untereinander. Gemischte Ausrichtungen — große Zahl
+            optisch mittig, Zusätze rechtsbündig — ließen die rechte Hälfte
+            nach rechts geschoben wirken. */}
         <div
-          className="relative mb-[3mm] mt-auto flex shrink-0 items-stretch justify-between gap-9 overflow-hidden px-[8mm] py-[7mm]"
+          className="relative mb-[3mm] mt-auto flex shrink-0 items-stretch justify-between gap-9 overflow-hidden px-[8mm] py-[4mm]"
           style={{ background: C.soft, borderRadius: R }}
         >
           <div className="absolute left-0 top-0 h-[3px] w-full" style={{ background: GRAD }} />
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col justify-center">
             <div
-              className="text-[11px] font-semibold uppercase tracking-[0.16em]"
+              className="text-[10.5px] font-semibold uppercase tracking-[0.16em]"
               style={{ color: C.muted }}
             >
-              Festpreis bis zur Fertigstellung
+              Projektfestpreis
             </div>
-            {/* Die Zeilen verteilen sich über die Resthöhe, statt als Block
-                am Fuß zu kleben. */}
-            <div className="mt-4 flex flex-1 flex-col justify-between">
-              {[
-                { k: "Kalkulation", v: eur(regular), muted: true },
-                ...(discount < 0 ? [{ k: "Projektnachlass", v: eur(discount) }] : []),
-                { k: "Nettobetrag", v: eur(totals.net), strong: true },
-                ...totals.taxBreakdown.map((t) => ({
-                  k: `zzgl. Umsatzsteuer ${Math.round(t.rate * 100)} %`,
-                  v: eur(t.tax),
-                  muted: true,
-                })),
-              ].map((row) => (
+            {/* Nur der vereinbarte Preis: Netto, Steuer, Brutto. Kalkulation
+                und Nachlass standen hier vorher als Herleitung — das liest
+                sich als Rechtfertigung eines Preises, der ohnehin feststeht. */}
+            <div className="mt-4 flex flex-col gap-3">
+              {(
+                [
+                  { k: "Projektpreis netto", v: eur(totals.net), strong: true },
+                  ...totals.taxBreakdown.map((t) => ({
+                    k: `zzgl. Umsatzsteuer ${Math.round(t.rate * 100)} %`,
+                    v: eur(t.tax),
+                    muted: true,
+                  })),
+                  { k: "Festpreis brutto", v: eur(totals.gross), strong: true },
+                ] as { k: string; v: string; strong?: boolean; muted?: boolean }[]
+              ).map((row) => (
                 <div key={row.k} className="flex items-baseline justify-between gap-4">
                   <span
-                    className={`text-[13.5px] leading-snug${row.strong ? " font-semibold" : ""}`}
+                    className={`text-[13px] leading-snug${row.strong ? " font-semibold" : ""}`}
                     style={{ color: row.muted ? C.muted : C.body }}
                   >
                     {row.k}
@@ -2146,48 +2226,66 @@ function ProposalCompact({
               ))}
             </div>
           </div>
-          {/* Brutto führt — das ist der Betrag, der vom Konto geht. Netto
-              steht gleich lesbar darunter, nicht als Kleingedrucktes: für
-              einen vorsteuerabzugsberechtigten Auftraggeber ist es die
-              eigentliche Kostengröße. */}
+          {/* Brutto führt — das ist der Betrag, der vom Konto geht. Netto und
+              Steuer stehen links in der Aufstellung; hier stünden sie ein
+              zweites Mal und nähmen der einen Zahl ihr Gewicht. */}
           <div
-            className="flex shrink-0 flex-col gap-5 pl-9 text-right"
+            className="flex w-[62mm] shrink-0 flex-col items-center gap-[4mm] pl-9 text-center"
             style={{ borderLeft: `1px solid ${C.line}` }}
           >
             <div>
-              <div className="text-[54px] font-bold leading-none" style={{ color: C.ink }}>
+              {/* 43 px: der Preis bleibt der Blickfang, aber die drei Ebenen
+                  darunter ließen ihn zusammen mit 46 px erdrückend wirken. */}
+              <div className="text-[43px] font-bold leading-none" style={{ color: C.ink }}>
                 {eur(totals.gross)}
               </div>
-              <div
-                className="mt-1.5 text-[11.5px] font-semibold uppercase tracking-[0.16em]"
-                style={{ color: C.brand }}
-              >
-                brutto inkl. USt.
+              {/* Unterzeile der Zahl, kein Abschnittslabel: Versalien mit
+                  weitem Tracking sind hier für Kategorien reserviert. */}
+              <div className="mt-1.5 text-[12px] font-semibold" style={{ color: C.brand }}>
+                Festpreis brutto inkl. USt.
               </div>
             </div>
+            {/* Die Ratenzeile trägt zwei Beträge, die nicht zusammengehören:
+                die Website-Raten und die Pflege. Als ein Satz gelesen wirkten
+                sie wie eine Summe — deshalb Überschrift, Rate, Pflege
+                getrennt untereinander, auf einer gemeinsamen Mittelachse. */}
             {pay?.cards?.[1] && (
-              <div className="text-[12.5px] font-semibold" style={{ color: C.body }}>
-                oder {pay.cards[1].head} {pay.cards[1].when}
+              <div>
+                <div className={LABEL} style={{ color: C.muted }}>
+                  {pay.cards[1].label ?? "Ratenzahlung · 12 Monate"}
+                </div>
+                <div className="mt-2 text-[14px] font-semibold leading-[1.45]" style={{ color: C.ink }}>
+                  {pay.cards[1].head}
+                </div>
+                {pay.cards[1].value && (
+                  <div className="text-[14px] font-semibold leading-[1.45]" style={{ color: C.ink }}>
+                    {pay.cards[1].value}
+                  </div>
+                )}
               </div>
             )}
-            <div>
-              <div className="text-[32px] font-bold leading-none" style={{ color: C.ink }}>
-                {eur(totals.net)}
+            {/* Die Pflege bekommt einen eigenen Block statt einer gequetschten
+                Fußzeile: „Websitepflege separat" als Marke, der Betrag darunter.
+                Getrennt wird am Doppelpunkt der Datenzeile; ohne Doppelpunkt
+                steht der ganze Satz als Wert, nicht doppelt als Label. */}
+            {careLabel && (
+              <div>
+                <div className={LABEL} style={{ color: C.muted }}>
+                  {careLabel}
+                </div>
+                <div className="mt-2 text-[12.5px] leading-[1.5]" style={{ color: C.body }}>
+                  {careValue}
+                </div>
               </div>
-              <div
-                className="mt-1.5 text-[11.5px] font-semibold uppercase tracking-[0.16em]"
-                style={{ color: C.muted }}
-              >
-                netto
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </Page>
 
       {/* ── 2 · Zahlung, durchgerechnet ──────────────────────────────── */}
-      <Page no={2} total={total} number={doc.number} settings={settings}>
-        <SectionHead eyebrow="Zahlung" title="Zwei Möglichkeiten" />
+      {hasPay && (
+      <Page no={payNo} total={total} number={doc.number} settings={settings}>
+        <SectionHead eyebrow="Zahlung" title={pay?.title ?? "Zahlung"} />
         {pay?.intro && (
           <p className="mt-4 max-w-[165mm] shrink-0 text-[15px] leading-[1.55]" style={{ color: C.body }}>
             {pay.intro}
@@ -2196,13 +2294,19 @@ function ProposalCompact({
 
         {/* Zwei Rechenwege nebeneinander statt zweier Werbekarten: neben
             „230,00 € monatlich" stand vorher nur eine Zahl — woher sie kommt,
-            musste der Auftraggeber selbst nachrechnen. */}
+            musste der Auftraggeber selbst nachrechnen. Die Karten werden nicht
+            auf Seitenhöhe gestreckt: seit die Fußtexte kurz sind, riss das
+            Strecken ein Loch in die Kartenmitte. */}
         {pay?.tables?.length ? (
-          <div className="mt-[8mm] grid grow grid-cols-2 gap-5">
+          <div
+            className={`mt-[8mm] grid items-stretch gap-5 ${
+              pay.tables.length > 1 ? "grid-cols-2" : "max-w-[120mm] grid-cols-1"
+            }`}
+          >
             {pay.tables.map((tbl, ti) => (
               <div
                 key={tbl.title}
-                className="relative flex flex-col overflow-hidden px-8 py-7"
+                className="relative flex flex-col overflow-hidden px-8 py-9"
                 style={{ border: `1px solid ${C.line}`, borderRadius: R }}
               >
                 {/* Verlaufskante am Ratenweg: er ist der Vorschlag, der die
@@ -2214,7 +2318,7 @@ function ProposalCompact({
                   {tbl.title}
                 </div>
                 {tbl.sub && (
-                  <div className="mt-1.5 text-[12.5px]" style={{ color: C.muted }}>
+                  <div className="mt-1.5 min-h-[36px] text-[12.5px] leading-[1.45]" style={{ color: C.muted }}>
                     {tbl.sub}
                   </div>
                 )}
@@ -2223,37 +2327,53 @@ function ProposalCompact({
                     wird der Platz zwischen den Blöcken. So füllt die Karte
                     die Seite, ohne dass eine Steuerzeile von ihrem Betrag
                     weggerissen wird. */}
-                <div className="mt-5 flex flex-1 flex-col">
+                <div className="mt-6 flex flex-col gap-8">
                   {groupRows(tbl.rows).map((group, gi) => (
                     <div
                       key={gi}
-                      className="flex flex-1 flex-col justify-center py-1"
+                      className={gi > 0 ? "flex flex-col pt-8" : "flex flex-col"}
                       style={gi > 0 ? { borderTop: `1px solid ${C.line}` } : undefined}
                     >
-                      {group.map((row, ri) => (
+                      {group.map((row, ri) =>
+                        row.head ? (
+                          <div
+                            key={`${ri}-${row.k}`}
+                            className={`pb-1 ${LABEL}`}
+                            style={{ color: C.brand }}
+                          >
+                            {row.k}
+                          </div>
+                        ) : (
                         <div
                           key={`${ri}-${row.k}`}
-                          className="flex items-baseline justify-between gap-4 py-[3px]"
+                          className="flex items-baseline justify-between gap-4 py-[5px]"
                         >
                           <span
-                            className={`leading-snug${row.strong ? " text-[15px] font-semibold" : " text-[13px]"}`}
+                            className={`min-w-0 leading-snug${row.strong ? " text-[14px] font-semibold" : " text-[13px]"}`}
                             style={{ color: row.strong ? C.ink : C.muted }}
                           >
                             {row.k}
                           </span>
                           <span
-                            className={`shrink-0 tabular-nums${row.strong ? " text-[22px] font-bold" : " text-[13px]"}`}
-                            style={{ color: row.strong ? C.brand : C.muted }}
+                            className={`min-w-0 text-right tabular-nums${row.strong ? " text-[17px] font-bold" : " text-[13px]"}`}
+                            style={{ color: row.strong ? (gi === 0 ? C.brand : C.ink) : C.muted }}
                           >
                             {row.v}
                           </span>
                         </div>
-                      ))}
+                        )
+                      )}
                     </div>
                   ))}
                 </div>
+                {/* Der Fußtext sitzt am Kartenboden: die Karten füllen die
+                    Seite, sonst stand unter zwei kurzen Rechenwegen ein
+                    halbes leeres Blatt. */}
                 {tbl.foot && (
-                  <p className="mt-auto pt-6 text-[12px] leading-[1.5]" style={{ color: C.muted }}>
+                  <p
+                    className="mt-auto pt-6 text-[12.5px] leading-[1.55]"
+                    style={{ color: C.muted, borderTop: `1px solid ${C.line}` }}
+                  >
                     {tbl.foot}
                   </p>
                 )}
@@ -2296,23 +2416,24 @@ function ProposalCompact({
             )}
           </div>
         )}
-        {/* Ohne Vergleichskasten bliebe der Rundungshinweis unsichtbar — er
-            gehört aber unter die Tabellen, sonst geht „12 × 228,33 €" nicht
-            sichtbar auf 2.740,00 € auf. */}
+        {/* Ohne Vergleichskasten bliebe der Abrechnungshinweis unsichtbar — er
+            gehört unter die Tabellen: dort steht, dass Website-Rate und Pflege
+            über zwei getrennte monatliche Rechnungen laufen. */}
         {!pay?.compare && pay?.note && (
           <p className="mt-[6mm] shrink-0 text-[11.5px] leading-[1.5]" style={{ color: C.muted }}>
             {pay.note}
           </p>
         )}
       </Page>
+      )}
 
-      {/* ── 3 · Einordnung, Rahmen, Zusage ───────────────────────────── */}
-      <Page no={3} total={total} number={doc.number} settings={settings} last>
-        {/* Der Marktvergleich ist das einzige Argument, das der Kunde selbst
-            nicht recherchieren kann. Guards wie in der Langfassung: ohne
-            Stunden gäbe es „Infinity €/Std.", ohne Vergleichswerte Balken
-            der Breite NaN. */}
-        {val && val.hours > 0 && val.benchmarks.length > 0 && (
+      {/* ── 3 · Einordnung ───────────────────────────────────────────── */}
+      {/* Der Marktvergleich ist das einzige Argument, das der Kunde selbst
+          nicht recherchieren kann. Guards wie in der Langfassung: ohne
+          Stunden gäbe es „Infinity €/Std.", ohne Vergleichswerte Balken
+          der Breite NaN. */}
+      {hasVal && val && (
+        <Page no={valNo} total={total} number={doc.number} settings={settings}>
           <div className="shrink-0">
             <SectionHead eyebrow="Einordnung" title="Was das woanders kostet" />
             <p className="mt-3.5 max-w-[160mm] text-[13.5px] leading-[1.55]" style={{ color: C.body }}>
@@ -2348,38 +2469,123 @@ function ProposalCompact({
                   />
                 ))}
             </div>
-            {(val.sources?.length || val.sourceNote) && (
-              <p className="mt-3 text-[10.5px] leading-[1.5]" style={{ color: C.muted }}>
-                {val.sources?.length
-                  ? `Quellen: ${val.sources.map((s) => s.link ?? s.name).join(" · ")}. `
-                  : null}
-                {val.sourceNote}
-              </p>
-            )}
           </div>
-        )}
 
-        {/* Vier Kurzklauseln, mehr nicht: Preisbindung, Zeitrahmen, was nicht
+          {/* Die Begründungen füllen die Seite nicht auf, sie tragen sie: der
+              Balkenvergleich zeigt nur die Zahl, hier steht, woraus sie
+              entsteht. In der ausgeschriebenen Fassung stehen sie an
+              derselben Stelle. */}
+          {val.bottomLine && (
+            <p
+              className="mt-[6mm] shrink-0 px-7 py-4 text-[13px] leading-[1.55]"
+              style={{ background: C.soft, borderRadius: R, color: C.body }}
+            >
+              {val.bottomLine}
+            </p>
+          )}
+
+          {val.reasons?.length ? (
+            <div className="mt-auto grid grid-cols-1 gap-y-[6mm] pt-[7mm]">
+              {val.reasons.map((r) => (
+                <div key={r.title} className="relative pt-3" style={{ borderTop: `1px solid ${C.line}` }}>
+                  <div className="absolute left-0 top-[-1.5px] h-[2.5px] w-[9mm]" style={{ background: GRAD }} />
+                  <div className="flex gap-4">
+                    {r.stat && (
+                      <div className="w-[22mm] shrink-0">
+                        <div
+                          className="text-[24px] font-bold leading-none tabular-nums"
+                          style={{ color: C.brand }}
+                        >
+                          {r.stat}
+                        </div>
+                        {r.statLabel && (
+                          <div
+                            className="mt-1 hyphens-auto break-words text-[9px] uppercase leading-[1.3] tracking-[0.08em]"
+                            style={{ color: C.muted }}
+                          >
+                            {r.statLabel}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12.5px] font-bold" style={{ color: C.ink }}>
+                        {r.title}
+                      </div>
+                      <p className="mt-1 text-[12px] leading-[1.55]" style={{ color: C.body }}>
+                        {r.text}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {/* Quellen tragen die Einordnung, führen sie aber nicht an — daher
+              ans Blattende, mit Luft davor. */}
+          {(val.sources?.length || val.sourceNote) && (
+            <div className="mt-[6mm] pt-[4mm]" style={{ borderTop: `1px solid ${C.line}` }}>
+              {val.sources?.length ? (
+                <ol className="space-y-[3px]">
+                  {val.sources.map((src, i) => (
+                    <li key={src.name} className="flex gap-2 text-[10.5px] leading-[1.5]">
+                      <span className="tabular-nums" style={{ color: C.muted }}>
+                        {i + 1}
+                      </span>
+                      <span style={{ color: C.muted }}>
+                        <strong style={{ color: C.body }}>{src.name}</strong> {src.detail}
+                        {src.link ? ` — ${src.link}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+              {val.sourceNote && (
+                <p className="mt-2 text-[10.5px] leading-[1.5]" style={{ color: C.muted }}>
+                  {val.sourceNote}
+                </p>
+              )}
+            </div>
+          )}
+        </Page>
+      )}
+
+      {/* ── Rahmen und Zusage ────────────────────────────────────────── */}
+      {/* Die Klauseln sind nicht kürzbar — Nutzungsrechte, Haftung und
+          Abnahme gehören vollständig ins Angebot. Werden es zu viele für ein
+          Blatt, bekommt der Beauftragungskasten ein eigenes; gemessen passen
+          sechs Klauseln daneben, ab der siebten läuft die Seite über. */}
+      {/* ── Rahmen und Zusage ────────────────────────────────────────── */}
+      <Page
+        no={total - (splitOrder ? 1 : 0)}
+        total={total}
+        number={doc.number}
+        settings={settings}
+        last={!splitOrder}
+      >
+        {/* Kurzklauseln: Umfang, Zahlung, Zeitrahmen, Betreuung, was nicht
             drin ist, und der Verweis auf den Vertrag. Alles Weitere steht
             dort — doppelt geregelt wird nichts. */}
-        <div className="mt-[8mm] shrink-0">
-          <Eyebrow>Gut zu wissen</Eyebrow>
+        <div className="shrink-0">
+          <SectionHead eyebrow="Konditionen" title="Rahmen und Konditionen" />
         </div>
-        <div className="mt-3 shrink-0" style={{ columnCount: 2, columnGap: "10mm" }}>
-          {terms.map((t) => (
-            <div key={t.title} style={{ breakInside: "avoid", paddingBottom: "5mm" }}>
-              <div className="text-[13.5px] font-bold" style={{ color: C.ink }}>
+        <div className="mb-[5mm] mt-[5mm] grid shrink-0 grid-cols-2 items-start gap-x-8 gap-y-[4mm]">
+          {termsHead.map((t) => (
+            <div key={t.title}>
+              <div className="text-[14px] font-bold" style={{ color: C.ink }}>
                 {t.title}
               </div>
-              <p className="mt-1 text-[12px] leading-[1.55]" style={{ color: C.body }}>
+              <p className="mt-1 text-[12.5px] leading-[1.55]" style={{ color: C.body }}>
                 {t.text}
               </p>
             </div>
           ))}
         </div>
 
+        {!splitOrder && (
         <div
-          className="relative mb-[3mm] mt-auto shrink-0 overflow-hidden px-[8mm] py-[6mm]"
+          className="relative mb-[3mm] mt-auto shrink-0 overflow-hidden px-[8mm] py-[5mm]"
           style={{ background: C.soft, borderRadius: R }}
         >
           <div className="absolute left-0 top-0 h-[3px] w-full" style={{ background: GRAD }} />
@@ -2400,11 +2606,11 @@ function ProposalCompact({
                     {String(oi + 1).padStart(2, "0")}
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-[13.5px] font-bold leading-[1.25]" style={{ color: C.ink }}>
+                    <span className="block text-[14px] font-bold leading-[1.25]" style={{ color: C.ink }}>
                       {it.k}
                     </span>
                     {it.v && (
-                      <span className="mt-[3px] block text-[12px] leading-[1.45]" style={{ color: C.muted }}>
+                      <span className="mt-[3px] block text-[12.5px] leading-[1.45]" style={{ color: C.muted }}>
                         {it.v}
                       </span>
                     )}
@@ -2419,7 +2625,69 @@ function ProposalCompact({
             </p>
           )}
         </div>
+        )}
       </Page>
+
+      {splitOrder && (
+        <Page no={total} total={total} number={doc.number} settings={settings} last>
+          <div className="shrink-0">
+            <SectionHead eyebrow="Konditionen" title="Rahmen und Konditionen (2)" />
+          </div>
+          <div className="mb-[5mm] mt-[5mm] grid shrink-0 grid-cols-2 items-start gap-x-8 gap-y-[4mm]">
+            {termsTail.map((t) => (
+              <div key={t.title}>
+                <div className="text-[14px] font-bold" style={{ color: C.ink }}>
+                  {t.title}
+                </div>
+                <p className="mt-1 text-[12.5px] leading-[1.55]" style={{ color: C.body }}>
+                  {t.text}
+                </p>
+              </div>
+            ))}
+          </div>
+        <div
+          className="relative mb-[3mm] mt-[4mm] shrink-0 overflow-hidden px-[8mm] py-[5mm]"
+          style={{ background: C.soft, borderRadius: R }}
+        >
+          <div className="absolute left-0 top-0 h-[3px] w-full" style={{ background: GRAD }} />
+          <Eyebrow>So sagen Sie zu</Eyebrow>
+          <p className="mt-2.5 max-w-[160mm] text-[14px] leading-[1.55]" style={{ color: C.body }}>
+            {doc.orderNote ??
+              `Eine kurze Freigabe in Textform genügt. Dieses Angebot ist bis ${dateDE(doc.validUntil)} bindend.`}
+          </p>
+          {doc.orderItems?.length ? (
+            <div className="mt-[4mm] grid grid-cols-2 gap-x-8">
+              {doc.orderItems.map((it, oi) => (
+                <div
+                  key={it.k}
+                  className="flex items-start gap-3.5 py-[8px]"
+                  style={{ borderTop: `1px solid ${C.line}` }}
+                >
+                  <span className="text-[12px] font-bold tabular-nums" style={{ color: C.brand }}>
+                    {String(oi + 1).padStart(2, "0")}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[14px] font-bold leading-[1.25]" style={{ color: C.ink }}>
+                      {it.k}
+                    </span>
+                    {it.v && (
+                      <span className="mt-[3px] block text-[12.5px] leading-[1.45]" style={{ color: C.muted }}>
+                        {it.v}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {doc.orderFoot && (
+            <p className="mt-[4mm] text-[11.5px] leading-[1.5]" style={{ color: C.muted }}>
+              {doc.orderFoot}
+            </p>
+          )}
+        </div>
+        </Page>
+      )}
     </div>
   )
 }

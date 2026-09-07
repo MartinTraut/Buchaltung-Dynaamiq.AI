@@ -1,10 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Save, RotateCcw, Sparkles, Database } from "lucide-react"
+import { Save, RotateCcw, Sparkles, Database, DownloadCloud, UploadCloud, ShieldAlert } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
 import type { CompanySettings } from "@/lib/types"
+import { buildBackup, backupFileName, parseBackup, backupSummary } from "@/lib/backup"
+import { dateDE } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -13,7 +15,8 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
 export default function SettingsPage() {
-  const { db, updateSettings, resetDemo } = useStore()
+  const { db, updateSettings, resetDemo, replaceDatabase } = useStore()
+  const fileInput = React.useRef<HTMLInputElement>(null)
   const confirm = useConfirm()
   const [form, setForm] = React.useState<CompanySettings>(db.settings)
 
@@ -23,6 +26,44 @@ export default function SettingsPage() {
   function save() {
     updateSettings(form)
     toast.success("Einstellungen gespeichert")
+  }
+
+  /** Vollständigen Bestand als JSON-Datei herunterladen. */
+  function exportBackup() {
+    const backup = buildBackup(db)
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: "application/json",
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = backupFileName()
+    a.click()
+    URL.revokeObjectURL(url)
+    updateSettings({ lastBackupAt: backup.createdAt })
+    toast.success("Sicherung gespeichert", {
+      description: backupSummary(backup),
+    })
+  }
+
+  /** Sicherung einlesen — ersetzt den kompletten Bestand nach Rückfrage. */
+  async function importBackup(file: File) {
+    const check = parseBackup(await file.text())
+    if (!check.ok || !check.file) {
+      toast.error("Sicherung nicht lesbar", { description: check.error })
+      return
+    }
+    const ok = await confirm({
+      title: "Bestand aus Sicherung ersetzen?",
+      description: `Die Sicherung vom ${dateDE(check.file.createdAt)} enthält ${backupSummary(check.file)}. Der aktuelle Bestand in diesem Browser wird vollständig überschrieben.`,
+      confirmLabel: "Wiederherstellen",
+      destructive: true,
+    })
+    if (!ok) return
+    replaceDatabase(check.file.data)
+    toast.success("Bestand wiederhergestellt", {
+      description: backupSummary(check.file),
+    })
   }
 
   return (
@@ -132,6 +173,58 @@ export default function SettingsPage() {
         <Row label="IBAN">
           <RowInput value={form.iban} onChange={(e) => set({ iban: e.target.value })} />
         </Row>
+      </Group>
+
+      {/* Datensicherung — der Bestand liegt nur in diesem Browser */}
+      <Group title="Datensicherung">
+        <div className="flex items-start gap-3 px-4 py-3.5">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#ffb020]/12">
+            <ShieldAlert className="size-4 text-[#ffb020]" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">Alle Daten liegen nur in diesem Browser</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Geleerte Websitedaten, ein neues Gerät oder Safaris automatische Speicherräumung
+              löschen Kunden, Angebote und Rechnungen ersatzlos. Rechnungen sind nach §147 AO
+              zehn Jahre aufzubewahren — lade regelmäßig eine Sicherung herunter und lege sie
+              außerhalb des Browsers ab.
+            </p>
+            <p className="mt-1.5 text-xs">
+              {db.settings.lastBackupAt ? (
+                <span className="text-muted-foreground">
+                  Letzte Sicherung: {dateDE(db.settings.lastBackupAt)}
+                </span>
+              ) : (
+                <span className="font-medium text-[#ffb020]">Noch nie gesichert.</span>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 px-4 py-3.5">
+          <Button variant="brand" className="gap-1.5" onClick={exportBackup}>
+            <DownloadCloud className="size-4" /> Sicherung herunterladen
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => fileInput.current?.click()}
+          >
+            <UploadCloud className="size-4" /> Sicherung einspielen
+          </Button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              // Zurücksetzen, damit dieselbe Datei ein zweites Mal ausgewählt
+              // werden kann — sonst feuert `change` beim gleichen Namen nicht.
+              e.target.value = ""
+              if (f) void importBackup(f)
+            }}
+          />
+        </div>
       </Group>
 
       {/* Integrationen */}
