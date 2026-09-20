@@ -88,7 +88,14 @@ export function PrintableDoc({
   const hasReminderFee = doc.items.some((it) => it.description.startsWith("Mahngebühr"))
   const smallBusiness = settings.smallBusiness
   const totals = computeTotals(doc.items)
-  const docLabel = isStorno ? "Stornorechnung" : "Rechnung"
+  const isAdvance = doc.kind === "advance"
+  const docLabel = isStorno
+    ? "Stornorechnung"
+    : isAdvance
+      ? "Anzahlungsrechnung"
+      : doc.kind === "final"
+        ? "Schlussrechnung"
+        : "Rechnung"
 
   // Negative Positionen sind Nachlässe und gehören zwischen Zwischensumme und
   // Netto, nicht in die Leistungstabelle — sonst liest sich der Abzug wie eine
@@ -105,18 +112,32 @@ export function PrintableDoc({
   const showQty = rows.some((it) => it.qty !== 1)
 
   const serviceStart = doc.serviceDate || doc.issueDate
-  const serviceLabel = doc.servicePeriodEnd ? "Leistungszeitraum" : "Leistungsdatum"
-  const serviceValue = doc.servicePeriodEnd
-    ? `${dateNum(serviceStart)} – ${dateNum(doc.servicePeriodEnd)}`
-    : dateNum(serviceStart)
+  // Bei einer Anzahlung gibt es kein Leistungsdatum zu nennen — die Leistung
+  // steht ja noch aus. Das Feld trägt deshalb den Zeitpunkt, der hier zählt.
+  const serviceLabel = isAdvance
+    ? "Leistung"
+    : doc.servicePeriodEnd
+      ? "Leistungszeitraum"
+      : "Leistungsdatum"
+  const serviceValue = isAdvance
+    ? "nach Abnahme"
+    : doc.servicePeriodEnd
+      ? `${dateNum(serviceStart)} – ${dateNum(doc.servicePeriodEnd)}`
+      : dateNum(serviceStart)
 
   // Leistungsdatum ist Pflichtangabe (§14 Abs. 4 Nr. 6 UStG). Fällt es auf das
   // Rechnungsdatum, genügt der Hinweis darauf (UStAE 14.5 Abs. 16).
-  const serviceNote = doc.servicePeriodEnd
-    ? `Leistungszeitraum ${serviceValue}`
-    : sameDay(serviceStart, doc.issueDate)
-      ? "Leistungsdatum entspricht Rechnungsdatum"
-      : `Leistungsdatum ${dateNum(serviceStart)}`
+  // Bei einer Anzahlung ist die Leistung noch nicht erbracht — ein
+  // Leistungsdatum gäbe es hier nicht zu nennen, ohne zu lügen. §14 Abs. 4
+  // Nr. 6 UStG verlangt stattdessen den Zeitpunkt der Vereinnahmung, und der
+  // steht erst fest, wenn das Geld da ist.
+  const serviceNote = isAdvance
+    ? "Anzahlung vor Ausführung der Leistung; der Leistungszeitpunkt steht noch nicht fest"
+    : doc.servicePeriodEnd
+      ? `Leistungszeitraum ${serviceValue}`
+      : sameDay(serviceStart, doc.issueDate)
+        ? "Leistungsdatum entspricht Rechnungsdatum"
+        : `Leistungsdatum ${dateNum(serviceStart)}`
 
   const legalNote =
     doc.legalNote ??

@@ -57,7 +57,7 @@ const settings: CompanySettings = {
   // ablesbar. Der Präfix ist deshalb nur noch „V" — Kundennummer und
   // Vertragszähler hängt lib/format.ts an.
   contractPrefix: "V",
-  nextInvoiceNo: 434,
+  nextInvoiceNo: 435,
   nextQuoteNo: 517,
   nextContractNo: 4,
   paymentTermsDays: 14,
@@ -156,7 +156,7 @@ const deals: Deal[] = [
     owner: "Martin Traut",
     expectedClose: "2026-09-22T10:00:00.000Z",
     notes:
-      "Seit 23.08.2026 zwei getrennte Vorgänge statt eines Gesamtangebots — jeder mit eigenem Angebot, Vertrag und Rechnung.\n\n(1) Website: Angebot AN-2026-514, Vertrag V-1005-01, Rechnung 2026-433. 81,25 Std. = 6.500 € zum Regelsatz, nach Nachlass 5.000 € netto. Ratenzahlung nach § 6: 2.000 € brutto bis 30.09.2026, Rest 3.950 € ab 01.03.2027 in Monatsraten ab 500 €, spätestens vollständig 31.12.2027. Eine einzige Rechnung bei Abnahme, die Raten sind Teilzahlungen darauf.\n\n(2) Warenwirtschaft: Angebot AN-2026-515, Vertrag V-1005-02. 324 Std. = 25.920 € zum Regelsatz, nach Nachlass 19.000 € netto. Noch nicht beauftragt; Preisbindung sechs Monate ab Abnahme der Website. Zahlung 40/30/30, Umsetzungsbeginn erst nach Eingang der ersten Rate.\n\nPflege in beiden Fällen nicht monatlich, sondern 15 % des provisionsrelevanten Deckungsbeitrags aus Websitegeschäften.",
+      "Seit 23.08.2026 zwei getrennte Vorgänge statt eines Gesamtangebots — jeder mit eigenem Angebot, Vertrag und Rechnung.\n\n(1) Website: Angebot AN-2026-514, Vertrag V-1005-01, Rechnung 2026-433. 81,25 Std. = 6.500 € zum Regelsatz, nach Nachlass 5.000 € netto. Ratenzahlung nach § 6: 2.000 € netto (2.380 € brutto) bis 30.09.2026, Rest 3.000 € netto (3.570 € brutto) ab 01.03.2027 in Monatsraten ab 500 €, spätestens vollständig 31.12.2027. Anzahlungsrechnung 2026-433 vorab, Schlussrechnung 2026-434 bei Abnahme mit Absetzung der Anzahlung; die weiteren Raten sind Teilzahlungen auf die Schlussrechnung.\n\n(2) Warenwirtschaft: Angebot AN-2026-515, Vertrag V-1005-02. 324 Std. = 25.920 € zum Regelsatz, nach Nachlass 19.000 € netto. Noch nicht beauftragt; Preisbindung sechs Monate ab Abnahme der Website. Zahlung 40/30/30, Umsetzungsbeginn erst nach Eingang der ersten Rate.\n\nPflege in beiden Fällen nicht monatlich, sondern 15 % des provisionsrelevanten Deckungsbeitrags aus Websitegeschäften.",
     createdAt: "2026-08-14T09:00:00.000Z",
   },
   {
@@ -518,14 +518,59 @@ const invoices: Invoice[] = [
       "<b>Leistungsumfang:</b> Einrichtung und persönliche Übergabe vor Ort; die verwendeten Aufsteller sind Teil der Leistung. Die hinterlegte Ziel-Adresse der NFC-Chips lässt sich jederzeit auf Wunsch ändern.",
   },
   {
-    // Entwurf. Nach § 6 Abs. 3 des Projektvertrags V-1005-01 wird genau eine
-    // Rechnung über die Gesamtleistung gestellt, und zwar mit der Abnahme —
-    // keine Rechnung je Rate. Rechnungs- und Leistungsdatum stehen deshalb auf
-    // dem geplanten Abnahmetag und werden beim Versenden auf den tatsächlichen
-    // gesetzt. Die 2.000 € Ende September sind Teilzahlung auf diese Rechnung;
-    // ihre Fälligkeit folgt aus dem Vertrag, nicht aus dem Zahlungsziel.
-    id: "inv-2026-433-website",
+    // Anzahlungsrechnung. Die Website ist zum 16.09.2026 nicht abgenommen — die
+    // Leistung ist also nicht erbracht, und eine Rechnung über die Gesamtsumme
+    // wäre an dieser Stelle falsch. Sie würde außerdem die volle Umsatzsteuer
+    // von 950,00 € sofort fällig stellen (§ 13 Abs. 1 Nr. 1a UStG), während nur
+    // 2.000,00 € zufließen.
+    //
+    // Deshalb der umgekehrte Weg: angezahlt wird jetzt, versteuert wird bei
+    // Vereinnahmung (§ 13 Abs. 1 Nr. 1a Satz 4 UStG), und die Schlussrechnung
+    // bei Abnahme zieht diese Anzahlung mitsamt ihrer Steuer wieder ab.
+    //
+    // 2.000,00 € netto + 380,00 € Umsatzsteuer = 2.380,00 € brutto.
+    id: "inv-2026-433-anzahlung",
     number: "2026-433",
+    kind: "advance",
+    customerId: "c2",
+    status: "draft",
+    issueDate: "2026-09-16T10:00:00.000Z",
+    dueDate: "2026-09-30T10:00:00.000Z",
+    createdAt: "2026-09-16T10:00:00.000Z",
+    projectId: "p-skope",
+    title: "Anzahlung Website",
+    titleAccent: "skopegebrauchtwarenhandel.com",
+    lead: "Erste Rate auf den vereinbarten Werklohn für Website, Marke und Verkaufskanal — fällig vor Fertigstellung nach § 6 des Projektvertrags V-1005-01.",
+    items: [
+      {
+        id: "anz-1",
+        description: "Anzahlung auf Website, Marke und Verkaufskanal",
+        note: "Erste Rate nach § 6 Abs. 1 des Projektvertrags V-1005-01 auf den Gesamtwerklohn von 5.000,00 € netto (5.950,00 € brutto) gemäß Angebot AN-2026-514 vom 23.08.2026. Die Leistung ist noch nicht abgenommen; über den Gesamtbetrag wird nach Abnahme gesondert abgerechnet.",
+        unit: "Anzahlung",
+        qty: 1,
+        unitPrice: 2000,
+        taxRate: 0.19,
+      },
+    ],
+    legalNote:
+      "<b>Anzahlung:</b> Diese Rechnung betrifft eine Vorauszahlung auf eine noch nicht ausgeführte Leistung. Über den Gesamtbetrag wird nach Abnahme eine Schlussrechnung erteilt, in der diese Anzahlung nebst der darin ausgewiesenen Umsatzsteuer abgesetzt wird (§ 14 Abs. 5 UStG). Bis zur vollständigen Zahlung bleiben die Nutzungsrechte nach § 8 des Vertrags vorbehalten.",
+    notes:
+      "Zahlungsplan nach § 6 des Projektvertrags V-1005-01: 2.000,00 € netto (2.380,00 € brutto) bis 30.09.2026, der verbleibende Betrag von 3.000,00 € netto (3.570,00 € brutto) ab 01.03.2027 in monatlichen Raten von mindestens 500,00 €, spätestens vollständig am 31.12.2027.\n\nGesamtwerklohn 5.000,00 € netto (5.950,00 € brutto) nach Angebot AN-2026-514. Die Warenwirtschaft ist nicht Gegenstand dieser Rechnung; sie wird gesondert angeboten (AN-2026-515) und gesondert abgerechnet.",
+  },
+  {
+    // Schlussrechnung, Entwurf bis zur Abnahme. Nach § 6 Abs. 3 des
+    // Projektvertrags V-1005-01 wird über die Gesamtleistung genau einmal
+    // abgerechnet, und zwar mit der Abnahme. Rechnungs- und Leistungsdatum
+    // stehen auf dem geplanten Abnahmetag und werden beim Versenden auf den
+    // tatsächlichen gesetzt.
+    //
+    // Die Position „anz-ab" zieht die Anzahlung aus 2026-433 wieder ab. Das ist
+    // nicht Kosmetik: ohne diesen Abzug stünde die Umsatzsteuer auf 2.000,00 €
+    // zweimal ausgewiesen da und wäre nach § 14c Abs. 1 UStG ein zweites Mal
+    // geschuldet — bis zur berichtigten Rechnung.
+    id: "inv-2026-433-website",
+    number: "2026-434",
+    kind: "final",
     customerId: "c2",
     status: "draft",
     issueDate: "2026-09-30T10:00:00.000Z",
@@ -553,9 +598,18 @@ const invoices: Invoice[] = [
         unitPrice: 5000 - 81.25 * REGELSATZ,
         taxRate: 0.19,
       },
+      {
+        id: "anz-ab",
+        description: "Abzüglich Anzahlung, Rechnung 2026-433 vom 16.09.2026",
+        note: "Erhaltene Anzahlung 2.000,00 € netto zuzüglich 380,00 € Umsatzsteuer = 2.380,00 € brutto. Absetzung nach § 14 Abs. 5 Satz 2 UStG.",
+        unit: "Anzahlung",
+        qty: 1,
+        unitPrice: -2000,
+        taxRate: 0.19,
+      },
     ],
     legalNote:
-      "<b>Zahlungsvereinbarung:</b> Abweichend von einem allgemeinen Zahlungsziel gilt der individuell vereinbarte Ratenplan aus § 6 des Projektvertrags V-1005-01: 2.000,00 € brutto bis 30.09.2026, der verbleibende Betrag von 3.950,00 € brutto ab 01.03.2027 in monatlichen Raten von mindestens 500,00 €, spätestens vollständig am 31.12.2027. Bitte geben Sie bei jeder Überweisung die Rechnungsnummer als Verwendungszweck an. Bis zur vollständigen Zahlung bleiben die Nutzungsrechte nach § 8 des Vertrags vorbehalten.",
+      "<b>Zahlungsvereinbarung:</b> Abweichend von einem allgemeinen Zahlungsziel gilt der individuell vereinbarte Ratenplan aus § 6 des Projektvertrags V-1005-01. Die Anzahlung von 2.000,00 € netto (2.380,00 € brutto) ist mit Rechnung 2026-433 abgerechnet und oben abgesetzt; der verbleibende Betrag von 3.000,00 € netto (3.570,00 € brutto) ist ab 01.03.2027 in monatlichen Raten von mindestens 500,00 € zu zahlen, spätestens vollständig am 31.12.2027. Die Raten sind Teilzahlungen auf diese Rechnung — es ergeht keine weitere Rechnung. Bitte geben Sie bei jeder Überweisung die Rechnungsnummer als Verwendungszweck an. Bis zur vollständigen Zahlung bleiben die Nutzungsrechte nach § 8 des Vertrags vorbehalten.",
     notes:
       "Leistung nach Angebot AN-2026-514 vom 23.08.2026 und Projektvertrag V-1005-01. Regulär 6.500,00 € netto (81,25 Std. × 80,00 €), berechnet 5.000,00 € netto — Nachlass 1.500,00 €.\n\nDie Warenwirtschaft ist nicht Gegenstand dieser Rechnung; sie wird gesondert angeboten (AN-2026-515) und gesondert abgerechnet.",
   },
@@ -718,7 +772,7 @@ const quotes: Quote[] = [
       },
       {
         title: "Zahlung",
-        text: "Individuell vereinbarter Plan nach § 6 des Projektvertrags: 2.000,00 € brutto bis zum 30. September 2026, der Restbetrag von 3.950,00 € brutto ab dem 1. März 2027 in Monatsraten von mindestens 500,00 €, vollständig spätestens am 31. Dezember 2027. Abgerechnet wird mit einer einzigen Rechnung bei Abnahme; die Zahlungen sind Teilzahlungen darauf.",
+        text: "Individuell vereinbarter Plan nach § 6 des Projektvertrags: 2.000,00 € netto (2.380,00 € brutto) bis zum 30. September 2026, der Restbetrag von 3.000,00 € netto (3.570,00 € brutto) ab dem 1. März 2027 in Monatsraten von mindestens 500,00 €, vollständig spätestens am 31. Dezember 2027. Über die erste Zahlung ergeht eine Anzahlungsrechnung; mit der Abnahme folgt die Schlussrechnung über die Gesamtleistung, in der die Anzahlung abgesetzt wird. Die weiteren Raten sind Teilzahlungen auf die Schlussrechnung.",
       },
       {
         title: "Betreuung statt Monatspauschale",
@@ -748,7 +802,7 @@ const quotes: Quote[] = [
         { head: "5.950,00 €", when: "brutto, Zahlungsplan nach § 6" },
         {
           head: "2.000,00 € bis 30.09.2026",
-          value: "Rest 3.950,00 € ab 01.03.2027",
+          value: "Rest 3.570,00 € ab 01.03.2027",
           label: "Zahlungsplan",
           when: "Betreuung separat: 15 % des Deckungsbeitrags je\u00a0Websitegeschäft",
         },
@@ -763,13 +817,13 @@ const quotes: Quote[] = [
             { k: "zzgl. Umsatzsteuer 19 %", v: "950,00 €" },
             { k: "Festpreis brutto", v: "5.950,00 €", strong: true },
             { k: "Fälligkeiten", head: true, v: "" },
-            { k: "Erste Zahlung", v: "2.000,00 € brutto", strong: true },
+            { k: "Erste Zahlung", v: "2.380,00 € brutto", strong: true },
             { k: "Fällig bis", v: "30. September 2026" },
-            { k: "Restbetrag", v: "3.950,00 € brutto" },
+            { k: "Restbetrag", v: "3.570,00 € brutto" },
             { k: "Ab 1. März 2027", v: "Raten ab 500,00\u00a0€" },
             { k: "Vollständig bis", v: "31. Dezember 2027" },
           ],
-          foot: "Abgerechnet wird mit einer einzigen Rechnung bei Abnahme. Die Zahlungen sind Teilzahlungen darauf; ihre Fälligkeit folgt aus § 6 des Vertrags auch ohne gesonderte Rechnung.",
+          foot: "Über die erste Zahlung ergeht eine Anzahlungsrechnung, mit der Abnahme die Schlussrechnung über die Gesamtleistung abzüglich dieser Anzahlung. Die weiteren Raten sind Teilzahlungen auf die Schlussrechnung; ihre Fälligkeit folgt aus § 6 des Vertrags auch ohne gesonderte Rechnung.",
         },
         {
           title: "Betreuung",
@@ -1487,8 +1541,8 @@ const VERTRAG_WEBSITE: ContractClause[] = [
     title: "Vergütung, Zahlungsplan und Zahlungsverzug",
     body: [
       "Der Festpreis beträgt 5.000,00 € netto, zuzüglich 19 % Umsatzsteuer 950,00 €, insgesamt 5.950,00 € brutto. Alle weiteren Beträge dieses Vertrags verstehen sich netto zuzüglich der jeweils gesetzlichen Umsatzsteuer.",
-      "Abweichend vom Zahlungsplan der Anlage 1 vereinbaren die Parteien individuell die folgende Ratenzahlung: (a) eine erste Zahlung von 2.000,00 € brutto, fällig bis zum 30. September 2026; (b) der verbleibende Betrag von 3.950,00 € brutto in monatlichen Raten von mindestens 500,00 €, fällig jeweils zum Ersten eines Monats, beginnend am 1. März 2027, bis zur vollständigen Tilgung, spätestens jedoch in voller Höhe am 31. Dezember 2027. Höhere Zahlungen und vorzeitige Tilgung sind jederzeit ohne Zusatzkosten möglich.",
-      "Abgerechnet wird mit einer einzigen Rechnung über die Gesamtleistung, gestellt mit der Abnahme. Die Zahlungen nach Abs. 2 sind Teilzahlungen auf diese Rechnung; gesonderte Rechnungen je Rate werden nicht erstellt. Zahlungen, die vor Rechnungsstellung eingehen, werden auf sie angerechnet. Die Rechnung nimmt auf den Ratenplan nach Abs. 2 Bezug; dessen Fälligkeiten gehen einem allgemeinen Zahlungsziel der Rechnung vor. Der Auftraggeber gibt bei jeder Überweisung die Rechnungsnummer als Verwendungszweck an.",
+      "Abweichend vom Zahlungsplan der Anlage 1 vereinbaren die Parteien individuell die folgende Ratenzahlung: (a) eine erste Zahlung von 2.000,00 € netto zuzüglich 380,00 € Umsatzsteuer, insgesamt 2.380,00 € brutto, fällig bis zum 30. September 2026; (b) der verbleibende Betrag von 3.000,00 € netto zuzüglich 570,00 € Umsatzsteuer, insgesamt 3.570,00 € brutto, in monatlichen Raten von mindestens 500,00 €, fällig jeweils zum Ersten eines Monats, beginnend am 1. März 2027, bis zur vollständigen Tilgung, spätestens jedoch in voller Höhe am 31. Dezember 2027. Höhere Zahlungen und vorzeitige Tilgung sind jederzeit ohne Zusatzkosten möglich.",
+      "Über die erste Zahlung nach Abs. 2 lit. a wird eine Anzahlungsrechnung gestellt. Mit der Abnahme wird die Gesamtleistung in einer Schlussrechnung abgerechnet; die berechnete Anzahlung wird darin nebst der auf sie entfallenden Umsatzsteuer abgesetzt (§ 14 Abs. 5 UStG). Die Raten nach Abs. 2 lit. b sind Teilzahlungen auf die Schlussrechnung; gesonderte Rechnungen je Rate werden nicht erstellt. Weitere Zahlungen, die vor der Schlussrechnung eingehen, werden in ihr ebenso abgesetzt. Die Fälligkeiten des Ratenplans nach Abs. 2 gehen einem allgemeinen Zahlungsziel der Rechnungen vor. Der Auftraggeber gibt bei jeder Überweisung die Rechnungsnummer als Verwendungszweck an.",
       "Die Fälligkeit der Zahlungen nach Abs. 2 folgt unmittelbar aus diesem Vertrag; sie setzt den Zugang einer Rechnung nicht voraus.",
       "Der Auftraggeber erkennt die Forderung aus Abs. 1 dem Grunde und der Höhe nach an. Die Ratenzahlung nach Abs. 2 wird ausschließlich zahlungshalber gewährt und lässt den Bestand der Forderung unberührt.",
       "Gerät der Auftraggeber mit zwei Raten ganz oder teilweise in Verzug oder mit der ersten Zahlung nach Abs. 2 lit. a länger als 14 Tage, wird der gesamte noch offene Restbetrag ohne weitere Mahnung sofort zur Zahlung fällig (Verfallklausel).",
@@ -1757,7 +1811,7 @@ const contracts: Contract[] = [
     ],
     clauses: VERTRAG_WEBSITE,
     notes:
-      "Website verbindlich beauftragt (5.000,00 € netto). Individuell vereinbarte Ratenzahlung in § 6: 2.000,00 € brutto bis 30.09.2026, Rest 3.950,00 € brutto ab 01.03.2027 in Monatsraten von mindestens 500,00 €, spätestens fällig 31.12.2027. Abgerechnet wird mit einer einzigen Rechnung bei Abnahme (2026-433); die Raten sind Teilzahlungen darauf, ihre Fälligkeit folgt aus § 6 Abs. 4 auch ohne Rechnung. Verfallklausel, Schuldanerkenntnis und Abschaltrecht sind die Sicherheit für die Vorleistung. Offen: Antrag auf Istversteuerung nach § 20 UStG.",
+      "Website verbindlich beauftragt (5.000,00 € netto). Individuell vereinbarte Ratenzahlung in § 6: 2.000,00 € netto (2.380,00 € brutto) bis 30.09.2026, Rest 3.000,00 € netto (3.570,00 € brutto) ab 01.03.2027 in Monatsraten von mindestens 500,00 €, spätestens fällig 31.12.2027. Abgerechnet wird über zwei Belege: Anzahlungsrechnung 2026-433 vorab, Schlussrechnung 2026-434 bei Abnahme mit Absetzung der Anzahlung; die Raten sind Teilzahlungen auf die Schlussrechnung, ihre Fälligkeit folgt aus § 6 Abs. 4 auch ohne Rechnung. Verfallklausel, Schuldanerkenntnis und Abschaltrecht sind die Sicherheit für die Vorleistung. Offen: Antrag auf Istversteuerung nach § 20 UStG.",
     createdAt: "2026-08-23T10:00:00.000Z",
   },
   {

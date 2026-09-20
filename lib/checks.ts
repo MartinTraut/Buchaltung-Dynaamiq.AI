@@ -185,7 +185,9 @@ export const CHECK_RULES: CheckRule[] = [
     severity: "info",
     run: (db) =>
       issued(db)
-        .filter((i) => !i.serviceDate && !i.cancelsInvoiceId)
+        // Anzahlungsrechnungen ausgenommen: dort ist die Leistung noch nicht
+        // erbracht, ein Leistungsdatum wäre schlicht falsch.
+        .filter((i) => !i.serviceDate && !i.cancelsInvoiceId && i.kind !== "advance")
         .map((i) => ({
           id: `invoice-service-date:${i.id}`,
           ruleId: "invoice-service-date",

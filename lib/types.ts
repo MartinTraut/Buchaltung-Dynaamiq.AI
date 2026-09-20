@@ -140,10 +140,21 @@ export interface DocValuation {
   sources?: { name: string; detail: string; link?: string }[]
 }
 
+/**
+ * Art des Belegs. Vor Erbringung der Leistung wird angezahlt („advance"),
+ * nach Abnahme kommt die Schlussrechnung („final"), die alle Anzahlungen
+ * mitsamt ihrer Umsatzsteuer wieder abzieht — §14 Abs. 5 UStG. Ohne diese
+ * Unterscheidung stünde dieselbe Steuer zweimal ausgewiesen da, und das ist
+ * nach §14c Abs. 1 UStG geschuldet, auch wenn es nur ein Versehen war.
+ */
+export type InvoiceKind = "standard" | "advance" | "final"
+
 export interface Invoice {
   id: ID
   number: string
   customerId: ID
+  /** Ohne Angabe: „standard" — eine Rechnung über eine erbrachte Leistung. */
+  kind?: InvoiceKind
   status: InvoiceStatus
   issueDate: string
   dueDate: string

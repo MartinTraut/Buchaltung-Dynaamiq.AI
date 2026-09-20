@@ -35,11 +35,16 @@ const STORAGE_KEY = "dynaamiq-os-db-v13"
 const SEEDED_KEY = "dynaamiq-os-seeded-ids"
 const SEED_REV_KEY = "dynaamiq-os-seed-revision"
 /**
+ * Fingerabdruck je Seed-Datensatz, wie er zuletzt eingespielt wurde. Daran
+ * erkennt der Merge, ob ein Datensatz seither von Hand angefasst wurde.
+ */
+const SEED_HASH_KEY = "dynaamiq-os-seed-hashes"
+/**
  * Hochzählen, wenn sich der Inhalt bestehender Seed-Datensätze ändert (Texte,
  * Beträge, Preis-Einordnung). Beim nächsten Laden werden genau diese Datensätze
  * auf den Seed-Stand gebracht — eigene Datensätze bleiben unberührt.
  */
-const SEED_REVISION = 102
+const SEED_REVISION = 105
 
 /**
  * Seed-Datensätze, die es nicht mehr geben soll. Der Merge legt nur an und
@@ -169,6 +174,27 @@ const SEED_COLLECTIONS: CollectionKey[] = [
   "activities",
 ]
 
+/** Kurzer, stabiler Fingerabdruck eines Datensatzes (FNV-1a, 32 Bit als Hex). */
+function fingerprint(rec: unknown): string {
+  const text = JSON.stringify(rec)
+  let h = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return h.toString(16)
+}
+
+/** Zuletzt eingespielte Fingerabdrücke lesen. */
+function storedFingerprints(): Record<string, string> {
+  try {
+    const raw = window.localStorage.getItem(SEED_HASH_KEY)
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {}
+  } catch {
+    return {}
+  }
+}
+
 /**
  * Neu dazugekommene Seed-Datensätze (z. B. ein neuer Kunde samt Angebot)
  * nachtragen, ohne bestehende Daten anzufassen. Jede ID wird nur ein einziges
@@ -192,6 +218,7 @@ function mergeNewSeedRecords(db: Database, seed: Database): Database {
     /* defekter Eintrag — wie „noch nichts eingespielt" behandeln */
   }
   const seen = new Set(applied)
+  const prints = storedFingerprints()
   const next = { ...db }
   const added: string[] = []
 
@@ -207,7 +234,18 @@ function mergeNewSeedRecords(db: Database, seed: Database): Database {
         next[key] = purged as never
         added.push("rev")
       }
-      const replaced = existing.map((r) => byId.get(r.id) ?? r)
+      // Nur auffrischen, was seit dem letzten Einspielen unberührt geblieben
+      // ist. Vorher ersetzte jede Revisionserhöhung sämtliche Seed-Datensätze
+      // durch den Auslieferungsstand — eine auf „bezahlt" gesetzte Rechnung
+      // stand danach wieder als Entwurf da, ohne Meldung und ohne Weg zurück.
+      // Ohne bekannten Fingerabdruck wird nichts angefasst: eine verpasste
+      // Seed-Korrektur ist folgenlos, überschriebene Arbeit nicht.
+      const replaced = existing.map((r) => {
+        const fresh = byId.get(r.id)
+        if (!fresh) return r
+        const known = prints[r.id]
+        return known && fingerprint(r) === known ? fresh : r
+      })
       if (replaced.some((r, i) => r !== existing[i])) {
         existing = replaced
         next[key] = replaced as never
@@ -245,8 +283,15 @@ function markSeedApplied(seed: Database) {
   const allIds = SEED_COLLECTIONS.flatMap((k) =>
     (seed[k] as { id: string }[]).map((r) => r.id),
   )
+  // Fingerabdruck des ausgelieferten Standes je Datensatz. Ein Datensatz gilt
+  // beim nächsten Merge als unberührt, solange er diesem Abdruck entspricht.
+  const prints: Record<string, string> = {}
+  for (const k of SEED_COLLECTIONS) {
+    for (const r of seed[k] as { id: string }[]) prints[r.id] = fingerprint(r)
+  }
   try {
     window.localStorage.setItem(SEEDED_KEY, JSON.stringify(allIds))
+    window.localStorage.setItem(SEED_HASH_KEY, JSON.stringify(prints))
     window.localStorage.setItem(SEED_REV_KEY, String(SEED_REVISION))
   } catch {
     /* quota / private mode — ignore */
@@ -1197,6 +1242,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const replaceDatabase = React.useCallback((next: Database) => {
     try {
       window.localStorage.setItem(SEED_REV_KEY, String(SEED_REVISION))
+      // Die Fingerabdrücke gehören zum ersetzten Bestand, nicht zum
+      // wiederhergestellten. Ohne sie gilt jeder Datensatz als angefasst und
+      // bleibt unberührt — genau richtig für eine Sicherung.
+      window.localStorage.removeItem(SEED_HASH_KEY)
     } catch {
       /* nicht schreibbar — der Fehler wird beim nächsten flush gemeldet */
     }
