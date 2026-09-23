@@ -4,6 +4,7 @@ import * as React from "react"
 import { Plus, MoreHorizontal, ReceiptEuro, Repeat, ChevronRight } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useQueryFlag, useQueryValue } from "@/hooks/use-query-flag"
+import { useOnceWhen } from "@/hooks/use-derived-state"
 import { eur, dateDE, computeTotals } from "@/lib/format"
 import { REMINDER_LABEL } from "@/lib/types"
 import type { Invoice, InvoiceStatus } from "@/lib/types"
@@ -30,21 +31,18 @@ export default function InvoicesPage() {
   const [editing, setEditing] = React.useState<Invoice | null>(null)
   const [open, setOpen] = React.useState(false)
 
-  React.useEffect(() => {
-    if (wantNew) {
-      setEditing(null)
-      setOpen(true)
-    }
-  }, [wantNew])
+  useOnceWhen(wantNew, () => {
+    setEditing(null)
+    setOpen(true)
+  })
 
-  React.useEffect(() => {
-    if (!focusDoc) return
+  useOnceWhen(focusDoc, () => {
     const inv = db.invoices.find((i) => i.id === focusDoc)
     if (inv) {
       setEditing(inv)
       setOpen(true)
     }
-  }, [focusDoc, db.invoices])
+  })
 
   const rows = db.invoices
     .filter((i) => (filter === "all" ? true : i.status === filter))

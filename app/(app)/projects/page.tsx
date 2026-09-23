@@ -21,6 +21,7 @@ import {
 import { useStore } from "@/lib/store"
 import { useConfirm } from "@/lib/confirm"
 import { useQueryFlag } from "@/hooks/use-query-flag"
+import { useOnceWhen } from "@/hooks/use-derived-state"
 import { useLocalState } from "@/hooks/use-local-state"
 import { eur, dateDE, computeTotals } from "@/lib/format"
 import { PROJECT_STATUS_LABEL, type Project, type ProjectStatus } from "@/lib/types"
@@ -64,9 +65,7 @@ export default function ProjectsPage() {
     defaults?: Partial<Task>
   }>({ open: false })
 
-  React.useEffect(() => {
-    if (wantNew) setOpen(true)
-  }, [wantNew])
+  useOnceWhen(wantNew, () => setOpen(true))
 
   const rows = db.projects.filter((p) => filter === "all" || p.status === filter)
   const counts = (s: ProjectStatus) => db.projects.filter((p) => p.status === s).length

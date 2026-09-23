@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useQueryFlag, useQueryValue } from "@/hooks/use-query-flag"
+import { useOnceWhen } from "@/hooks/use-derived-state"
 import { useLocalState } from "@/hooks/use-local-state"
 import { useRouter } from "next/navigation"
 import {
@@ -151,18 +152,14 @@ export default function CrmPage() {
     router.push("/emails")
   }
 
-  React.useEffect(() => {
-    if (wantNew) {
-      setEditing(null)
-      setDialogOpen(true)
-    }
-  }, [wantNew])
+  useOnceWhen(wantNew, () => {
+    setEditing(null)
+    setDialogOpen(true)
+  })
 
-  React.useEffect(() => {
-    if (wantCustomer && db.customers.some((c) => c.id === wantCustomer)) {
-      setDetailId(wantCustomer)
-    }
-  }, [wantCustomer, db.customers])
+  useOnceWhen(wantCustomer, () => {
+    if (db.customers.some((c) => c.id === wantCustomer)) setDetailId(wantCustomer)
+  })
 
   function openNew() {
     setEditing(null)

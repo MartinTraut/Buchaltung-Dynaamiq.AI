@@ -16,6 +16,23 @@ import type { Invoice, Quote, Contract } from "@/lib/types"
 // A4-Breite 210mm ≈ 794px bei 96dpi — Referenz für die Mobile-Skalierung
 const SHEET_WIDTH_PX = 794
 
+/** Nichts zu abonnieren — der Wert steht ab dem ersten Klientenrender fest. */
+const noSubscribe = () => () => {}
+
+function subscribeToResize(onChange: () => void) {
+  window.addEventListener("resize", onChange)
+  return () => window.removeEventListener("resize", onChange)
+}
+
+/**
+ * Skalierungsfaktor aus der Fensterbreite. Auf zwei Nachkommastellen gerundet,
+ * weil `useSyncExternalStore` bei jedem Aufruf denselben Wert braucht — ein
+ * Pixel Unterschied durch eine Scrollleiste löste sonst endloses Neurendern aus.
+ */
+function readScale(): number {
+  return Math.min(1, Math.round(((window.innerWidth - 32) / SHEET_WIDTH_PX) * 100) / 100)
+}
+
 export default function PrintPage() {
   const params = useParams<{ type: string; id: string }>()
   // Das Gesprächsprotokoll nutzt das Belegraster — für @page-Ränder und
@@ -23,21 +40,21 @@ export default function PrintPage() {
   const isBrief = params.type === "onboarding"
   const kind =
     params.type === "quote" ? "quote" : params.type === "contract" ? "contract" : "invoice"
-  const [ready, setReady] = React.useState(false)
-  const [scale, setScale] = React.useState(1)
   const [db] = React.useState(() => readDatabase())
 
-  React.useEffect(() => setReady(true), [])
+  // Der Bestand liegt im localStorage; auf dem Server gibt es ihn nicht. Erst
+  // nach dem Hydrieren darf gerendert werden, sonst weicht das Blatt vom
+  // Serverergebnis ab. `useSyncExternalStore` liefert genau das, ohne den
+  // Umweg über einen Effekt, der nachträglich neu rendert.
+  const ready = React.useSyncExternalStore(
+    noSubscribe,
+    () => true,
+    () => false,
+  )
 
   // Mobile: Blatt proportional auf Viewport-Breite verkleinern (CSS kann mm
   // nicht durch px teilen, daher JS). Im Druck wird der Faktor zurückgesetzt.
-  React.useEffect(() => {
-    const compute = () =>
-      setScale(Math.min(1, (window.innerWidth - 32) / SHEET_WIDTH_PX))
-    compute()
-    window.addEventListener("resize", compute)
-    return () => window.removeEventListener("resize", compute)
-  }, [])
+  const scale = React.useSyncExternalStore(subscribeToResize, readScale, () => 1)
 
   const session = isBrief ? db.onboardings.find((o) => o.id === params.id) : undefined
   const collection =

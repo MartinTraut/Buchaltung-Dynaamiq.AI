@@ -354,16 +354,34 @@ function load(): Database {
   }
 }
 
+/** Nichts zu abonnieren — „hydriert" passiert genau einmal. */
+const noSubscribe = () => () => {}
+
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [db, setDb] = React.useState<Database>(() => seedDatabase())
-  const [ready, setReady] = React.useState(false)
   const [storageError, setStorageError] = React.useState<string | null>(null)
 
-  // hydrate from localStorage on mount (avoids SSR mismatch)
-  React.useEffect(() => {
-    setDb(load())
+  /**
+   * Der Bestand liegt im localStorage — auf dem Server gibt es ihn nicht.
+   * Beim Hydrieren muss deshalb dasselbe herauskommen wie serverseitig (der
+   * Seed); erst danach darf der echte Stand einziehen.
+   *
+   * `useSyncExternalStore` liefert genau dieses Signal, und das Einlesen
+   * geschieht während des Renderns statt in einem Effekt: React verwirft den
+   * Zwischenstand, bevor er auf dem Schirm landet. Über den Effekt sah man
+   * dagegen einen Wimpernschlag lang die Seed-Daten — auf dem Cockpit als
+   * springende Zahlen.
+   */
+  const hydrated = React.useSyncExternalStore(
+    noSubscribe,
+    () => true,
+    () => false,
+  )
+  const [ready, setReady] = React.useState(false)
+  if (hydrated && !ready) {
     setReady(true)
-  }, [])
+    setDb(load())
+  }
 
   // persist — debounced (300 ms), damit schnelle Folge-Updates (z. B. Tippen
   // in Editoren) nicht bei jeder Änderung synchron serialisieren/schreiben.

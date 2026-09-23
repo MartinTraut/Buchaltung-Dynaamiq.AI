@@ -35,7 +35,7 @@ export default function AppleIcon() {
             background: "radial-gradient(circle, rgba(0,255,230,0.38), rgba(0,255,230,0) 70%)",
           }}
         />
-        <img src={src} width={118} height={118} style={{ objectFit: "contain" }} />
+        <img src={src} alt="" width={118} height={118} style={{ objectFit: "contain" }} />
       </div>
     ),
     { ...size },

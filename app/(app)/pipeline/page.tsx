@@ -35,6 +35,7 @@ import { useStore } from "@/lib/store"
 import { ProtocolLink } from "@/components/onboarding/protocol-link"
 import { useConfirm } from "@/lib/confirm"
 import { useQueryFlag } from "@/hooks/use-query-flag"
+import { useOnceWhen } from "@/hooks/use-derived-state"
 import { useLocalState } from "@/hooks/use-local-state"
 import {
   DEAL_STAGES,
@@ -82,9 +83,7 @@ export default function PipelinePage() {
     null,
   )
 
-  React.useEffect(() => {
-    if (wantNew) setDialogOpen(true)
-  }, [wantNew])
+  useOnceWhen(wantNew, () => setDialogOpen(true))
 
   function createProjectFromDeal(deal: Deal) {
     upsertProject({
@@ -199,6 +198,11 @@ export default function PipelinePage() {
 
       {view === "kanban" && (
         <DndContext
+          // Feste `id`: dnd-kit nummeriert seine `aria-describedby`-Verweise
+          // sonst aus einem laufenden Zähler, der auf Server und Client
+          // unterschiedlich steht — React meldete deshalb bei jedem Aufruf der
+          // Pipeline einen Hydrierungsfehler.
+          id="pipeline-board"
           sensors={sensors}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}

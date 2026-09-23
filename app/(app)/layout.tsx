@@ -6,6 +6,7 @@ import { MobileNav } from "@/components/app-shell/mobile-nav"
 import { CommandPalette } from "@/components/command-palette"
 import { AuroraBackground } from "@/components/app-shell/aurora-bg"
 import { StorageAlert } from "@/components/app-shell/storage-alert"
+import { AutoBackupProvider } from "@/hooks/use-auto-backup"
 
 export default function AppLayout({
   children,
@@ -15,19 +16,21 @@ export default function AppLayout({
   return (
     <StoreProvider>
       <ConfirmProvider>
-        <AuroraBackground />
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <StorageAlert />
-            <Topbar />
-            <main className="flex-1 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-7 sm:px-5 lg:px-8 lg:pb-12">
-              {children}
-            </main>
-            <MobileNav />
+        <AutoBackupProvider>
+          <AuroraBackground />
+          <div className="flex min-h-screen">
+            <Sidebar />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <StorageAlert />
+              <Topbar />
+              <main className="flex-1 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-7 sm:px-5 lg:px-8 lg:pb-12">
+                {children}
+              </main>
+              <MobileNav />
+            </div>
           </div>
-        </div>
-        <CommandPalette />
+          <CommandPalette />
+        </AutoBackupProvider>
       </ConfirmProvider>
     </StoreProvider>
   )

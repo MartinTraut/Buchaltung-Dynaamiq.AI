@@ -22,6 +22,7 @@ import {
 import { useStore } from "@/lib/store"
 import { eur, computeTotals } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { useOnChange } from "@/hooks/use-derived-state"
 
 interface Item {
   id: string
@@ -70,12 +71,13 @@ export function CommandPalette() {
     }
   }, [])
 
-  React.useEffect(() => {
+  // Geschlossene Palette startet beim nächsten Öffnen leer.
+  useOnChange(open, () => {
     if (!open) {
       setQuery("")
       setActive(0)
     }
-  }, [open])
+  })
 
   const go = React.useCallback(
     (href: string) => {
@@ -128,7 +130,8 @@ export function CommandPalette() {
     return out
   }, [query, db, go])
 
-  React.useEffect(() => setActive(0), [query])
+  // Neue Suche — Auswahl zurück auf den ersten Treffer.
+  useOnChange(query, () => setActive(0))
 
   const grouped = React.useMemo(() => {
     const map = new Map<string, Item[]>()

@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Plus, MoreHorizontal, FileText, Sparkles, ChevronRight } from "lucide-react"
 import { useStore } from "@/lib/store"
 import { useQueryFlag, useQueryValue } from "@/hooks/use-query-flag"
+import { useOnceWhen } from "@/hooks/use-derived-state"
 import { eur, dateDE, computeTotals } from "@/lib/format"
 import type { Quote, QuoteStatus } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -29,21 +30,18 @@ export default function QuotesPage() {
   const [editing, setEditing] = React.useState<Quote | null>(null)
   const [open, setOpen] = React.useState(false)
 
-  React.useEffect(() => {
-    if (wantNew) {
-      setEditing(null)
-      setOpen(true)
-    }
-  }, [wantNew])
+  useOnceWhen(wantNew, () => {
+    setEditing(null)
+    setOpen(true)
+  })
 
-  React.useEffect(() => {
-    if (!focusDoc) return
+  useOnceWhen(focusDoc, () => {
     const q = db.quotes.find((x) => x.id === focusDoc)
     if (q) {
       setEditing(q)
       setOpen(true)
     }
-  }, [focusDoc, db.quotes])
+  })
 
   const rows = db.quotes
     .filter((q) => (filter === "all" ? true : q.status === filter))

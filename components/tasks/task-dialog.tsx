@@ -61,22 +61,27 @@ export function TaskDialog({
   const [assignee, setAssignee] = React.useState("")
   const [status, setStatus] = React.useState<TaskStatus>("todo")
 
-  // Beim Öffnen aus Bestand (Edit) oder Defaults (Neu) initialisieren.
-  React.useEffect(() => {
-    if (!open) return
-    const src = taskId ? db.tasks.find((t) => t.id === taskId) : undefined
-    const base: Partial<Task> = src ?? defaults ?? {}
-    setTitle(base.title ?? "")
-    setKind(base.kind ?? "task")
-    setDue(toDateInput(base.due))
-    setTime(base.time ?? "")
-    setEndTime(base.endTime ?? "")
-    setProjectId(base.projectId ?? "")
-    setAssignee(base.assignee ?? "")
-    setStatus(base.status ?? "todo")
-    // Nur bei Öffnen/Wechsel neu befüllen — nicht bei jedem db/defaults-Render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, taskId])
+  // Beim Öffnen aus Bestand (Edit) oder Defaults (Neu) befüllen — während des
+  // Renderns statt im Effekt, sonst blitzt das leere Formular einen Durchlauf
+  // lang auf. Der Schlüssel enthält nur Öffnen-Zustand und Aufgabe: bei jedem
+  // `db`- oder `defaults`-Render neu zu befüllen würde die Eingabe überschreiben.
+  const formKey = open ? (taskId ?? "neu") : null
+  const [filledFor, setFilledFor] = React.useState<string | null>(null)
+  if (formKey !== filledFor) {
+    setFilledFor(formKey)
+    if (formKey) {
+      const src = taskId ? db.tasks.find((t) => t.id === taskId) : undefined
+      const base: Partial<Task> = src ?? defaults ?? {}
+      setTitle(base.title ?? "")
+      setKind(base.kind ?? "task")
+      setDue(toDateInput(base.due))
+      setTime(base.time ?? "")
+      setEndTime(base.endTime ?? "")
+      setProjectId(base.projectId ?? "")
+      setAssignee(base.assignee ?? "")
+      setStatus(base.status ?? "todo")
+    }
+  }
 
   const isEvent = kind === "event"
   const canSave = title.trim().length > 0

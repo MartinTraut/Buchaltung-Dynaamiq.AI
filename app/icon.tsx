@@ -39,6 +39,7 @@ export default function Icon() {
         />
         <img
           src={src}
+          alt=""
           width={42}
           height={42}
           style={{ objectFit: "contain" }}

@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DynaamiqLogo } from "@/components/brand/logo"
+import { AutoBackupRow } from "@/components/app-shell/auto-backup-row"
+import { useOnChange } from "@/hooks/use-derived-state"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -20,7 +22,9 @@ export default function SettingsPage() {
   const confirm = useConfirm()
   const [form, setForm] = React.useState<CompanySettings>(db.settings)
 
-  React.useEffect(() => setForm(db.settings), [db.settings])
+  // Speichern die Firmendaten woanders geändert (Import einer Sicherung,
+  // Demo-Reset), übernimmt das Formular den neuen Stand.
+  useOnChange(db.settings, () => setForm(db.settings))
   const set = (p: Partial<CompanySettings>) => setForm((f) => ({ ...f, ...p }))
 
   function save() {
@@ -186,8 +190,9 @@ export default function SettingsPage() {
             <p className="mt-0.5 text-xs text-muted-foreground">
               Geleerte Websitedaten, ein neues Gerät oder Safaris automatische Speicherräumung
               löschen Kunden, Angebote und Rechnungen ersatzlos. Rechnungen sind nach §147 AO
-              zehn Jahre aufzubewahren — lade regelmäßig eine Sicherung herunter und lege sie
-              außerhalb des Browsers ab.
+              zehn Jahre aufzubewahren. Gib deshalb unten einen Sicherungsordner frei — dann
+              läuft die Sicherung von selbst. Der Knopf darunter bleibt für die Kopie aus der
+              Hand, etwa an den Steuerberater.
             </p>
             <p className="mt-1.5 text-xs">
               {db.settings.lastBackupAt ? (
@@ -200,6 +205,7 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
+        <AutoBackupRow />
         <div className="flex flex-wrap gap-2 px-4 py-3.5">
           <Button variant="brand" className="gap-1.5" onClick={exportBackup}>
             <DownloadCloud className="size-4" /> Sicherung herunterladen
