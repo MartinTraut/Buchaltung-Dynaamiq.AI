@@ -57,10 +57,10 @@ export function customerLogo(c?: Partial<Customer> | null): string | undefined {
   const own = c?.logoUrl?.trim()
   if (own) return own
   const domain = customerDomain(c)
-  // 128 px, damit die Marke auch im 44-px-Kreis der Listen scharf bleibt.
-  return domain
-    ? `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(domain)}`
-    : undefined
+  // Über die eigene Route statt direkt zu Google: sonst erführe Google bei
+  // jedem Blick in die Kartei, welche Kunden hier geführt werden. Die Route
+  // holt das Logo serverseitig und legt es in den Zwischenspeicher.
+  return domain ? `/api/favicon?domain=${encodeURIComponent(domain)}` : undefined
 }
 
 export function CustomerAvatar({
@@ -112,6 +112,13 @@ function LogoAvatar({
         src={src}
         alt=""
         loading="lazy"
+        /* Kennt die Logo-Route die Firma nicht, antwortet sie mit einem
+           durchsichtigen Pixel statt mit einem Fehler (Begründung dort). Ein
+           echtes Favicon ist nie so klein — ein Bild dieser Größe heißt also
+           „nichts gefunden" und die Kachel zeigt die Initialen. */
+        onLoad={(e) => {
+          if (e.currentTarget.naturalWidth <= 1) setFailed(true)
+        }}
         /* Größe in Prozent statt Padding: Prozent-Padding rechnet gegen die
            Breite des Elternblocks, nicht gegen den Kreis — der Avatar wurde
            damit so groß wie die Karte. */

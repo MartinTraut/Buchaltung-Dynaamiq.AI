@@ -44,7 +44,7 @@ const SEED_HASH_KEY = "dynaamiq-os-seed-hashes"
  * Beträge, Preis-Einordnung). Beim nächsten Laden werden genau diese Datensätze
  * auf den Seed-Stand gebracht — eigene Datensätze bleiben unberührt.
  */
-const SEED_REVISION = 105
+const SEED_REVISION = 106
 
 /**
  * Seed-Datensätze, die es nicht mehr geben soll. Der Merge legt nur an und
