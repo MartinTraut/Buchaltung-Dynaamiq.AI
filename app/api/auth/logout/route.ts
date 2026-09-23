@@ -1,0 +1,24 @@
+import { NextResponse } from "next/server"
+import { SESSION_COOKIE } from "@/lib/session"
+
+export const runtime = "nodejs"
+
+/**
+ * Abmelden: Sitzungscookie löschen.
+ *
+ * Nur per POST. Ein Abmelden per GET ließe sich von jeder fremden Seite aus
+ * auslösen — ein Bild mit der Adresse als Quelle genügte.
+ */
+export async function POST() {
+  const response = NextResponse.json({ ok: true })
+  response.cookies.set({
+    name: SESSION_COOKIE,
+    value: "",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+  })
+  return response
+}

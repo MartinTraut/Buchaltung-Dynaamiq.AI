@@ -8,6 +8,7 @@ import { DynaamiqLogo } from "@/components/brand/logo"
 import { NAV, NAV_BOTTOM } from "./nav"
 import { useStore } from "@/lib/store"
 import { eur, computeTotals } from "@/lib/format"
+import { LogoutButton } from "@/components/app-shell/logout-button"
 
 // Akzentfarbe je Bereich → bringt Farbe & klare Trennung in die Navigation
 const GROUP_ACCENT: Record<string, string> = {
@@ -162,6 +163,7 @@ export function Sidebar() {
         {NAV_BOTTOM.map((item) => (
           <NavLink key={item.href} {...item} accent="#9aa0ac" active={isActive(item.href)} />
         ))}
+        <LogoutButton />
       </div>
     </aside>
   )
